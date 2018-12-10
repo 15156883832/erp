@@ -1,0 +1,195 @@
+@charset "utf-8";
+
+.navbar .logo{ background-color: #e2722f ;}
+/* 导航栏-续费文本 */
+.navbar-userbar .btn_renew{color: #e2722f ;}
+
+.dislpayArrow a{background-position: 5px 0; }
+.dislpayArrow a.open{ background-position:-35px -49px}
+.dislpayArrow a:hover{ text-decoration:none; background-position:-83px 0px}
+.dislpayArrow a.open:hover{background-position:-88px -49px}
+
+/*选项卡导航*/
+.Hui-tabNav .acrossTab li{ background-position: 0 -240px;}
+.acrossTab li em{background-position: right -270px; }
+.acrossTab li:hover,
+.acrossTab li.active{background-position:0 -300px;}
+.acrossTab li:hover em,
+.acrossTab li.active em{background-position:right -330px}
+
+/* sifang icon css */
+.sficon{
+	background-image: url(../images/icons_orange.png) ;
+}
+
+/* 复选框 */
+.label-cbox,
+.label-cbox2,
+.label-cbox3,
+.radiobox,
+.label-cbox4{ 
+	background-image: url(../images/icons_orange.png) ;	
+}
+
+/* 按钮 */
+.sfbtn {
+	color: #2a2a2a;		
+}
+.sfbtn-opt2{border: 1px solid #fff;}
+.sfbtn-opt,
+.sfbtn-opt2:hover,
+.btn-count{	
+	border: 1px solid #e2722f;
+	background: #fff;
+}
+.sfbtn-opt3,
+.sfbtn-opt:hover,
+.sfbtn-active{
+	background: #e2722f;
+	border: 1px solid #e2722f;
+	color: #fff;
+}
+.sfbtn-disabled,
+.sfbtn-disabled:hover {
+	cursor:not-allowed;
+	border: 1px solid #ccc;
+	background: #eee;
+	color: #888888;
+}
+/* 发送短信的按钮 */
+.sfbtn-green{
+	color: #fff;
+	background: #e2722f;
+}
+
+/* 导航栏部分 */
+.navbar-sf{
+	background-color: #e2722f;
+}
+.navbar-sfbar .sfnav{
+	background-image: url(../images/icon-navbar_orange.png) ;
+}
+.navbar-sfbar a:hover,
+.navbar-sfbar .current{
+	color: #113d64;
+}
+/* 左侧菜单栏 */
+
+.Hui-aside .menu_dropdown .current a,
+.Hui-aside .menu_dropdown li a:hover{
+	background-color: #e2722f;
+}
+.sfnav2 .aside-menu{ background-image: url(../images/menu-orders_orange.png) ;} /* 工单管理 */
+.sfnav3 .aside-menu{ background-image: url(../images/menu-beijian_orange.png) ;}
+.sfnav4 .aside-menu{ background-image: url(../images/menu-commodityF_orange.png) ;} /* 商品管理 */
+.sfnav5 .aside-menu{ background-image: url(../images/menu-syssetS_orange.png) ;} /* 服务商权限下的 */
+.sfnav6 .aside-menu{ background-image: url(../images/menu-order2_orange.png) ;}   /* 订单管理 */
+.sfnav7 .aside-menu{ background-image: url(../images/menu-operative_orange.png) ;}   /* 运营管理 */
+.sfnav8 .aside-menu{ background-image: url(../images/menu-finance_orange.png) ;}   /* 财务管理 */
+.sfnav9 .aside-menu{ background-image: url(../images/menu-statistic_orange.png);}   /* 统计分析 */
+
+/* 表格 */
+.table-sdrk th,
+.table2 th{
+	color: #2A2A2A;
+}
+/* jQgrid */
+.ui-jqgrid label{
+	background-image: url(../images/icons_orange.png);
+}
+.ui-jqgrid-htable th.ui-state-default {   
+    color: #2A2A2A;
+}
+.ui-state-highlight, 
+.ui-widget-content .ui-state-highlight, 
+.ui-widget-header .ui-state-highlight  {
+	background: #ffe3d3; 
+}
+
+/* 选项卡 */
+.tabBar a.current{
+	border-bottom: #e2722f 2px solid;
+	color: #e2722f;
+}
+
+/* 弹出框 */
+.popupBox{	
+	background: #e2722f;
+	border: 1px solid #c05617;	
+}
+.popupBox .popupHead{	
+	color: #fff;	
+	background: url(../images/bg-pupuphead_orange.png) repeat-x;
+}
+.popupBox .popupHead .closePopup{
+	background-position: -120px -160px;
+}
+.popupContainer{
+	border: 1px solid #c05617;	
+}
+.btnMenubox{
+	border: 1px dotted #e2722f;
+	background-color: #fefbef;
+}
+
+.modelHead{
+	color: #2A2A2A;
+	border-bottom: 1px solid #e2722f;
+}
+.modelHead:before{
+	background: #e2722f;
+}
+
+/* 弹出框中的选项卡 */
+.tabBarP{
+	border-bottom: 1px solid #e2722f;
+}
+.tabBarP .current{
+	background-color: #e2722f;
+}
+
+.homepage .boxHeader,
+.homepage .boxHeader2{
+	background: #e2722f;
+}
+.tabBarP2 .tabswitch{ background: #eb9d6e;}
+.tabBarP2 .tabswitch.current{
+	color: #2A2A2A;
+}
+
+/* 冒泡提示 */
+.tooltipLink{
+	border: 1px solid #e2722f;
+	background: #fef8e7;
+}
+
+/* 新增角色按钮 */
+.roleWrap .btn-addRole{
+	border: 1px dashed #e2722f;
+	background: #fefbef;
+	color: #2a2a2a;
+}
+.roleWrap .roleList_edit .current{
+	background: #e2722f;
+	border-color: #e2722f;
+}
+
+.sysSetBox .sysLink:hover{ color: #e2722f;}
+.nav-logo{
+	background-color: #e2722f;
+}
+.nav-logo2{
+	background-color: #e2722f;
+}
+.navbar .logo {
+	background-color: #e2722f;
+}
+.logo{
+	background-color: #e2722f;
+}
+.logo:last-of-type{
+	background-color: #e2722f;
+}
+.logoBtmBtn{
+	background-color: #e2722f!important;
+}

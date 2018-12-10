@@ -1,0 +1,106 @@
+package com.jojowonet.modules.order.service;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.OrderMallDao;
+import com.jojowonet.modules.order.entity.OrderMall;
+import ivan.common.persistence.Page;
+import ivan.common.persistence.Parameter;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by Administrator on 2018/1/25.
+ * 购机商场service
+ */
+@Component
+@Transactional(readOnly = true)
+public class OrderMallService extends BaseService {
+    @Autowired
+    private OrderMallDao orderMallDao;
+
+    public OrderMall get(String id) {
+        return orderMallDao.get(id);
+    }
+
+    public Page<Record> find(Page<Record> page, Map<String,Object> map, String siteId) {
+        List<Record> malllist = orderMallDao.filterOrderMall(siteId,page);
+        long count = orderMallDao.getcount(siteId);
+        page.setCount(count);
+        page.setList(malllist);
+        return page;
+    }
+
+    public List<Record> getlist(String siteId){
+        List<Record> list = orderMallDao.getlist(siteId);
+        return list;
+    }
+
+    public List<String> getlistname(String siteId){
+        return orderMallDao.getlistname(siteId);
+    }
+  //保存
+    public void save(OrderMall orderMall) {
+        orderMallDao.save(orderMall);
+    }
+
+   //删除
+    public String deleteMall(String[] idArr) {
+        String result ="";
+        int i=0;
+        for(int j=0;j<idArr.length;j++){
+           i=i+orderMallDao.deleteMall(idArr[i]);
+        }
+        if(i==idArr.length){
+            result="ok";
+        }
+        return result;
+    }
+
+
+/*    public boolean queryNumByName(String site_id, String name) {
+        List list = orderMallDao.createSqlQuery("select * from crm_site_order_mall"
+                + " where site_id = :p1 and name = :p2 and status='0' ", new Parameter(site_id, name)).list();
+        if (list.size() > 0)
+            return true;
+        return false;
+    }*/
+
+    //根据id查询
+    public Record getOrderMallById(String id, String siteId) {
+        Record rd = orderMallDao.getOrderMallById(id, siteId);
+        return rd;
+    }
+
+    //根据name查询
+    public long querylongbyname(String name,String id){
+        long count = orderMallDao.querylongbyname(name,id);
+        return count;
+    }
+
+
+    //更新
+    public String updates(String name, Integer sort, String id) {
+        String result="";
+        long i = orderMallDao.querylongbyname(name,id);
+        if(i>0){
+            result="rename";
+        }else{
+            int j = orderMallDao.updatesMall(name, sort, id, new Date());
+            if(j==1){
+                result="ok";
+            }
+        }
+        return result;
+    }
+
+}

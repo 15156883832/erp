@@ -1,0 +1,291 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="decorator" content="base"/>
+	<meta name="renderer" content="webkit|ie-comp|ie-stand">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+	<meta http-equiv="Cache-Control" content="no-siteapp" />
+	<!--[if lt IE 9]>
+	<![endif]-->
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/styleGoods.css" />
+	<!--[if IE 6]>
+	<script type="text/javascript" src="${ctxPlugin}/lib/DD_belatedPNG_0.0.8a-min.js" ></script>
+	<script>DD_belatedPNG.fix('*');</script>
+	<![endif]-->
+	<title>平台商品</title>
+</head>
+<body class="">
+<div class="sfpagebg bk-gray">
+	<div class="page-orderWait">
+		<div class="tabBar cl mb-10">
+            <sfTags:pagePermission authFlag="GOODSMGM_PLATEFORMGOODS_PLATEFORMJOINGOODS_TAB" html='<a  href="${ctx}/goods/sitePlatformGoods/getSitePlatformGoodslist" class="btn-tabBar current" href="javascript:;">平台商品</a>'></sfTags:pagePermission>
+            <sfTags:pagePermission authFlag="GOODSMGM_PLATEFORMGOODS_SYSSERVE_TAB" html='<a href="${ctx}/goods/sitePlatformGoods/getPlatfromGoodsRecord" class="btn-tabBar" href="javascript:;">购买记录</a>'></sfTags:pagePermission>
+		</div>
+		<div class="goodsListWrap" id="goodsListWrap">
+			<ul class="goodsList cl" id="goodsList">
+				<c:forEach items="${page.list}" var="goods">
+					<li class="goodsItemWrap" >
+						<c:if test="${goods.columns.type eq '1'}">
+							<img onclick="showDetail('${goods.columns.id}','${goods.columns.name}')" src="${ctxPlugin}${goods.columns.icon}" class="goodsImg mb-15"/>
+						</c:if>
+						<c:if test="${goods.columns.type eq '2'}">
+							<img onclick="showDetail('${goods.columns.id}','${goods.columns.name}')" src="${commonStaticImgPath}${goods.columns.icon}" class="goodsImg mb-15"/>
+						</c:if>
+						<div class="h-50">
+							<div class="lh-24 mb-5 pos-r goodsName">
+								<span class="lh-20 text-c bg-ff6730 c-white w-40 goodsTag">${goods.columns.type eq '1' ?'助手':'平台'}</span>
+									${goods.columns.name}
+							</div>
+						</div>
+						<div class="cl lh-20 f-12">
+							<span class="f-r c-fd6e32">VIP价：￥<span class="f-16 va-t">${goods.columns.site_price}</span></span>
+							<span class="f-l c-888">价格：￥${goods.columns.no_vip_price}</span>
+						</div>
+						<c:if test="${goods.columns.type eq '1'}">
+							<div class="buyGoodsWrap text-c pt-20 ">
+								<a class="pt-10 pb-10 "><span class="c-white btn_buy" onclick="gotoBuyingPage('${goods.columns.id}','${goods.columns.good_sign}','${goods.columns.name}')">购买</span></a>
+							</div>
+						</c:if>
+						<c:if test="${goods.columns.type eq '2'}">
+							<div class="buyGoodsWrap text-c ">
+								<a class="pt-10 pb-10 w-120 bb_white"><span class="c-white btn_buy" onclick="gotoBuyingPage('${goods.columns.id}','${goods.columns.good_sign}','${goods.columns.name}')">购买</span></a>
+								<c:if test="${goods.columns.site_id==null}">
+									<sfTags:pagePermission authFlag="GOODSMGM_PLATEFORMGOODS_PLATEFORMJOINGOODS_SELL_BTN" html='<a  href="javascript:showPTSPXQ(\'${goods.columns.id}\',\'${goods.columns.type}\',\'${goods.columns.name}\');"   class="pt-10 pb-10 w-120 "><span class="c-white btn_sale">我要销售</span></a>'></sfTags:pagePermission>
+								</c:if>
+								<c:if test="${goods.columns.site_id!=null}">
+									<sfTags:pagePermission authFlag="GOODSMGM_PLATEFORMGOODS_PLATEFORMJOINGOODS_SELL_BTN" html='<a class="pt-10 pb-10 w-120 "><span class="c-white btn_sale">已添加</span></a>'></sfTags:pagePermission>
+								</c:if>
+							</div>
+						</c:if>
+					</li>
+				</c:forEach>
+			</ul>
+		</div>
+	</div>
+</div>
+
+
+<div class="popupBox spbuybox spbuytp">
+	<h2 class="popupHead">
+		提示
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain">
+			<div class="cl mb-10">
+				来电弹屏设备功能简介：<br>
+				1、支持用户来电，在电脑中间弹屏提示功能；<br>
+				2、以来电手机号关联查询系统内工单，提示来电用户是否有报修记录，并详细显示历史报修信息；<br>
+				3、用户首次来电，支持在线录入用户报修信息，保存后直接在系统内生成一条待派工工单，防止报修信息遗漏；<br>
+				4、支持来电、去电录音，录音文件可记录下来电号码、录音时间、录音类型（来电、去电），并可手动设置录音文件保存地址，方便查看。<br><br>
+
+				注：想了解弹屏相关细则可拨打电话：0551-66686515，或添加思方工作人员QQ：387808217     2573046379
+			</div>
+			<div class="text-c mt-20">
+				<a href="javascript:cancelShowDesk();" class="sfbtn sfbtn-opt w-70 mr-5">关闭</a>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<!--_footer 作为公共模版分离出去-->
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui/js/H-ui.min.js"></script>
+<!--/_footer 作为公共模版分离出去-->
+<!--请在下方写此页面业务相关的脚本-->
+<script type="text/javascript" src="${ctxPlugin}/lib/datatables/1.10.0/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/laypage/1.2/laypage.js"></script>
+<script type="text/javascript">
+
+    $(function(){
+        initRowNum();
+    })
+
+    window.onresize = function(){
+        initRowNum();
+    }
+
+    //商品销售弹窗
+    function showPTSPXQ(id,type,name){
+        var bStop = false;
+        var bStopIndex = 1;
+        var show_navLi = $('#min_title_list li',window.top.document);
+        show_navLi.each(function () {
+            $(this).removeClass('active');
+            if ($(this).find('span').text() == name) {
+                bStopIndex = show_navLi.index($(this));
+                bStop = true;
+            }
+        });
+        if (!bStop) {
+            creatIframe('${ctx}/goods/sitePlatformGoods/showPTSPXQ?id='+id,name);
+        } else {
+            show_navLi.eq(bStopIndex).addClass('active');
+            $('#iframe_box .show_iframe',window.top.document).hide().eq(bStopIndex).show().find('iframe').attr({'src': '${ctx}/goods/sitePlatformGoods/showPTSPXQ?id='+id,});
+
+        }
+    }
+
+
+    // 计算每行商品个数
+    function initRowNum(){
+        var pHeight = $('.sfpagebg').innerHeight();
+        var ulWidth = $('#goodsListWrap').innerWidth(),
+            liWidth = $('#goodsList li').outerWidth();
+
+        var rNum = parseInt( ulWidth / liWidth),
+            lLen = $('#goodsList li').length;
+        rNum = (lLen < rNum) ? lLen : rNum;
+
+        $('#goodsList').width(rNum*liWidth);
+        var wrapHeight = pHeight - 100;
+        $('#goodsListWrap').height(wrapHeight);
+    }
+
+    function gotoBuyingPage(id,good_sign,name){
+		if("TP20180102"==$.trim(good_sign)){
+            showBuy(id);
+		}else if("DX20180101"==$.trim(good_sign)){
+            buyMessage(id);
+		}else if("CD20180103"==$.trim(good_sign)){
+            showBuyCode(id);
+		}/* else if("BS20180108"==$.trim(good_sign) || "BS20180107"==$.trim(good_sign)){
+		    var href='${ctx}/goods/sitePlatformGoods/showBuySouthLbUpgrade?id='+id;
+            showBuyPage(href,name);
+		} */else if("LB18102201"==$.trim(good_sign) || "LB18102202"==$.trim(good_sign) || "BS20180108"==$.trim(good_sign) || "BS20180107"==$.trim(good_sign)){//LB18102201  or LB18102202
+		    var href='${ctx}/goods/sitePlatformGoods/showBuySouthLbUpgrade?id='+id;
+            showBuyPage(href,name);
+		}else if("QJ18040201"==$.trim(good_sign) || "QJ18040202"==$.trim(good_sign)){
+		    var href='${ctx}/goods/sitePlatformGoods/showBuyDetergentDetail?id='+id;
+            showBuyPage(href,name);
+		}else if("WT18040301"==$.trim(good_sign) || "WT18040302"==$.trim(good_sign) || "WT18040303"==$.trim(good_sign)){//水龙头
+            var href='${ctx}/goods/sitePlatformGoods/showBuySouthSltUpgrade?id='+id;
+            showBuyPage(href,name);
+		}else if("DZ20180110" == $.trim(good_sign) ||  "DZ20180111"==$.trim(good_sign) || "DZ20180113"==$.trim(good_sign) || "DZ20180114"==$.trim(good_sign) || "DZ20180115" ==$.trim(good_sign) || "DZ20180116" == $.trim(good_sign) ){
+            var href='${ctx}/goods/sitePlatformGoods/showBuyCOP?id='+id;
+            showBuyPage(href,name);
+		}else if("LB20180105" == $.trim(good_sign) ||  "LB20180106"==$.trim(good_sign)){
+            var href='${ctx}/goods/sitePlatformGoods/showBuyCOP?id='+id;
+            showBuyPage(href,name);
+		}else if("CW08040801"==$.trim(good_sign)){
+            var href='${ctx}/goods/sitePlatformGoods/flavorBoxBuying?id='+id;
+            showBuyPage(href,name);
+		}else if("MD20180716" == $.trim(good_sign) ||  "MD20180717"==$.trim(good_sign)){
+            var href='${ctx}/goods/sitePlatformGoods/showBuyDetergentDetail?id='+id;
+            showBuyPage(href,name);
+		}else{
+            showBuyClearWater(id);
+		}
+	}
+
+    //弹屏购买
+    function showBuy(id){
+        layer.open({
+            type : 2,
+            content:'${ctx}/goods/sitePlatformGoods/showBuy?id='+id,
+            title:false,
+            area: ['100%','100%'],
+            closeBtn:0,
+            shade:0,
+            fadeIn:0,
+            anim:-1
+        });
+    }
+    //短信购买
+    function buyMessage(id){
+        layer.open({
+            type : 2,
+            content:'${ctx}/goods/sitePlatformGoods/showBuyMessage?id='+id,
+            title:false,
+            area: ['100%','100%'],
+            closeBtn:0,
+            shade:0,
+            fadeIn:0,
+            anim:-1
+        });
+    }
+
+    //电子名片购买
+    function showBuyCode(id){
+        layer.open({
+            type : 2,
+            content:'${ctx}/goods/sitePlatformGoods/showBuyCode?id='+id,
+            title:false,
+            area: ['100%','100%'],
+            closeBtn:0,
+            shade:0,
+            fadeIn:0,
+            anim:-1
+        });
+    }
+
+    //净水/漏保/美洁力购买
+    function showBuyClearWater(id){
+        layer.open({
+            type : 2,
+            content:'${ctx}/goods/sitePlatformGoods/showBuyCOP?id='+id,
+            title:false,
+            area: ['100%','100%'],
+            closeBtn:0,
+            shade:0,
+            fadeIn:0,
+            anim:-1
+        });
+        //$.closeDiv($(".protoDetailWrap"));
+    }
+
+    //购买
+    function showBuyPage(href,name){
+        var bStop = false;
+        var bStopIndex = 1;
+        var show_navLi = $('#min_title_list li',window.top.document);
+        show_navLi.each(function () {
+            $(this).removeClass('active');
+            if ($(this).find('span').text() ==$.trim(name)) {
+                bStopIndex = show_navLi.index($(this));
+                bStop = true;
+            }
+        });
+        if (!bStop) {
+            creatIframe(href, name);
+        } else {
+            show_navLi.eq(bStopIndex).addClass('active');
+            $('#iframe_box .show_iframe',window.top.document).hide().eq(bStopIndex).show().find('iframe').attr({'src': href,});
+
+        }
+    }
+
+    function showDetail(id,name){
+        if(name=="来电弹屏"){
+            $(".spbuytp").popup();
+		}else{
+            var bStop = false;
+            var bStopIndex = 1;
+            var show_navLi = $('#min_title_list li',window.top.document);
+            show_navLi.each(function () {
+                $(this).removeClass('active');
+                if ($(this).find('span').text() ==$.trim(name)) {
+                    bStopIndex = show_navLi.index($(this));
+                    bStop = true;
+                }
+            });
+            if (!bStop) {
+                creatIframe('${ctx}/goods/sitePlatformGoods/showSPXQ?id='+id, name);
+            } else {
+                show_navLi.eq(bStopIndex).addClass('active');
+                $('#iframe_box .show_iframe',window.top.document).hide().eq(bStopIndex).show().find('iframe').attr({'src': '${ctx}/goods/sitePlatformGoods/showSPXQ?id='+id,});
+
+            }
+        }
+    }
+
+    function cancelShowDesk() {
+        $.closeDiv($(".spbuytp"));
+    }
+</script>
+</body>
+</html>

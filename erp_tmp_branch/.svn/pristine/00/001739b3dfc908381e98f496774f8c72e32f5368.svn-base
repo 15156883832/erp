@@ -1,0 +1,264 @@
+package com.jojowonet.modules.operate.web;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.jojowonet.modules.goods.service.SitePlatformGoodsService;
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.service.SiteManagerService;
+import com.jojowonet.modules.operate.service.SiteMsgService;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.sys.util.TrimMap;
+
+
+@Controller
+@RequestMapping(value = "${adminPath}/operate/SiteManager")
+public class SiteManagerController extends BaseController{
+	
+    @Autowired
+    private SiteManagerService siteManagerService;
+	@Autowired
+	private SiteMsgService siteMsgService;
+	@Autowired
+    private SitePlatformGoodsService sitePlatformGoodsService;
+    
+    
+    @RequestMapping(value={"list",""})
+    public String list(HttpServletRequest request,HttpServletResponse response, Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(
+				siteId, request.getServletPath());
+		List<Record> provincelist=siteMsgService.getprovincelist();
+		List<Record> cities = siteMsgService.getCitiesByProvince(provincelist.get(0).getStr("ProvinceName")); 
+		List<Record> districts = siteMsgService.getDistrinctsProvince(cities.get(0).getStr("CityName")); 
+		model.addAttribute("headerData", stf);
+		model.addAttribute("cities", cities);
+		model.addAttribute("districts", districts);
+		model.addAttribute("provincelist", provincelist);
+   	 return "modules/" + "operate/siteManagerList";
+    }
+    
+    //查询服务商列表
+    @RequestMapping(value="siteManagerList")
+    @ResponseBody
+    public  String siteManagerList(HttpServletRequest request,
+			HttpServletResponse response, Model model){
+   	 Page<Record> page = new Page<>(request, response);
+   	 Map<String,Object> map = new TrimMap(getParams(request));
+		page = siteManagerService.findsiteManager(page, map);
+		model.addAttribute("page", page);
+		JqGridPage<Record> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+    }
+    
+    //添加服务商
+    @RequestMapping(value="addsiteManager")
+    @ResponseBody
+    public String  addsiteManager(String name,String telephone,String duetime,String loginName,
+    		String password,String province,String city,String area,String address,String code){
+    	String result="result";
+    	result=siteManagerService.addsiteManager(name,telephone,duetime,loginName,password,province,city,area,address,code);
+    	return result;
+    	
+    }
+    //停用服务商
+    @RequestMapping(value="stops")
+    @ResponseBody
+    public String  stops(String[] idArr){
+    	String result="result";
+    	for(int i=0;i<idArr.length;i++){
+    		siteManagerService.stops(idArr[i]);
+    	}
+    	result="ok";
+    	return result;
+    	
+    }
+
+    //判断服务商是否是vip
+    @RequestMapping(value="isVIP")
+    @ResponseBody
+    public Boolean  isVIP(String siteId){
+        boolean result= sitePlatformGoodsService.isVip(siteId);
+        return result;
+    }
+
+    //开启服务商
+    @RequestMapping(value="start")
+    @ResponseBody
+    public String  start(String[] idArr){
+    	String result="result";
+    	for(int i=0;i<idArr.length;i++){
+    		result=siteManagerService.start(idArr[i]);
+    		if(!("result".equals(result))){
+    			break;
+    		}else{
+    			continue;
+    		}
+    	}
+    	return result;
+    	
+    }
+    
+    //打开服务商分享的服务商列表
+    @RequestMapping("topensite")
+    public String topensite(String id,HttpServletRequest request,HttpServletResponse response, Model model){
+        model.addAttribute("id", id);
+       List<Record> list= siteManagerService.getsiteList(id);
+		model.addAttribute("list", list);
+   	 return "modules/" + "operate/siteManagerShareList";
+    }
+    
+
+    //查询服务商的到期时间
+    @RequestMapping(value="querysiteduetime")
+    @ResponseBody
+    public Record  querysiteduetime(String id){
+        Record site=siteManagerService.querySiteByid(id);
+    	return site;
+    	
+    }
+    
+    //服务商添加时长
+    @RequestMapping(value="updatesiteManager")
+    @ResponseBody
+    public String  addsiteManager(String id,String duetime,String adddueTime){
+    	String result="ok";
+    	siteManagerService.updateSiteDuetime(id,duetime,adddueTime);
+    	return result;
+    	
+    }
+    
+    //根据id查询服务商信息
+    @RequestMapping(value="opendetail")
+    @ResponseBody
+    public Record openDetail(String id){
+    	Record sitemsg=siteManagerService.querySiteMsgByid(id);
+    	return sitemsg;
+    }
+    
+    @RequestMapping(value = "export")
+    public String exportFile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+        try {
+            String formPath = request.getParameter("formPath");
+            User user = UserUtils.getUser();
+            String siteId = CrmUtils.getCurrentSiteId(user);
+            Page<Record> pages = new Page<Record>(request, response);
+            pages.setPageNo(1);
+            pages.setPageSize(10000);
+            SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+            String title = stf.getExcelTitle();
+            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+            Map<String, Object> ma = new TrimMap(getParams(request));
+            JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+           // jarray.remove(0);
+            Date now = new Date();
+            List<Record> list = null;
+            if ("服务商管理".equals(title)) {
+                list = siteManagerService.findsiteManager(pages, ma).getList();
+                //申请状态：0.申请待审核 1.缺件中 2.审核通过待出库 3.确认出库待领取 4.已领取可使用 5.申请已取消 6.申请审核未通过，默认0
+                for (Record re : list) {
+                    if (re.getDate("due_time") == null) {
+                        re.set("due_times", "免费版");
+                    } else {
+                        if (re.getDate("due_time").getTime() >= now.getTime()) {
+                            re.set("due_times", "收费版");
+                        } else {
+                            re.set("due_times", "免费版");
+                        }
+                    }
+                    if("1".equals(re.getStr("scsType"))) {
+                    	re.set("scsType", "自定义");
+                    }else{
+                    	re.set("scsType", "系统默认");
+                    }
+                    if(StringUtils.isNotBlank(re.getStr("type"))){
+                        if("0".equals(re.getStr("type"))){
+                            re.set("type","普通网点");
+                        }else if("1".equals(re.getStr("type"))){
+                            re.set("type","一级网点");
+                        }else{
+                            re.set("type","普通网点");
+                        }
+                    }else{
+                        re.set("type","普通网点");
+                    }
+                    if (null==re.getInt("sms_available_amount")) {
+                        re.set("sms_available_amount", 0);
+                    }else{
+                    	  re.set("sms_available_amount", re.getInt("sms_available_amount"));
+                    }
+                    if(StringUtils.isNotBlank(re.getStr("level"))){
+                        switch (re.getStr("level")) {
+                        case "0":
+                            re.set("level", "普通会员");
+                            break;
+                        case "1":
+                            re.set("level", "银牌会员");
+                            break;
+                        case "2":
+                            re.set("level", "金牌会员");
+                            break;
+                        case "3":
+                            re.set("level", "钻石会员");
+                            break;
+                        default:
+                        	 re.set("level", "钻石会员");
+                            break;
+                    }
+                    }else{
+                    	re.set("level","普通会员");
+                    }
+           
+                }
+            } else {
+
+
+            }
+            new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader())
+                    .setDataList(list).write(request, response, fileName).dispose();
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+        }
+        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+    }
+    /*
+     * 开通服务商工单编号流水功能
+     */
+    @ResponseBody
+    @RequestMapping(value="openOrderSetConfirm")
+    public String openOrderSetConfirm(HttpServletRequest request, HttpServletResponse response) {
+    	String ids = request.getParameter("ids");
+    	String type = request.getParameter("typ");
+    	if(StringUtils.isBlank(ids)){
+    		return "420";//ids为空
+    	}
+    	return siteMsgService.openOrderSetConfirm(type,ids);
+    }
+    
+}

@@ -1,0 +1,497 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>工单录入</title>
+<meta name="decorator" content="base"/>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select2.min.css"/>
+<script type="text/javascript" src="${ctxPlugin}/lib/select2.full.min.js"></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.css"/>
+<script type="text/javascript" src="${ctxPlugin}/lib/jquery.cityselect.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/jquery.rotate.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/orderConnectionGoods.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/imgShow.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/Validform/5.3.2/Validform.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+	<script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/lodop/LodopFuncs.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/lodop/base64.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/lodop/printdesign.js"></script>
+
+<style type="text/css">
+
+.imgWrap .webuploader-pick{
+	width:80px;
+	height:80px;
+	padding: 0;
+}
+
+
+.webuploader-pick img{
+	width:100%;
+	height:100%;
+	position:absolute;
+	left:0;
+	top:0;
+}
+.dropdown-clear-all{
+	line-height: 22px
+}
+
+</style>
+</head>
+
+
+<body>
+<!-- 回访结算工单-工单详情 -->
+<div class="popupBox odWrap orderdetailVb" style="width:940px;">
+	<h2 class="popupHead">
+		工单详情
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain pd-15" >
+			<div class="mb-25">
+			<div id="detialWd">
+				<div class="tabBarP" style="overflow: visible;">
+					<a href="javascript:;" class="tabswitch current">基本信息</a>
+					<a href="javascript:;" class="tabswitch ">过程信息</a>
+					<span class="f-r">处理情况：<strong class="c-fe0101">${dispStatus}</strong></span>
+				</div>
+				<form id="updateOrder" method="post" action="${ctx}/order/orderDispatch/update">
+				<input type="hidden" name="employeIds" value=""/>
+				<div class="tabCon">
+					<div class="cl mb-10 mt-10">
+					<input type="hidden" name="id" value="${order.id}">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">工单编号：</label>
+							<input type="text" id="orderNumber" class="input-text w-160 readonly dischange" readonly="readonly" name="number" value="${order.number }"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100 text-r"><em class="mark"></em>服务类型：</label>
+							<select id="serviceType"  disabled="disabled" name="serviceType" class="select w-120 readonly">
+							<c:forEach items="${fns:getServiceTypeWithDefault(order.serviceType) }" var="serm">
+								 <c:if test="${order.serviceType eq serm.columns.name }">  
+								 	 <option value="${serm.columns.name }" selected="selected" >${serm.columns.name }</option>
+								    </c:if> 
+								   
+								  <c:if test="${order.serviceType ne  serm.columns.name }">  
+								   <option value="${serm.columns.name }">${serm.columns.name }</option> 
+								    </c:if>
+							</c:forEach>
+							
+							</select>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2"><em class="mark"></em>服务方式：</label>
+								<select id="serviceMode"  disabled="disabled" name="serviceMode" class="select w-120 readonly">
+ 								<c:forEach items="${fns:getServiceModeWithDefault(order.serviceMode) }" var="serm">
+								 <c:if test="${order.serviceMode eq serm.columns.name }">  
+								 	 <option value="${serm.columns.name }" selected="selected" >${serm.columns.name }</option>
+								    </c:if> 
+								   
+								  <c:if test="${order.serviceMode ne  serm.columns.name }">  
+								   <option value="${serm.columns.name }">${serm.columns.name }</option> 
+								    </c:if>
+							</c:forEach>
+ 									</select>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">信息来源：</label>
+							<select id="origin" name="origin"  disabled="disabled" class="select w-130  hide">
+							<c:choose>
+							<c:when test="${fn:contains(listoriginlist,order.origin)}">
+										
+							<option value="">请选择</option>
+								<c:forEach items="${listorigin}" var="serm">
+								 <c:if test="${order.origin eq serm.columns.name }">  
+								 	 <option value="${serm.columns.name }" selected="selected" >${serm.columns.name }</option>
+								    </c:if> 
+		
+								  <c:if test="${order.origin ne  serm.columns.name }">  
+								   <option value="${serm.columns.name }">${serm.columns.name }</option> 
+								    </c:if>   
+							</c:forEach>
+								 
+							</c:when>
+							
+							<c:otherwise>
+							<option value="">请选择</option>
+							 <option value="${order.origin}" selected="selected">${order.origin }</option>
+							<c:forEach items="${listorigin}" var="serm">
+								   <option value="${serm.columns.name }">${serm.columns.name }</option>    
+							</c:forEach>
+							
+							</c:otherwise>
+							
+							</c:choose>
+				
+							</select>
+						</div>
+					</div>
+					<div class="line"></div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1"><em class="mark"></em>用户姓名：</label>
+							 <input type="text" id="customerName" class="input-text w-160 readonly" readonly="readonly" name="customerName"  value="${order.customerName }"/>
+							<input type="hidden" class="input-text w-140" id="sign"   value=""/> 
+							<input type="hidden" class="input-text w-140"  id="siteMsgNums" value=""/> 
+						</div>
+						<div class="f-l pos-r pl-100">
+							<span class="lb w-100 text-r" id="mobileType">
+								<span class="f-r pr-5"><em class="mark"></em>:</span>
+								<select class="lb-sel f-r readonly select" style="width:75px" disabled="disabled" id="mobileOrtel">
+									<option value="1" <c:if test="${order.customerMobile.length() eq 11 }">selected="selected"</c:if> >手机号码</option>
+									<option value="2" <c:if test="${order.customerMobile.length() ne 11 }">selected="selected"</c:if> >固定电话</option>
+								</select>
+								<em class="mark f-r">*</em>
+							</span>
+							<input type="text" id="customerMobile" class="input-text w-120 readonly" readonly="readonly" name="customerMobile" value="${order.customerMobile }"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">联系方式2：</label>
+							<input type="text" id ="customerTelephone" class="input-text w-120 readonly" readonly="readonly" name="customerTelephone"  value="${order.customerTelephone }"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">联系方式3：</label>
+							<input type="text" id="customerTelephone2" class="input-text w-130 readonly" readonly="readonly" name="customerTelephone2" value="${order.customerTelephone2 }"/>
+						</div>
+					</div>
+					<div class="cl mt-10 mb-10">
+						<div class="pos-r txtwrap1" id="pcd">
+							<label class="lb lb1"><em class="mark"></em>详细地址：</label>
+						<span class="select-box w-90 mustfill" id="showProvince" style="display:none">
+						<select class="prov select" id="province"></select>
+						</span>
+						<span class="select-box w-90 mustfill " id="showCity" style="display:none">
+	                    <select class="city select" id="city" disabled="disabled"></select>
+						</span>
+						<span class="select-box w-90 mustfill" id="showArea" style="display:none">
+	                    <select class="dist select" id="area" disabled="disabled"></select>
+						</span>
+							<input type="text" style="width:588px;" class="input-text w-430 readonly" readonly="readonly" id="customerAddress1" name="customerAddress1" value="${order.customerAddress }"/>
+							<input type="hidden" id="customerAddress" name="customerAddress" value="${order.customerAddress}"/>
+							<input type="hidden" id="lnglat" name="customerLnglat" value="${order.customerLnglat }"/>
+						</div>
+					</div>
+					<div class="line"></div>
+					<div class="cl mt-10" id="styleMark">
+						<div class="f-l pos-r txtwrap1" style="height:26px">
+							<label class="lb lb1"><em class="mark"></em>家电品牌：</label>
+					 		<select disabled="disabled"  class="select w-160 readonly" style="position: absolute;z-index: 1;" class="choose" onmousedown="if(this.options.length>6){this.size=8}" onblur="this.size=0" onchange="this.size=0" name="applianceBrand" id="applianceBrand" datatype="*" nullmsg="请选择品牌！">
+							  <c:choose>
+							<c:when test="${fn:contains(brandlist,order.applianceBrand)}">
+									 	 <option value="">请选择</option>	
+								<c:forEach items="${brand}" var="ba" varStatus="cast">
+								  <c:if test="${order.applianceBrand eq ba.value  }">
+								 	 <option value="${ba.key }" selected="selected">${ba.value }</option>
+								    </c:if> 
+								    <c:if test="${order.applianceBrand ne ba.value }"> 
+								 	 <option value="${ba.key }">${ba.value }</option>
+								    </c:if>
+								</c:forEach>
+							</c:when>
+							
+							
+							<c:otherwise>
+							 <option value="">请选择</option>	
+							<option value="${order.applianceBrand}" selected="selected">${order.applianceBrand}</option>
+							<c:forEach items="${brand}" var="ba" varStatus="cast">
+							 <option value="${ba.key }">${ba.value }</option>
+							</c:forEach>
+							</c:otherwise>
+							</c:choose>
+								</select> 
+							<input type="text" id="applanceBrandMirror" class="input-text w-160 readonly hide" disabled="disabled" value="${order.applianceBrand }"/>
+						</div>
+						<div class="f-l pos-r pl-100" style="height:26px">
+							<label class="lb w-100"><em class="mark"></em>家电品类：</label>
+							<select class="select w-120 readonly" style="position: absolute;z-index: 1;" class="choose" onmousedown="if(this.options.length>6){this.size=8}" onblur="this.size=0" onchange="this.size=0" name="applianceCategory" id="applianceCategory" datatype="*" nullmsg="请选择品类！"  disabled="disabled">
+								 		 <c:choose>
+							<c:when test="${fn:contains(catelist,order.applianceCategory)}">
+									 	 <option value="">请选择</option>
+								 
+								 <c:forEach items="${category}" var="cad" varStatus="cast1">
+								 	 <c:if test="${order.applianceCategory eq cad.columns.name  }">
+								 		 <option value="${cad.columns.name }" selected="selected">${cad.columns.name}</option>
+								     </c:if> 
+								   
+								    <c:if test="${order.applianceCategory ne cad.columns.name }"> 
+								 		 <option value="${cad.columns.name }">${cad.columns.name }</option>
+								    </c:if>
+								 </c:forEach>
+							</c:when>
+							
+							
+							<c:otherwise>
+							<option value="">请选择</option>
+							 <option value="${order.applianceCategory}" selected="selected">${order.applianceCategory}</option>
+							 <c:forEach items="${category}" var="cad" varStatus="cast1">
+							 <option value="${cad.columns.name }">${cad.columns.name }</option>
+							 </c:forEach>
+							</c:otherwise>
+							</c:choose>
+							</select>
+							<input type="text" id="applianceCategoryMirror" class="input-text w-120 readonly hide" disabled="disabled" value="${order.applianceCategory }"/>
+							<%-- <input type="text" class="input-text w-110 readonly" disabled="disabled" name="applianceCategory" value="${order.applianceCategory }"/> --%>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">预约日期：</label>
+							<input id="promiseTime" type="text" onfocus="WdatePicker({minDate: '%y-%M-%d' })" class="input-text w-120 readonly" disabled="disabled" name="promiseTime" value="<fmt:formatDate value='${order.promiseTime }' pattern='yyyy-MM-dd'/>"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">时间要求：</label>
+							<select id="promiseLimit" class="select w-130 readonly" name="promiseLimit"  disabled="disabled">
+							<option value="">请选择</option>
+								<c:forEach items="${proLimitList}" var="serm">
+								 <c:if test="${order.promiseLimit eq serm }">  
+								 	 <option value="${serm }" selected="selected" >${serm }</option>
+								    </c:if> 
+								   
+								  <c:if test="${order.promiseLimit ne  serm }">  
+								   <option value="${serm }">${serm }</option> 
+								    </c:if>
+							</c:forEach>
+							</select>
+						</div>
+					</div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1 h-50">
+							<label class="lb lb1"><em class="mark"></em>服务描述：</label>
+							<textarea type="text" class="input-text w-380 h-50 readonly" readonly="readonly" id="customerFeedback" name="customerFeedback">${order.customerFeedback}</textarea>
+						</div>
+						<div class="f-l pos-r txtwrap2 h-50">
+							<label class="lb lb2">备注：</label>
+							<textarea type="text" class="input-text h-50 w-340 readonly" readonly="readonly" name="remarks" >${order.remarks}</textarea>
+						</div>
+					</div>
+					
+					
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">产品型号：</label>
+							<input type="text" class="input-text w-160 readonly" readonly="readonly" name="applianceModel" value="${order.applianceModel}"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100">产品数量：</label>
+							<input type="text" class="input-text w-120 readonly" readonly="readonly" name="applianceNum" value="${order.applianceNum }"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">内机条码：</label>
+							<input type="text" class="input-text w-120 readonly" readonly="readonly" name="applianceBarcode" value="${order.applianceBarcode}"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">外机条码：</label>
+							<input type="text" class="input-text w-130 readonly" readonly="readonly" name="applianceMachineCode" value="${order.applianceMachineCode}"/>
+						</div>
+					</div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">购买日期：</label>
+							<input type="text" onfocus="WdatePicker({startDate:'1970-01-01'})" class="input-text w-160 readonly ptime" readonly="readonly" name="applianceBuyTime" value="<fmt:formatDate value='${order.applianceBuyTime }' pattern='yyyy-MM-dd'/>"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100 text-r">购机商场：</label>
+							<input type="text" name="pleaseReferMall" class="input-text w-120 readonly" readonly="readonly" value="${order.pleaseReferMall}">
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">保修类型：</label>
+							<%-- <input type="text" class="input-text w-140 readonly" disabled="disabled" name="warrantyType" value="${order.warrantyType}"/> --%>
+							
+								<select class="select w-120 readonly " name="warrantyType"  disabled="disabled" id="warrantyType">
+									<option value="">请选择</option>
+									<c:if test="${order.warrantyType eq '1' }">
+										<option value="1" selected = "selected">保内</option>
+										<option value="2">保外</option>
+									</c:if>
+									<c:if test="${order.warrantyType eq '2' }">
+										<option value="1">保内</option>
+										<option value="2" selected = "selected">保外</option>
+									</c:if>
+									<c:if test="${order.warrantyType ne '1' && order.warrantyType ne '2'}">
+										<option value="1">保内</option>
+										<option value="2">保外</option>
+									</c:if>
+								</select>
+							
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">重要程度：</label>
+							<select class="select w-130 readonly" name="level" id="level"  disabled="disabled">
+								<option value="">请选择</option>
+								<option value="1" <c:if test="${order.level eq '1' }">selected="selected"</c:if>>紧急</option>
+								<option value="2" <c:if test="${order.level eq '2' }">selected="selected"</c:if>>一般</option>
+							</select>
+							
+						</div>
+					</div>
+					<div class="mt-10 cl">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">报修时间：</label>
+							<input type="text" class="input-text w-160 readonly dischange"  readonly="readonly" name="repairTime" value="<fmt:formatDate value='${order.repairTime }' pattern='yyyy-MM-dd HH:mm:ss'/>"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100 text-r">登记人：</label>
+							<input type="text" class="input-text w-120 readonly dischange"  readonly="readonly" name="messengerName" value="${order.xm}"/>
+						</div>
+					</div>
+				</div>
+				</form>
+				
+				<div class="tabCon pt-10">
+					<div class="processWrap">
+						<c:forEach var="pros" items="${fns:getOrderProcess(order.processDetail)}">
+							<p class="processItem">
+								<span class="time">${pros.time}</span>
+								<span>${pros.content}</span>
+							</p>
+						</c:forEach>
+					</div>
+				</div>
+			</div>
+
+			</div>
+			<div class="text-c">
+				<sfTags:pagePermission authFlag="SECONDORDER_WAITCALLBACKSECONDORDER_DETAIL_CALLBACK_BTN" html='<a class="sfbtn sfbtn-opt3 sbtn w-70 mr-5" onclick="showCallbackForm()">回访</a>'></sfTags:pagePermission>
+				<%--<a class="sfbtn sfbtn-opt sbtn w-70 " onclick="showzjfd()">封单</a>--%>
+			</div>
+		</div>
+		
+	</div>
+</div>
+<!-- 直接封单提示框 -->
+<div class="popupBox notDispatch showzjfddiv">
+	<h2 class="popupHead">
+		直接封单
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain " >
+			<div class="txtwrap1 pos-r mb-30">
+				<label class="lb lb1"><em class="mark">*</em>直接封单理由：</label>
+				<textarea id="reasonofzjfd" class="textarea"></textarea>
+			</div>
+			<div class="text-c pl-30">
+				<input onclick="savezjfd('${order.id}')" type="button" class="mr-10 w-70 sfbtn sfbtn-opt3" value="确认" />
+				<input type="button" onclick="cancerBox()" class="mr-10 w-70 sfbtn sfbtn-opt" value="取消" />
+			</div>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+<script type="text/javascript">
+
+$(function(){
+	$(".closePopup").bind('click', function() {
+		if (parent.closeOrderdhfForm) {
+			parent.closeOrderdhfForm();
+		}
+	});
+
+	$("input[name='promiseTime']").attr("onfocus","");
+	$("input[name='applianceBuyTime']").attr("onfocus","");
+
+	$("#origin").select2();
+	$(".selection").css("width","130px");
+
+	$('#applianceBrand').select2();
+	$("#applianceBrand").next(".select2").find(".selection").css("width","160px");
+
+	$('#applianceCategory').select2();
+	$("#applianceCategory").next(".select2").find(".selection").css("width","120px");
+	
+    $('.dropdown-sin-2').dropdown({
+        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+        choice: function() {
+        }
+    });
+
+    $.Huitab("#detialWd .tabBarP .tabswitch","#detialWd .tabCon","current","click","0");
+
+    $('.orderdetailVb').popup({fixedHeight:false});
+
+    $(".sdefined0 .input-text").change(function(){
+        var sum = 0;
+        $("input.autoCal").each(function(){
+            if(testCash($(this).val())){
+                sum = numAdd(sum, $(this).val());
+            }else if($(this).val() !=''){
+                $(this).val("");
+            }
+            $("#total_cost").val(sum);
+        });
+    });
+    
+});
+
+function cancerBox(){
+	$.closeDiv($('.showzjfddiv'), true);
+}
+
+function showCallbackForm() {
+	openedCallbackFormIndex = layer.open({
+		type: 2,
+		content: '${ctx}/order/orderParentCallback/newSecondCallBack?id=${order.id}',
+		title: false,
+		area: ['100%', '100%'],
+		closeBtn: 0,
+		shade: 0,
+		fadeIn: 0,
+		anim: -1
+	});
+}
+	function savezjfd(id){
+		var latest_process = $.trim($("#reasonofzjfd").val());
+		if(isBlank(latest_process)){
+			layer.msg("请输入理由!");
+			return;
+		}else{
+			$.ajax({
+				type:"POST",
+				url:"${ctx}/secondOrder/updateOrderClose",
+				data:{
+					id:id,
+					latest_process:latest_process
+					},
+				success:function(result){
+				layer.msg("封单完成");
+				$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+				parent.search();
+				parent.numerCheck();
+				$.closeAllDiv();
+				},
+				error:function(){
+					alert("系统繁忙!");
+					return;
+				}
+			});
+		}
+	}
+
+	function saveCallback(){
+		var postData = $("#callback_form").serializeJson();
+		$.post('${ctx}/order/orderCallback/saveCallback', postData, function(result){
+            $.closeDiv($('.orderdetailVb'));
+            parent.search();
+		});
+	}
+
+	function showzjfd(){
+		$('.showzjfddiv').popup({level:2, closeSelfOnly:true});
+	}
+
+
+function isBlank(val) {
+    if(val==null || val=='' || val == undefined) {
+        return true;
+    }
+    return false;
+}
+
+
+</script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+package com.jojowonet.modules.operate.utils;
+
+import org.joda.time.DateTime;
+import org.joda.time.Days;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+
+public class DateUtils {
+    public static Date gettime(String time) {
+        Date starttime = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Date oo = new Date();
+        Date endtime = new Date();
+        int times = Integer.parseInt(time);
+        try {
+
+            Calendar ca = Calendar.getInstance();
+            ca.setTime(starttime);
+            ca.add(Calendar.DATE, times);
+            oo = ca.getTime();
+            String endtimestr = sdf.format(oo);
+            endtime = sdf.parse(endtimestr);
+        } catch (ParseException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return endtime;
+    }
+
+    public static Date parseDate(String datetime, String format) {
+        SimpleDateFormat df = new SimpleDateFormat(format);
+        try {
+            return df.parse(datetime);
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static int daysBetween(Date start, Date end) {
+        return Days.daysBetween(new DateTime(start), new DateTime(end)).getDays();
+    }
+
+    public static int differentDays(String data1, String data2) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        int d = 0;
+        Date date1;
+        Date date2;
+
+        try {
+            date1 = sdf.parse(data1);
+            date2 = sdf.parse(data2);
+            Calendar cal1 = Calendar.getInstance();
+            cal1.setTime(date1);
+
+            Calendar cal2 = Calendar.getInstance();
+            cal2.setTime(date2);
+            int day1 = cal1.get(Calendar.DAY_OF_YEAR);
+            int day2 = cal2.get(Calendar.DAY_OF_YEAR);
+
+            int year1 = cal1.get(Calendar.YEAR);
+            int year2 = cal2.get(Calendar.YEAR);
+            if (year1 != year2) {//同一年
+                int timeDistance = 0;
+                for (int i = year1; i < year2; i++) {
+                    if (i % 4 == 0 && i % 100 != 0 || i % 400 == 0) {//闰年
+                        timeDistance += 366;
+                    } else {//不是闰年
+                        timeDistance += 365;
+                    }
+                }
+                d = (timeDistance + (day2 - day1));
+            } else { //不同年
+                d = (day2 - day1);
+            }
+        } catch (ParseException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return d;
+    }
+
+}

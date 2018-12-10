@@ -1,0 +1,90 @@
+package com.jojowonet.modules.operate.dao;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fmss.utils.DataUtils;
+import com.jojowonet.modules.operate.entity.SiteRolePermission;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.utils.StringUtils;
+
+@Repository
+public class SiteRolePermissionDao extends BaseDao<SiteRolePermission>{
+
+	public String getSelectedRoleIdsByUserId(String userId){
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select group_concat(a.site_role_id) as selRoleIds from crm_non_serviceman_role_rel a  ");
+		sb.append(" inner join crm_non_serviceman b on b.id = a.serviceman_id ");
+		sb.append(" where b.user_id = ? ");
+		sb.append(" group by a.serviceman_id ");
+		Record rd = Db.findFirst(sb.toString(), userId);
+		if(rd != null){
+			return rd.getStr("selRoleIds");
+		}
+		return "";
+	}
+	
+	public List<Record> getAllNonServicemanSelectedRoles(String siteId){
+		StringBuilder sb = new StringBuilder();
+		sb.append(" select group_concat(a.site_role_id) as selRoleIds, b.user_id from crm_non_serviceman_role_rel a ");
+		sb.append(" inner join crm_non_serviceman b on b.id = a.serviceman_id ");
+		sb.append(" where b.site_id = ? ");
+		sb.append(" group by a.serviceman_id ");
+		return Db.find(sb.toString(), siteId); 
+	}
+	
+	public List<Record> getSiteNonservicemanRoleRel(String siteId){
+		StringBuilder sb = new StringBuilder();
+		sb.append(" select a.id, b.id as nonmanId, b.user_id, a.site_role_id from crm_non_serviceman_role_rel a ");
+		sb.append(" inner join crm_non_serviceman b on b.id = a.serviceman_id ");
+		sb.append(" where b.site_id = ? ");
+		//sb.append(" group by a.serviceman_id ");
+		return Db.find(sb.toString(), siteId);
+	}
+	
+	public List<Record> getSystemSiteRoleMenus(){
+		StringBuilder sb = new StringBuilder();
+		sb.append(" select distinct * from (  ");
+		sb.append(" select a.id, a.parent_id, a.name, a.sort, a.factory_id from sys_menu a, sys_role_menu b where b.menu_id = a.id and b.role_id = '4' and a.is_show = '1' ");
+		sb.append(" and exists (select 1 from sys_menu c where c.id = a.parent_id and c.status = '0') ");
+		sb.append(" and a.status = '0' ");
+		sb.append(" union ");
+		sb.append(" select a.id, a.parent_id, a.name, a.sort, a.factory_id ");
+		sb.append(" from sys_menu a where a.target in ('1', '2') ");
+		sb.append(" and a.status = '0' and a.is_show = '1' ");
+		sb.append(" ) ot order by ot.sort asc ");
+		return Db.find(sb.toString());
+	}
+	
+	/**
+	 * 获取平台定义好的nonserviceman(信息员/配件员/财务人员)的权限,
+	 * @param roleId：对应的nonserviceman的角色ID,1.信息员2.配件员3.财务人员
+	 * @return
+	 */
+	public Map<String, String> getSiteDefaultNonservicemanPermissions(String roleId){
+		StringBuilder sb = new StringBuilder();
+		sb.append(" select a.permissions from crm_site_default_nonservice_permission a where a.id = '"+roleId+"' ");
+		String permissions = Db.findFirst(sb.toString()).getStr("permissions");
+		return DataUtils.str2Map(permissions, ",");
+	}
+	
+	public Map<String, String> unionSiteDefaultNonserviceManPermission(String[] roleArr){
+		Map<String, String> retMap = Maps.newHashMap();
+		for(String role : roleArr){
+			Map<String, String> map = getSiteDefaultNonservicemanPermissions(role);
+			retMap.putAll(map);
+		}
+		return retMap;
+	}
+
+	public List<Record> getSpecialPermissionList() {
+		return Db.find(" select * from sys_menu a where a.target in ('3', '4') and a.status = '0' ");
+	}
+}

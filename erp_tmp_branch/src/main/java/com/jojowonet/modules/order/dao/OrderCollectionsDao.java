@@ -1,0 +1,115 @@
+package com.jojowonet.modules.order.dao;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.entity.OrderCollections;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+
+/**
+ * 二维码收款DAO接口
+ * 
+ * @author Ivan
+ * @version 2017-07-19
+ */
+@Repository
+public class OrderCollectionsDao extends BaseDao<OrderCollections> {
+
+	public List<Record> orderCollectionsList(Page<Record> page, String siteId, Map<String, Object> map) {
+		StringBuffer sf = new StringBuffer();
+		sf.append("select a.*,a.order_number as orderNumber from crm_order_collections a where a.status='0' and a.site_id='" + siteId + "' ");
+		sf.append(selectConditions(map));
+		sf.append("order by a.create_time desc");
+		if (page != null) {
+			sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		return Db.find(sf.toString());
+	}
+
+	public Long queryCount(String siteId, Map<String, Object> map) {
+		StringBuffer sf = new StringBuffer();
+		sf.append("select count(*) from crm_order_collections a where a.status='0' and a.site_id='" + siteId + "' ");
+		sf.append(selectConditions(map));
+		return Db.queryLong(sf.toString());
+	}
+
+	public String selectConditions(Map<String, Object> map) {
+		StringBuilder stringBuilder = new StringBuilder();
+		if (map != null) {
+			if (map.get("number") != null && StringUtils.isNotEmpty(getTrimmedParamValue(map, "number"))) {
+				stringBuilder.append(" and a.order_number like '%" + getTrimmedParamValue(map, "number") + "%' ");
+			}
+			if (map.get("paymentType") != null && StringUtils.isNotEmpty(((String[]) map.get("paymentType"))[0])) {
+				stringBuilder.append(" and a.payment_type = '" + ((String[]) map.get("paymentType"))[0] + "' ");
+			}
+			if (map.get("employeName") != null && StringUtils.isNotEmpty(((String[]) map.get("employeName"))[0])) {
+				stringBuilder.append(" and a.employe_name = '" + ((String[]) map.get("employeName"))[0] + "' ");
+			}
+
+			if (map.get("commissionStatus") != null && StringUtils.isNotEmpty(((String[]) map.get("commissionStatus"))[0])) {
+				if ("0".equals(((String[]) map.get("commissionStatus"))[0])) {
+					stringBuilder.append(" and  (a.commission_status = '0' or a.commission_status is null )");
+				} else {
+					stringBuilder.append(" and a.commission_status = '1' ");
+				}
+			}
+			if (map.get("createTimeMin") != null && StringUtils.isNotEmpty(getTrimmedParamValue(map, "createTimeMin"))) {
+				stringBuilder.append(" and a.create_time >= '" + getTrimmedParamValue(map, "createTimeMin") + " 00:00:00' ");
+			}
+			if (map.get("createTimeMax") != null && StringUtils.isNotEmpty(getTrimmedParamValue(map, "createTimeMax"))) {
+				stringBuilder.append(" and a.create_time <= '" + getTrimmedParamValue(map, "createTimeMax") + " 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+
+	private String getParamValue(Map<String, Object> map, String param) {
+		Object value = map.get(param);
+		return value == null ? null : ((String[]) map.get(param))[0];
+	}
+
+	private String getTrimmedParamValue(Map<String, Object> map, String param) {
+		return org.apache.commons.lang.StringUtils.trim(getParamValue(map, param));
+	}
+
+	public BigDecimal orderCollectionsSumamount(String siteId, Map<String, Object> map) {
+		StringBuffer sf = new StringBuffer();
+		sf.append("select round(sum(payment_amount),2) from crm_order_collections a where a.status='0' and a.site_id='" + siteId + "' ");
+		sf.append(selectConditions(map));
+		sf.append("order by a.create_time desc");
+		return Db.queryBigDecimal(sf.toString());
+
+	}
+
+	public BigDecimal commissionSumanount(String siteId, Map<String, Object> map) {
+		StringBuffer sf = new StringBuffer();
+		sf.append("select round(sum(commission_money),2) from crm_order_collections a where a.status='0' and a.site_id='" + siteId + "' ");
+		sf.append(selectConditions(map));
+		sf.append("order by a.create_time desc");
+		return Db.queryBigDecimal(sf.toString());
+	}
+
+	public Record getDetailbyid(String id) {
+		String sql = "select * from crm_order_collections where id=? and status='0' ";
+		return Db.findFirst(sql, id);
+	}
+
+	public int confirmdz(String id) {
+		String sql = "update  crm_order_collections set confirm='1' where id=? and status='0' ";
+		return Db.update(sql, id);
+	}
+
+	public int saveCommission(String id, String commissionMoney, String marks) {
+		String sql = "update crm_order_collections set commission_money=?,marks=?, commission_status='1' where id=?";
+		return Db.update(sql, commissionMoney, marks, id);
+	}
+
+}

@@ -1,0 +1,311 @@
+package com.jojowonet.modules.fitting.service;
+
+import com.google.common.collect.Maps;
+import com.jojowonet.modules.fitting.service.excel.FittingImportExcelHandler;
+import com.jojowonet.modules.fitting.service.excel.OldFittingsExcelImportHandler;
+import com.jojowonet.modules.fmss.utils.DBUtils;
+import com.jojowonet.modules.fmss.utils.DbBatchBean;
+import com.jojowonet.modules.order.service.OrderFittingService;
+import com.jojowonet.modules.order.service.excel.HistoryOrderExcelImportHandler;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.order.utils.excelExt.ExcelReader;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletResponse;
+
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.Model;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.dao.OldFittingDao;
+import com.jojowonet.modules.fitting.entity.OldFitting;
+import com.jojowonet.modules.order.dao.OrderDao;
+
+
+/**
+ * 旧件Service
+ * @author dongqing
+ * @version 2017-05-22
+ */
+@Component
+@Transactional(readOnly = true)
+public class OldFittingService extends BaseService{
+	
+	@Autowired
+	private OldFittingDao oldFittingDao;
+	@Autowired
+	private OrderFittingService orderFittingService;
+
+	// 查询所有旧件信息(登记)
+	public Page<Record> getAllOldFitting(Page<Record> page,String siteId,Map<String,Object> map){
+		List<Record> list = oldFittingDao.getAll(page, siteId,map);
+		long count = oldFittingDao.getOldFittingCount(siteId,map);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+	// 查询所有旧件信息（库存）
+	public Page<Record> getAllOldStockFitting(Page<Record> page,String siteId,Map<String,Object> map){
+		List<Record> list = oldFittingDao.getAllStock(page, siteId, map);
+		long count = oldFittingDao.getOldStocksFittingCount(siteId, map);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+	
+	
+	// 查询所有旧件信息(登记)
+		public Page<Record> getReturnFactory(Page<Record> page,String siteId,Map<String,Object> map){
+			List<Record> list = oldFittingDao.getReturnFactoryList(page, siteId,map);
+			long count = oldFittingDao.getReturnFactoryCount(siteId,map);
+			page.setList(list);
+			page.setCount(count);
+			return page;
+		}
+	
+	public List<Record> getAllOldFittingForExport(Page<Record> page,String siteId,String status,Map<String,Object> map){
+		List<Record> list = oldFittingDao.getAllStock(page, siteId,map);
+		return list;
+	}
+	
+	//旧件入库（修改旧件状态信息【status】为1）,可批量入库,,根据编号进行修改
+	public int putOldFitting(String[] ids,String type){
+		return oldFittingDao.putOldFitting(ids,type);
+	}
+	
+	//根据id查询oldfitting表信息
+	public OldFitting getOldFittingById(String id,String setid){
+		return oldFittingDao.getOldFittingById(id,setid);
+	}
+
+	public void inStock(Map<String,Object> map){
+		OldFitting of=new OldFitting();
+		if(StringUtils.isNotBlank((CharSequence) map.get("id"))){
+			of.setId(map.get("id").toString());
+			of=oldFittingDao.get(map.get("id").toString());
+		}
+
+		if(StringUtils.isNotBlank((CharSequence) map.get("oldFittingCode"))){
+			of.setCode(map.get("oldFittingCode").toString().trim());
+		}
+		if(StringUtils.isNotBlank((CharSequence)map.get("oldFiittingName"))){
+			of.setName(map.get("oldFiittingName").toString().trim());
+		}
+		if(StringUtils.isNotBlank((CharSequence)map.get("oldFittingVersion"))){
+			of.setVersion(map.get("oldFittingVersion").toString().trim());
+		}
+		if(StringUtils.isNotBlank((CharSequence)map.get("oldFittingBrand"))){
+			of.setBrand(map.get("oldFittingBrand").toString().trim());
+		}
+		if(StringUtils.isNotBlank((CharSequence)map.get("oldFittingNum"))){
+			of.setNum(BigDecimal.valueOf(Double.valueOf(map.get("oldFittingNum").toString())));
+		}
+		if(StringUtils.isNotBlank((CharSequence)map.get("oldFittingPrice"))){
+			of.setUnitPrice(Double.valueOf(map.get("oldFittingPrice").toString()));
+		}
+
+		if(StringUtils.isNotBlank((CharSequence)map.get("img"))){
+			of.setImg(map.get("img").toString());
+		}
+
+		if(StringUtils.isNotBlank((CharSequence)map.get("employeName"))){
+			String str[]=map.get("employeName").toString().split(",");
+			of.setEmployeName(str[1]);//工程师姓名
+			of.setEmployeId(str[0]);//工程师id
+		}
+		if(StringUtils.isNotBlank((CharSequence)map.get("yrpz_flag"))){
+			of.setYrpzFlag(map.get("yrpz_flag").toString());
+		}
+		if(StringUtils.isNotBlank((CharSequence)map.get("trueStock"))){//是否入库（1：入库，2：不入库）
+			if("1".equals(map.get("trueStock").toString())){
+				of.setStatus("1");
+				Date now =new Date();
+				String name= CrmUtils.getUserXM();
+				of.setConfirmTime(now);
+				of.setConfirmName(name);
+			}
+		}
+
+		oldFittingDao.save(of);
+	}
+
+	public OldFitting reloadOrder(Map<String,Object> map){
+		OldFitting of=new OldFitting();
+		String siteId= CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		if(StringUtils.isNotBlank((CharSequence) map.get("number"))){
+			Record re = orderFittingService.getOrderOr400(map.get("number").toString(),siteId);
+			String id=map.get("id").toString();
+			of=oldFittingDao.get(id);
+			if(StringUtils.isNotBlank(re.getStr("customer_name"))){
+				of.setCustomerName(re.getStr("customer_name"));
+			}
+			String address="";
+			if(StringUtils.isNotBlank(re.getStr("province"))){
+				address=re.getStr("province");
+			}
+			if(StringUtils.isNotBlank(re.getStr("city"))){
+				if(StringUtils.isNotBlank(address)){
+					if (!address.equals(re.getStr("city"))) {
+						address += re.getStr("city");
+					}
+				}
+			}
+			if(StringUtils.isNotBlank(re.getStr("area"))){
+				address+=re.getStr("area");
+			}
+			if(StringUtils.isNotBlank(re.getStr("customer_address"))){
+				address+=re.getStr("customer_address");
+			}
+			of.setCustomerAddress(address);
+			if(StringUtils.isNotBlank(re.getStr("customer_mobile"))){
+				of.setCustomerMobile(re.getStr("customer_mobile"));
+			}
+			if(StringUtils.isNotBlank(re.getStr("customer_mobile"))){
+				of.setCustomerMobile(re.getStr("customer_mobile"));
+			}
+			if(StringUtils.isNotBlank(re.getStr("appliance_brand"))){
+				of.setApplianceBrand(re.getStr("appliance_brand"));
+			}
+			if(StringUtils.isNotBlank(re.getStr("appliance_category"))){
+				of.setApplianceCategory(re.getStr("appliance_category"));
+			}
+
+			if(StringUtils.isNotBlank(re.getStr("warranty_type"))){
+				of.setWarrantyType(re.getStr("warranty_type"));
+			}
+			oldFittingDao.save(of);
+		}
+		return of;
+	}
+
+
+	//计算旧件数量
+	public Long getFittingCount(String siteId){
+		return oldFittingDao.getOldFittingCount(siteId,null);
+	}
+	//计算旧件数量
+	public Long getStockFittingCount(String siteId){
+		return oldFittingDao.getOldStocksFittingCount(siteId, null);
+	}
+	
+	//新增旧件库存信息
+	public void addOldFitting(OldFitting oldFit){
+		oldFittingDao.save(oldFit);
+	}
+
+
+	/**
+	 * 旧件导入数据检测
+	 * @param params
+	 * @param in
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public Map<String, Object> checkOldFittings(Map<String, String> params, InputStream in){
+		Map<String, Object> retMap = Maps.newHashMap();
+		retMap.put("operType", "check");
+		OldFittingsExcelImportHandler handler = new OldFittingsExcelImportHandler();
+		handler.setStartSheet(1);
+		handler.setStartRow(2);
+		handler.setParams(params);
+		try{
+			new ExcelReader().check(in, params.get("extName"), handler);
+			Map<String,Object> result = (Map<String, Object>) handler.getHandlerResult();
+			Map<String, String> existsFittingMap = (Map<String, String>) result.get("existsFittingMap");
+			String resul = (String) result.get("TemplateError");
+			if(existsFittingMap.size() >0){
+				for(String key :existsFittingMap.keySet()){
+					String vas = existsFittingMap.get(key);
+					if(vas.indexOf(",") != -1){
+						int one = vas.indexOf(",", 0);
+						handler.appendErrorDetail("<p>第"+vas.substring(0,one)+"行数据与第"+vas.substring((one+1),vas.length())+"行备件条码重复"+"</p>");
+					}
+				}
+				String hanl = handler.getErrorDetail();
+				if(StringUtils.isNotBlank(hanl)){
+					retMap.put("errorDetail", hanl);
+					retMap.put("errorMessage", "y");
+				}else{
+					retMap.put("pass", "y");
+				}
+			}
+			if("TemplateError".equalsIgnoreCase(resul)){
+				retMap.put("templateError", "y");
+			}else if("overLimit".equalsIgnoreCase((String) result.get("overLimit"))){
+				retMap.put("overLimit", "y");
+			}else{
+				retMap.put("pass", "y");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}finally{
+			try {
+				in.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return retMap;
+	}
+
+	/**
+	 * 旧件
+	 * @param params
+	 * @return
+	 */
+
+	public Map<String, Object> importOldFittings(Map<String, String> params,
+											 InputStream inp) {
+		long st = System.currentTimeMillis();
+		Map<String, Object> retMap = Maps.newHashMap();
+		retMap.put("operType", "import");
+		OldFittingsExcelImportHandler handler = new OldFittingsExcelImportHandler();
+		handler.setParams(params);
+		try{
+			new ExcelReader().read(inp, params.get("extName"), handler);
+			System.out.println("part1:" + (System.currentTimeMillis() - st));
+			DbBatchBean dbb = handler.fittingFilterInDb();
+			System.out.println("part2:" + (System.currentTimeMillis() - st));
+			System.out.print("a");
+			DBUtils.batchSaveOrUpdateSQL(dbb, oldFittingDao.getSession());
+			retMap.put("pass", "y");
+			retMap.put("successCount", handler.getSuccessCount());
+			retMap.put("errorCount", handler.getErrorCount());
+			retMap.put("errorDetail", handler.getErrorDetail());
+			System.out.println("part3:" + (System.currentTimeMillis() - st));
+			retMap.put("importHints", "y");
+			System.out.println(" ------ msg:"+handler.getErrorDetail()+" ------ ");
+		} catch (Exception e) {
+			retMap.put("reporterrors", "y");
+			e.printStackTrace();
+		}finally{
+		}
+		return retMap;
+	}
+	
+	public List<Record> getDefaultTurnBackList(String ids){
+		return Db.find("select a.* from crm_site_old_fitting a where a.id in ("+StringUtil.joinInSql(ids.split(","))+")");
+	}
+	
+	//单个到厂确认
+	public void updateFittingKeepById(String fiId,String remarks) {
+		oldFittingDao.updateFittingKeepById(fiId, remarks);
+	}
+		public void updateFittingKeep(String ids) {
+			oldFittingDao.updateFittingKeep(ids);
+	}
+}

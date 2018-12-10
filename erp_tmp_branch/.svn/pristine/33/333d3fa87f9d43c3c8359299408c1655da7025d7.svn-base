@@ -1,0 +1,478 @@
+/**
+ */
+package com.jojowonet.modules.operate.web;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.entity.Employe;
+import com.jojowonet.modules.operate.entity.NonServiceman;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.OrderService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.util.AuthUtils;
+import com.jojowonet.modules.sys.util.TrimMap;
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.mapper.JsonMapper;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 人员Controller
+ * 
+ * @author Ivan
+ * @version 2017-05-04
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/operate/nonServiceman")
+public class NonServicemanController extends BaseController {
+
+	@Autowired
+	private NonServicemanService nonServicemanService;
+	@Autowired
+	private SiteService siteService;
+	@Autowired
+	private OrderService orderService;
+
+	@ModelAttribute
+	public NonServiceman get(@RequestParam(required = false) String id) {
+		if (StringUtils.isNotBlank(id)) {
+			return nonServicemanService.get(id);
+		} else {
+			return new NonServiceman();
+		}
+	}
+
+	@RequestMapping(value = { "list", "" })
+	public String list(NonServiceman nonServiceman, HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		if (!user.isAdmin()) {
+			// nonServiceman.setCreateBy(user);
+		}
+		Page<NonServiceman> page = nonServicemanService.find(
+				new Page<NonServiceman>(request, response), nonServiceman);
+		model.addAttribute("page", page);
+		return "modules/" + "order/nonServicemanList";
+	}
+
+	@RequestMapping(value = "form")
+	public String form(NonServiceman nonServiceman, Model model) {
+		model.addAttribute("nonServiceman", nonServiceman);
+		return "modules/" + "order/nonServicemanForm";
+	}
+
+	@RequestMapping(value = "save")
+	public String save(NonServiceman nonServiceman, Model model,
+			RedirectAttributes redirectAttributes) {
+		if (!beanValidator(model, nonServiceman)) {
+			return form(nonServiceman, model);
+		}
+		nonServicemanService.save(nonServiceman);
+		addMessage(redirectAttributes, "保存人员'" + nonServiceman.getName()
+				+ "'成功");
+		return "redirect:" + Global.getAdminPath()
+				+ "/order/nonServiceman/?repage";
+	}
+
+	@RequestMapping(value = "delete")
+	public String delete(String id, RedirectAttributes redirectAttributes) {
+		nonServicemanService.delete(id);
+		addMessage(redirectAttributes, "删除人员成功");
+		return "redirect:" + Global.getAdminPath()
+				+ "/order/nonServiceman/?repage";
+	}
+
+	private String result = "";
+
+	// 员工信息管理表头
+	@RequestMapping(value = "WholeServiceManHeader")
+	public String getHeader(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		this.result = request.getParameter("type");
+		String servletPath = request.getServletPath() + "/" + (this.result == null ? "2" : this.result);
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, servletPath);
+		model.addAttribute("headerData", stf);
+		model.addAttribute("tabType", this.result);
+		return "modules/" + "operate/nonServiceManManager";
+	}
+
+	// 员工信息管理数据
+	@ResponseBody
+	@RequestMapping(value = "getWholeServiceManList")
+	public String list(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Map<String, Object> map = getParams(request);
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = null;
+		if ("1".equals(result)) {
+			page = nonServicemanService.getAllEmployeInfo(pages, siteId, map);// 服务工程师
+		} else {
+			page = nonServicemanService.getAllServicemanInfo(pages, siteId, map);// 网点员工信息
+		}
+		// model.addAttribute("type", result);
+		return renderJson(new JqGridPage<>(page));
+	}
+	@ResponseBody
+	@RequestMapping(value = "getRoleList")
+	public String getRoleList(HttpServletRequest request,
+			HttpServletResponse response, Model model){
+		Map<String, Object> map = getParams(request);
+		String roleName= nonServicemanService.getRoleList(map);
+		return roleName;
+	}
+	
+	// 启用
+	@ResponseBody
+	@RequestMapping(value = "doQiYong")
+	public String doQiYong(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		String result = nonServicemanService.doQiYong(map);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		AuthUtils.clearUserCache(siteId);
+		return result;
+	}
+
+	// 禁用
+	@ResponseBody
+	@RequestMapping(value = "doJinYong")
+	public String doJinYong(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		nonServicemanService.doJinYong(map);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		AuthUtils.clearUserCache(siteId);
+		return "ok";
+	}
+
+	/**
+	 * 删除
+	 * @param request
+	 * @param response
+	 * @param model
+	 * @return
+	 */
+	@ResponseBody
+	@RequestMapping(value = "deleteMan")
+	public String deleteMan(HttpServletRequest request, HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		nonServicemanService.deleteMan(map);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		AuthUtils.clearUserCache(siteId);
+		return "ok";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "hasRelatedOrder")
+	public String hasWaitCallbackAndSettlementOrders(HttpServletRequest request) {
+		String empId = request.getParameter("id");
+		return orderService.hasWaitCallbackAndSettlementOrders(empId) ? "Y" : "N";
+	}
+
+	// 根据省获取市
+	@ResponseBody
+	@RequestMapping(value = "getCity")
+	public String getCity(HttpServletRequest request,
+			HttpServletResponse response) {
+		String province = request.getParameter("province");
+		List<Record> list = CrmUtils.getCityList(province);
+		return JsonMapper.nonDefaultMapper().toJson(list);
+	}
+
+	// 根据市获取区县
+	@ResponseBody
+	@RequestMapping(value = "getArea")
+	public String getArea(HttpServletRequest request,
+			HttpServletResponse response) {
+		String city = request.getParameter("city");
+		List<Record> list = CrmUtils.getDistrictList(city);
+		return JsonMapper.nonDefaultMapper().toJson(list);
+	}
+
+	//显示新增页面
+	@RequestMapping(value = "showAdd")
+	public String showAdd(HttpServletRequest request,HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Record site = siteService.getSiteId(siteId);
+		 
+		model.addAttribute("site", site);
+		map.put("siteId",siteId );
+		List<Record> listCategory=nonServicemanService.getCategory1();//获取全部品类信息
+		List<Record> listPremission=nonServicemanService.getRolePremission(map);//获取角色信息
+		model.addAttribute("listPremission", listPremission);
+		model.addAttribute("listCategory", listCategory);
+		model.addAttribute("type", map.get("type"));
+		return "modules/" + "operate/manWin/ygadd";
+	}
+	// 显示编辑
+	@RequestMapping(value = "showBJ")
+	public String showBJ(HttpServletRequest request,HttpServletResponse response, Model model,String tabType) {
+		Map<String, Object> map = getParams(request);
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Record site = siteService.getSiteId(siteId);
+		//获取当前工程师的信息
+		Record re =  nonServicemanService.showBJ(map);
+		BigDecimal ratio = re.getBigDecimal("ratio");
+		if(ratio!=null){
+			model.addAttribute("ratio", String.valueOf(ratio).substring(0, 3));
+		}else{
+			model.addAttribute("ratio", "");
+		}
+		
+		model.addAttribute("site", site);
+		model.addAttribute("record", re);//获取员工信息
+		List<String> cateList = null;
+		List<String> brandList =null;
+		if(StringUtil.isNotBlank(re.getStr("category"))){
+		String[] cateArr = re.getStr("category").split(",");
+		cateList = Arrays.asList(cateArr);
+		}
+		if(StringUtil.isNotBlank(re.getStr("brand"))){
+			String[] brandArr = re.getStr("brand").split(",");
+			brandList = Arrays.asList(brandArr);
+		}
+
+        model.addAttribute("cateList",cateList);
+		model.addAttribute("brandList",brandList);
+		List<Record> listCategory=nonServicemanService.getCategory1();//获取全部品类信息
+		List<Record> relPremission=nonServicemanService.getRolePremission(map);//获取角色信息
+		List<Record> listPremission = nonServicemanService.getAllSiteRoles(siteId);//获取角色信息
+		model.addAttribute("listPremission", listPremission);
+		model.addAttribute("relPremission", relPremission);
+		model.addAttribute("listCategory", listCategory);
+		model.addAttribute("selectedCategory", Arrays.asList(String.valueOf(re.get("category", "")).split(",")));
+		model.addAttribute("tabType",tabType);
+		return "modules/" + "operate/manWin/ygedit";
+	}
+	
+	/*
+	 * 验证工号是否唯一
+	*/
+	@ResponseBody
+	@RequestMapping(value = "checkWorkNo", method = RequestMethod.POST)
+	public Boolean checkWorkNo(HttpServletRequest request,HttpServletResponse response) {
+		String workNo = request.getParameter("workNo");
+		boolean check = nonServicemanService.getCkeckWorkNo(workNo);
+		return check;
+	}
+	/*
+	 * 验证身份证是否唯一
+	 */
+	@ResponseBody
+	@RequestMapping(value = "checkidCard", method = RequestMethod.POST)
+	public Boolean checkidCard(HttpServletRequest request,HttpServletResponse response) {
+		String idCard = request.getParameter("idCard");
+		boolean check = nonServicemanService.getCkeckidCard(idCard);
+		return check;
+	}
+	
+	/**
+	 *
+	 * @return
+	 */
+	// 新增
+	@RequestMapping(value = "doAdd", method = RequestMethod.POST)
+	@ResponseBody
+	public String doAdd(HttpServletRequest request,HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+
+		if ("4".equals(map.get("userType")) || "2".equals(map.get("jobType"))) {
+			String empName = (String) map.get("name");
+			boolean isValid = checkEmpNameLogic(siteId, empName, null);
+			if (!isValid) {
+				return "empNameDup";
+			}
+		}
+
+		nonServicemanService.doSave(map);
+		AuthUtils.clearUserCache(siteId);
+		return "ok";
+	}
+	
+	// 编辑
+	@RequestMapping(value = "doBJ", method = RequestMethod.POST)
+	@ResponseBody
+	public String doBJ(HttpServletRequest request, String servebrand, String chk_role, HttpServletResponse response, Model model, Employe emp,
+			NonServiceman ns) {
+		/*if(ns != null){
+			User u = ns.getUser();
+		}*/
+		Map<String, Object> map = getParams(request);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+
+		if ("4".equals(map.get("userType")) || "2".equals(map.get("jobType"))) {
+			String empName = (String) map.get("name");
+			boolean isValid = checkEmpNameLogic(siteId, empName, (String) map.get("id"));
+			if (!isValid) {
+				return "empNameDup";
+			}
+		}
+
+		nonServicemanService.doSave(map);
+		AuthUtils.clearUserCache(siteId);
+		return "ok";
+//		return "redirect:" + Global.getAdminPath() + "/operate/WholeServiceManHeader?repage=1";
+	}
+//	@ResponseBody
+//	@RequestMapping(value="queryCate")
+//	public String queryCate(String[] nameArr,String id){
+//		return  nonServicemanService.queryCate(nameArr,id);
+//	}
+//	@ResponseBody
+//	@RequestMapping(value="queryBrand")
+//	public String queryBrand(String[] nameArr,String id){
+//		return  nonServicemanService.queryBrand(nameArr,id);
+//	}
+	@ResponseBody
+	@RequestMapping(value="checkMobile")
+	public String checkMobile(HttpServletRequest request){
+		String mobile=request.getParameter("mobile");
+		String job=request.getParameter("job");
+		String loginName = request.getParameter("loginName");
+		String loginName1 = request.getParameter("loginName1");
+		String oldLoginname = request.getParameter("oldLoginname");
+		String oldMobile = request.getParameter("oldMobile");
+		String res="ok";
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		if("1".equals(job)){//网点-信息员
+			long count = nonServicemanService.checkValid3(loginName);//user loginName 唯一
+			Long chr5 = nonServicemanService.checkValid5(mobile);//user mobile除user_type=4之外唯一
+			
+			if(StringUtils.isBlank(oldLoginname)){//新增
+				if(chr5>0){//手机号重复
+					return res="no";
+				}
+				if(count>0){//登陆名重复
+					return res="login";
+				}
+			}else{//修改
+				if(!oldMobile.equals(mobile)){
+					if(chr5>0){//手机号重复
+						return res="no";
+					}
+				}
+				if(!oldLoginname.equals(loginName)){//如果新旧用户名不相等
+					if(count>0){//用户名重复
+						return res="login";
+					}
+				}
+			}
+		}else if("2".equals(job)){//服务工程师 
+			long result = nonServicemanService.checkValid4(mobile);//user mobile 唯一
+			Long empCOunt = nonServicemanService.empLoginName(loginName1);//user loginName1 唯一
+			
+
+			if (StringUtils.isBlank(oldMobile)) {//新增
+				if(empCOunt>0){
+					return "empUser";
+				}
+				if (result > 0) {//手机号重复
+					return "no";
+				}
+			} else {//修改
+				if(!oldLoginname.equals(loginName1)){//如果新旧用户名不相等
+					if(empCOunt>0){//用户名重复
+						return res="empUser";
+					}
+				}
+				if (!oldMobile.equals(mobile)) {
+					if (result > 0) {
+						return "no";
+					}
+				}
+			}
+		}
+		return res;
+	}
+
+	@ResponseBody
+	@RequestMapping(value="checkEmpName")
+	public String checkEmpName(HttpServletRequest request) {
+		String empName = request.getParameter("empName");
+		String empId = request.getParameter("empId");
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return checkEmpNameLogic(siteId, empName, empId) ? "ok" : "fail";
+	}
+
+	private boolean checkEmpNameLogic(String siteId, String empName, String empId) { // 如果是编辑，那么empName是可以保持不变的
+		if (StringUtil.isBlank(empName)) {
+			return false;
+		}
+		Long cnt;
+		if(StringUtil.isBlank(empId)) { // 新增
+			cnt = nonServicemanService.add1(empName,siteId);
+		} else {
+			cnt = nonServicemanService.add2(empId,empName,siteId);
+		}
+		return cnt < 1;
+	}
+
+	@RequestMapping(value = "export")
+	public String exportFile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Map<String, Object> map = new TrimMap(getParams(request));
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+
+			String title = stf.getExcelTitle();
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+			Page<Record> pages = new Page<>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			JSONArray headerList = JSONArray.fromObject(stf.getTableHeader());
+			Iterator iterator = headerList.iterator();
+			while (iterator.hasNext()) {
+				Object next = iterator.next();
+				if (next instanceof JSONObject) {
+					JSONObject jsonObject = (JSONObject) next;
+					String idx = jsonObject.getString("index");
+					if ("id".equals(idx) || "roleName".equals(idx)) {
+						iterator.remove();
+					}
+				}
+			}
+
+			Page<Record> page = nonServicemanService.getAllEmployeInfo(pages, siteId, map);// 服务工程师
+			new ExportJqExcel(title + "数据", headerList.toString(), stf.getSortHeader())
+					.setDataList(page.getList()).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+}

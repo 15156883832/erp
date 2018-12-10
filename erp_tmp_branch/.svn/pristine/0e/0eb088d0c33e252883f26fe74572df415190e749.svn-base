@@ -1,0 +1,184 @@
+/**
+ */
+package com.jojowonet.modules.fitting.dao;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.entity.EmployeFitting;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.SqlKit;
+import com.jojowonet.modules.sys.util.SMSUtils;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Parameter;
+import ivan.common.utils.UserUtils;
+import org.apache.log4j.Logger;
+import org.hibernate.SQLQuery;
+import org.springframework.stereotype.Repository;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+/**
+ * 工程师备件库存DAO接口
+ * @author Ivan
+ * @version 2017-05-23
+ */
+@Repository
+public class EmployeFittingDao extends BaseDao<EmployeFitting> {
+
+	private static Logger logger = Logger.getLogger(SMSUtils.class);
+
+
+	public EmployeFitting getEmpId(String empId,String siteId,String fittingId){
+		EmployeFitting efi = new EmployeFitting();
+		String sql = "select * from crm_employe_fitting where status= '1' and site_id='"+siteId+"' and employe_id ='"+empId+"' and fitting_id ='"+fittingId+"' ";
+		Record rd = Db.findFirst(sql);
+		if(rd != null){
+			efi.setId(rd.getStr("id"));
+			efi.setFittingId(rd.getStr("fitting_id"));
+			efi.setCjnum(rd.getBigDecimal("cjnum"));
+			efi.setCreateBy(rd.getStr("create_by"));
+			efi.setCreateTime(rd.getDate("create_time"));
+			efi.setEmployeId(rd.getStr("employe_id"));
+			efi.setNumber(rd.getBigDecimal("number"));
+			efi.setSiteId(rd.getStr("site_id"));
+			efi.setStatus(rd.getStr("status"));
+			efi.setSuitBrand(rd.getStr("suit_brand"));
+			efi.setSuitCategory(rd.getStr("suit_category"));
+			efi.setTotal(rd.getBigDecimal("total"));
+			efi.setType(rd.getStr("type"));
+			efi.setWarning(rd.getBigDecimal("warning"));
+		}
+		
+		return efi;
+		//return getByHql("from EmployeFitting a where a.employeId = :p1", new Parameter(empId));
+	}
+
+	public EmployeFitting getEmpFitting(String empId, String fittingId) {
+		return getByHql("from EmployeFitting a where a.employeId =:p1 and a.fittingId=:p2 and a.status=:p3", new Parameter(empId, fittingId, "1"));
+	}
+
+	//待返还（确认入库）【根据备件id进行修改】
+	public void doDFH(String fittingId, double num, String employeId) {
+		SqlKit kit = new SqlKit()
+				.append("update crm_employe_fitting")
+				.append("set cjnum=cjnum+:num")
+				.append(",number=number-:num1")
+				.append("where fitting_id=:fid and employe_id=:empid and status='1'");
+		SQLQuery sqlQuery = getSession().createSQLQuery(kit.toString());
+		sqlQuery.setParameter("num", num);
+		sqlQuery.setParameter("num1", num);
+		sqlQuery.setParameter("fid", fittingId);
+		sqlQuery.setParameter("empid", employeId);
+		sqlQuery.executeUpdate();
+	}
+	
+	//调拨页面信息展示
+	public Record tiaoBo(String id, String siteId) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select ef.id as empFitId,ef.fitting_id,e.id,e.name as diaoPeople,ef.suit_brand,ef.suit_category,sf.code,sf.name as fittingName,sf.version,sf.type,ef.warning,sf.unit  from crm_employe_fitting ef");
+		sb.append(" left join crm_site_fitting sf on ef.fitting_id=sf.id");
+		sb.append(" left join crm_employe e on e.id=ef.employe_id");
+		sb.append(" where ef.id='" + id + "' and ef.site_id='" + siteId + "'");
+		return Db.findFirst(sb.toString());
+	}
+	
+	//调拨
+	public void doDB(String idO,double wa,String idT,String fId){//idO:调拨人id;idT:受拨人
+		SimpleDateFormat fm=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		Date now=new Date();
+		String date=fm.format(now);
+		String sql="update crm_employe_fitting ef set warning=warning-"+wa+",total=total-"+wa+",newest_keep_time='"+date+"' where ef.employe_id='"+idO+"' and ef.fitting_id='"+fId+"'";
+		String sqlT="update crm_employe_fitting ef set warning=warning+"+wa+",total=total+"+wa+" where ef.employe_id='"+idT+"' and ef.fitting_id='"+fId+"'";
+		Db.update(sql);//修改数量
+		if(checkYMY(idT,fId)!=null){
+			Db.update(sqlT);//修改数量
+		}
+		
+	}
+	//判断受调拨人是否有该配件
+	public Record checkYMY(String idT,String fId){
+		String sqltq="select * from crm_employe_fitting ef where ef.employe_id='"+idT+"' and ef.fitting_id='"+fId+"'";
+		return  Db.findFirst(sqltq);
+	}
+	
+	
+public Record showFittingType(String[] fittingId){
+ 	String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+ 	StringBuffer sb=new StringBuffer();
+	sb.append(" select distinct s.code,s.version,e.warning,s.name,s.id,s.customer_price from crm_site_fitting s left join crm_employe_fitting e on e.fitting_id = s.id");
+	sb.append(" where e.fitting_id='"+fittingId[0]+"' and e.employe_id='"+fittingId[1]+"' and e.site_id='"+siteId+"' and e.status='1' ");
+	return Db.findFirst(sb.toString());
+	
+	
+	
+	/*String[] empIds=empId.split(",");
+	StringBuffer sb=new StringBuffer();
+	sb.append(" select distinct s.version,e.warning,s.name,s.id from crm_site_fitting s left join crm_employe_fitting e on e.fitting_id = s.id");
+	sb.append(" where e.employe_id in ( ");
+	for(int i=0;i<empIds.length;i++){
+		if(i!=empIds.length-1){
+			sb.append(" '"+empIds[i]+"', ");
+		}else if(i==empIds.length-1){
+			sb.append(" '"+empIds[i]+"' ");
+		}
+	}
+	sb.append(" )");
+	sb.append(" and e.status='1' and s.code = '"+code+"' ");
+	Record re = Db.findFirst(sb.toString());
+	if(re!=null){
+		return re;
+	}else{
+		return null;
+	}*/
+}
+
+public void BjEmpFit(String code,String empId,String num){//工程师id,数量
+	StringBuffer sql = new StringBuffer();
+	sql.append("update crm_employe_fitting e set e.warning = (e.warning-"+num+"),e.number = (e.number+"+num+") ");
+	sql.append(" where e.employe_id in ('"+empId+"') and ");
+	sql.append(" fitting_id in (select s.id from crm_site_fitting s where s.code ='"+code+"' )");
+	Db.update(sql.toString());
+}
+
+	/**
+	 * 目前使用在pc端口，工程师库存返还，此时 amount 应该是负值。
+	 */
+	public int updateEmpFittingWarning(String empFittingId, double amount) {
+		if (amount == 0) {
+			return 0;
+		}
+
+		String op1 = amount > 0 ? "+" : "-";
+		String op2 = amount > 0 ? "-" : "+";
+		amount = Math.abs(amount);
+		SqlKit kit = new SqlKit()
+				.append("update crm_employe_fitting")
+				.append("set `warning`=`warning`" + op1 + amount)
+				.append(",`cjnum`=`cjnum`" + op2 + amount)
+				.append("where id=:id and `status`='1'");
+
+		SQLQuery sqlQuery = getSession().createSQLQuery(kit.toString());
+		sqlQuery.setParameter("id", empFittingId);
+		return sqlQuery.executeUpdate();
+	}
+
+	public int updateEmpFittingWarningWhenSave(String empFittingId, double amount) {
+		if (amount == 0) {
+			return 0;
+		}
+
+		String op1 = amount > 0 ? "+" : "-";
+		String op2 = amount > 0 ? "-" : "+";
+		amount = Math.abs(amount);
+		SqlKit kit = new SqlKit()
+				.append("update crm_employe_fitting")
+				.append("set `warning`=`warning`" + op1 + amount)
+				.append(",`number`=`number`" + op2 + amount)
+				.append("where id=:id and `status`='1'");
+
+		SQLQuery sqlQuery = getSession().createSQLQuery(kit.toString());
+		sqlQuery.setParameter("id", empFittingId);
+		return sqlQuery.executeUpdate();
+	}
+}

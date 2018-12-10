@@ -1,0 +1,397 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="decorator" content="base"/>
+<title>全部工单</title>
+<script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/easyui.css"/>
+	<script type="text/javascript" src="${ctxPlugin}/lib/select/jquery.easyui.min.js"></script>
+</head>
+<body>
+	<div class="sfpagebg bk-gray"><div class="sfpage">
+<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+			<sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_WAITEAPPLY_TAB" html='<a class="btn-tabBar "  href="${ctx }/fitting/fittingApply/getApplyList">待审核<sup  id="tab_c1">0</sup></a>'></sfTags:pagePermission>
+			<sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_WAITEOUTPUT_TAB" html='<a class="btn-tabBar current"  href="${ctx }/fitting/fittingApply/ThelibraryHeader">待出库<sup  id="tab_c2">0</sup></a>'></sfTags:pagePermission>
+			<sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_ALLAPPLY_TAB" html='<a class="btn-tabBar" href="${ctx }/fitting/fittingApply/ApplyallHeader">全部申请</a>'></sfTags:pagePermission>
+			<sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_ONROAD_TAB" html='<a class="btn-tabBar" href="${ctx }/fitting/fittingApply/fittingInRoad">备件在途<sup  id="tab_c3">0</sup></a>'></sfTags:pagePermission>
+			<p class="f-r btnWrap">
+				<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt resetSearchBtn"><i class="sficon sficon-reset"></i>重置</a>
+			</p>
+		</div>
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<div class="bk-gray pt-10 pb-5">
+					<table class="table table-search">
+						<tr>
+							<th style="width: 76px;" class="text-r">备件条码：</th>
+							<td>
+								<input type="text" class="input-text" name= "fittingCode"/>
+							</td>
+							<th style="width: 76px;" class="text-r">备件名称：</th>
+							<td>
+								<input type="text" class="input-text" name = "fittingName"/>
+							</td>
+							<th style="width: 76px;" class="text-r">保修类型：</th>
+							<td>
+								<span class="select-box">
+									<select class="select" name="warrantyType">
+										<option value="">请选择</option>
+										<option value="1">保内</option>
+										<option value="2">保外</option>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">申请人：</th>
+							<td>
+								<input type="text" class="input-text" name = "employeName"/>
+							</td>
+					
+							<td colspan="2">
+                            	<label class="text-r" style="margin-left: 24px;" >工单编号：</label>
+                                <input type="text" class="input-text" name="orderNumber"/>
+                            </td>
+								</tr>
+						<tr>
+							<th style="width: 76px;" class="text-r">联系方式：</th>
+							<td>
+								<input type="text" class="input-text" name="customerMobile" />
+							</td>
+						    <th style="width: 76px;" class="text-r">备件品牌：</th>
+                            <td>
+                                <input type="text" class="input-text" name="suitBrand"/>
+                            </td>
+
+							<th style="width: 76px;" class="text-r">适用品类：</th>
+							<td>
+								<span class="select-box">
+									<select class="select" name="suitCategory">
+										<option value="">请选择</option>
+										<c:forEach var="category" items="${listR}">
+											<option value="${category.columns.name}">${category.columns.name}</option>
+										</c:forEach>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">家电品类：</th>
+							<td>
+								<span class=" w-140">
+									<select class="select easyui-combobox" id="applianceCategory" style="width:100%;height:25px">
+										<c:forEach var="category" items="${applianceCategory}">
+											<option value="${category.columns.name}">${category.columns.name}</option>
+										</c:forEach>
+									</select>
+									<input type="hidden" name="applianceCategory"/>
+								</span>
+							</td>
+							<td colspan="2">
+                               	<label class="text-r" >备件计划状态：</label>
+                                  <span class="select-box" > 
+                                  		<select class="select" name="fapStatus">
+											<option value="">请选择</option>
+											<option value="1">已提交</option>
+											<option value="2">已入库</option>
+									</select>
+								</span>
+							</td>
+						</tr>
+					</table>
+				</div>
+			</form>
+			<div class="pt-10 pb-5 cl">
+				<div class="f-l">
+					<sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_PLOUTSTOCK_BTN" html='<a href="javascript:batchOutStock();" class="sfbtn sfbtn-opt2"><i class="sficon sficon-plck"></i>批量出库</a>'></sfTags:pagePermission>
+				</div>
+				<div class="f-r">
+					<sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_WAITEOUTPUT_SETHEADER_BTN" html='<a href="javascript:;" class="sfbtn sfbtn-opt2" id="setHeadersBtn"><i class="sficon sficon-setting"></i>表头设置</a>'></sfTags:pagePermission>
+				</div>
+				</div>
+			<div>
+				<table id="table-waitdispatch" class="table"></table>
+					<div class="cl pt-10">
+						
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+				
+			</div>
+		</div>
+		
+	</div>
+</div>
+</div>
+</div>
+
+ <!-- 表头设置 -->
+		<div class="">
+			<div>
+				<h2></h2>
+			</div>
+		</div>
+
+	<div class="popupBox drtsBox">
+		<h2 class="popupHead">
+			提示
+			<a href="javascript:closeDrtsBox();" class="sficon closePopup"></a>
+		</h2>
+		<div class="popupContainer">
+			<div class="popupMain">
+				<div class="w-520" id="errorMessage">
+				</div>
+			</div>
+			<div class="text-c mt-20 mb-15">
+				<a href="javascript:closeDrtsBox();" class="sfbtn sfbtn-opt3 w-70">关闭</a>
+			</div>
+		</div>
+	</div>
+<script type="text/javascript">
+var id = '${headerData.id}';						//服务商表格的ID
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var defaultId = '${headerData.defaultId}';			//系统表格的ID
+
+$(function () {
+    $.post("${ctx}/fitting/twoStatusCount", function (result) {
+        $("#tab_c1").text(result[0].sh);
+        $("#tab_c2").text(result[1].ck);
+        $("#tab_c3").text(result[2].zt);
+    });
+
+    $.Huitab("#tab-system .tabBar span", "#tab-system .tabCon", "current", "click", "0");
+    $.tabfold("#moresearch", ".moreCondition", 1, "click");
+    $('#setHeadersBtn').click(function () {
+        $('.addHeaders').tableHeaderSetting({
+            id: id,
+            defaultId: defaultId,
+            sfHeader: defaultHeader,
+            sfSortColumns: sortHeader,
+            tableHeaderSaveUrl: '${ctx}/operate/site/saveTableHeader'
+        }).popup();
+    });
+
+    initSfGrid();
+    $("#applianceCategory").combobox('clear');
+});
+
+function isBlank(val) {
+    if (val == null || val == '' || val == undefined) {
+        return true;
+    }
+    return false;
+}
+
+
+$(".resetSearchBtn").on("click",function(){
+    $('#applianceCategory').combobox('setValues',"");
+});
+
+function initSfGrid() {
+    $("#table-waitdispatch").sfGrid({
+        multiselect: true,
+        url: '${ctx}/fitting/fittingApply/Thelibrary',
+        sfHeader: defaultHeader,
+        sfSortColumns: sortHeader,
+        rownumbers : true,
+		gridComplete : function() {
+			_order_comm.gridNum();
+		}
+    });
+}
+
+
+function fmtOper(rowData){
+	var html = '';
+	var fitName = rowData.fitting_name;
+	if('${fns:checkBtnPermission("FITTINGMGM_FITAPPLY_WAITEOUTPUT_OUTPUT")}' === 'true'){
+        if (fitName && fitName.indexOf("'") !== -1) {
+            fitName = fitName.replace(/'/g, '');
+        }
+		html = '<a href="javascript:Thelibrary(\''+rowData.id+'\',\''+fitName+'\',\''+rowData.fitting_version+'\',\''+rowData.fitting_audit_num+'\',\''+rowData.warning+'\',\''+rowData.location+'\');"  class="oState state-qrck c-0383dc">出库</a>';
+		//html += '<a href="javascript:RejectFitting(\''+rowData.id+'\',\''+fitName+'\',\''+rowData.fitting_version+'\',\''+rowData.fitting_audit_num+'\');"  class="ml-10 c-0383dc"><i class="sficon sficon-bohui"></i>驳回</a>';
+	}
+	if('${fns:checkBtnPermission("FITTINGMGM_WAITOUTPUT_FITAPPLY_REJECT_BTN")}' === 'true'){
+        if (fitName && fitName.indexOf("'") !== -1) {
+            fitName = fitName.replace(/'/g, '');
+        }
+		html += '<a href="javascript:RejectFitting(\''+rowData.id+'\',\''+fitName+'\',\''+rowData.fitting_version+'\',\''+rowData.fitting_audit_num+'\');"  class="ml-10 c-0383dc"><i class="sficon sficon-bohui"></i>驳回</a>';
+	}	
+	return html;
+}
+//出库
+var outStocking = false;
+
+function Thelibrary(id, name, version, auditNum, warning, location) {
+    if (parseFloat(auditNum) > parseFloat(warning)) {
+        layer.msg("库存数量不足");
+    } else {
+        var content = "确认" + name + "(" + version + ")*" + auditNum +"从("+location+")出库？";
+        $('body').popup({
+            level: 3,
+            title: "备件出库",
+            content: content,
+            fnConfirm: function () {
+                if (outStocking) {
+                    return;
+                }
+                outStocking = true;
+                $.ajax({
+                    type: "POST",
+                    url: "${ctx}/fitting/fittingApply/thelibraryApply",
+                    data: {
+                        id: id
+                    },
+                    success: function (result) {
+                        if (result.code == "401") {
+                            layer.msg("审核数量要求大于0！");
+                        } else if (result.code == "402") {
+                            layer.msg("审核数量要大于审核通过待出库数量！");
+                        } else if (result.code == "200") {
+                            layer.msg("出库成功！");
+                            search();
+                        } else if (result.code === '203') {
+                            console.log(result);
+                            $("#errorMessage").html(result.errMsg);
+                            $(".drtsBox").popup();
+                        } else {
+                            layer.msg("出库失败，请检查！");
+                        }
+                    },
+                    complete: function () {
+                        outStocking = false;
+                    }
+                });
+            },
+            fnCancel: function () {
+            }
+        });
+    }
+}
+//驳回
+function RejectFitting(id, name, version, auditNum) {
+    var content = "确认" + name + "(" + version + ")*" + auditNum + "驳回？";
+    $('body').popup({
+        level: 3,
+        title: "驳回审核通过",
+        content: content,
+        fnConfirm: function () {
+            if (outStocking) {
+                return;
+            }
+            outStocking = true;
+            $.ajax({
+                type: "POST",
+                url: "${ctx}/fitting/fittingApply/RejectFittingApply",
+                data: {
+                    id: id
+                },
+                success: function (result) {
+                    if (result.code == "200") {
+                        layer.msg("驳回成功！");
+                        search();
+                    } else {
+                        layer.msg("驳回失败，请检查！");
+                    }
+                },
+                complete: function () {
+                    outStocking = false;
+                }
+            });
+        }
+    });
+}
+
+function fmtStatus(rowData) {
+    if (rowData.warranty_type == 1) {
+        return "<span>保内</span>";
+    } else if (rowData.warranty_type == 2) {
+        return "<span>保外</span>";
+    } else {
+        return "<span>---</span>";
+    }
+    return "<span>---</span>";
+}
+
+function search() {
+    var valCategory = $('#applianceCategory').combobox('getValues');
+    $("input[name='applianceCategory']").val(valCategory);
+	var pageSize = $("#pageSize").val();
+	if($.trim(pageSize)=='' || pageSize==null){
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch({
+        postData: $("#searchForm").serializeJson()
+    });
+}
+
+var batchOutStocking = false;
+function batchOutStock() {
+    var id = $('#table-waitdispatch').jqGrid('getGridParam', 'selarrrow');
+    if (id.length < 1) {
+        layer.msg("请选择数据！");
+    } else {
+        $('body').popup({
+            level: 3,
+            title: "批量出库",
+            content: "确认执行执行批量出库吗？",
+            fnConfirm: function () {
+                if (batchOutStocking) {
+                    return;
+                }
+
+                batchOutStocking = true;
+                $.ajax({
+                    type: "POST",
+                    url: "${ctx}/fitting/fittingApply/batchOutStock",
+                    data: {
+                        id: id
+                    },
+                    success: function (result) {
+                        if (result.code === "200") {
+                            layer.msg("批量出库成功！");
+                        }else if(result.code === '203'){
+                            console.log(result);
+                            $("#errorMessage").html(result.errMsg);
+                            $(".drtsBox").popup();
+						} else {
+                            layer.msg("批量出库失败！");
+                        }
+                        search();
+                    },
+                    complete: function () {
+                        batchOutStocking = false;
+                    }
+                });
+            }
+        });
+    }
+}
+
+function closeDrtsBox(){
+    search();
+    $.closeAllDiv();
+}
+
+function planStatus(rowData){
+	if(rowData.fapStatus=='0'){
+		return "待提交";
+	}
+	if(rowData.fapStatus=='1'){
+		return "已提交";
+	}
+	if(rowData.fapStatus=='2'){
+		return "已入库";
+	}
+	return "";
+}
+
+</script>
+	
+</body>
+</html>

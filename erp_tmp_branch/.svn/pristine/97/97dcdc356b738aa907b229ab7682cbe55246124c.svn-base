@@ -1,0 +1,972 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>工单录入</title>
+<meta name="decorator" content="base"/>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select2.min.css"/>
+<script type="text/javascript" src="${ctxPlugin}/lib/select2.full.min.js"></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.css"/>
+<script type="text/javascript" src="${ctxPlugin}/lib/jquery.cityselect.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/jquery.rotate.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/orderConnectionGoods.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/imgShow.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/Validform/5.3.2/Validform.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+	<script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/lodop/LodopFuncs.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/lodop/base64.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/lodop/printdesign.js"></script>
+	<script type="text/javascript" src="${ctxPlugin}/lib/formatStatus.js"></script>
+
+<style type="text/css">
+
+.imgWrap .webuploader-pick{
+	width:80px;
+	height:80px;
+	padding: 0;
+}
+
+
+.webuploader-pick img{
+	width:100%;
+	height:100%;
+	position:absolute;
+	left:0;
+	top:0;
+}
+.dropdown-clear-all{
+	line-height: 22px
+}
+
+</style>
+</head>
+
+
+<body>
+<!-- 回访结算工单-工单详情 -->
+<div class="popupBox odWrap orderdetailVb">
+	<h2 class="popupHead">
+		工单详情
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer pos-r">
+		<div class="popupMain pos-r" >
+			<input type="hidden" name= "orderId" id="orderId" value="${order.id}">
+			<div class="pcontent">
+			<div id="detialWd">
+				<div class="tabBarP" style="overflow: visible;">
+					<a href="javascript:;" class="tabswitch current">基本信息</a>
+					<a href="javascript:;" class="tabswitch ">过程信息</a>
+					<span class="f-r">处理情况：<strong class="c-fe0101">${dispStatus}</strong></span>
+				</div>
+				<form id="updateOrder" method="post" action="${ctx}/order/orderDispatch/update">
+				<input type="hidden" name="employeIds" value=""/>
+				<div class="tabCon">
+					<div class="cl mb-10 mt-10">
+					<input type="hidden" name="id" value="${order.id}">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">工单编号：</label>
+							<input type="text" id="orderNumber" class="input-text w-160 readonly dischange" readonly="readonly" name="number" value="${order.number }"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100 text-r"><em class="mark"></em>服务类型：</label>
+							<select id="serviceType"  disabled="disabled" name="serviceType" class="select w-120 readonly">
+							<c:forEach items="${fns:getServiceTypeWithDefault(order.serviceType) }" var="serm">
+								 <c:if test="${order.serviceType eq serm.columns.name }">  
+								 	 <option value="${serm.columns.name }" selected="selected" >${serm.columns.name }</option>
+								    </c:if> 
+								   
+								  <c:if test="${order.serviceType ne  serm.columns.name }">  
+								   <option value="${serm.columns.name }">${serm.columns.name }</option> 
+								    </c:if>
+							</c:forEach>
+							
+							</select>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2"><em class="mark"></em>服务方式：</label>
+								<select id="serviceMode"  disabled="disabled" name="serviceMode" class="select w-120 readonly">
+ 								<c:forEach items="${fns:getServiceModeWithDefault(order.serviceMode) }" var="serm">
+								 <c:if test="${order.serviceMode eq serm.columns.name }">  
+								 	 <option value="${serm.columns.name }" selected="selected" >${serm.columns.name }</option>
+								    </c:if> 
+								   
+								  <c:if test="${order.serviceMode ne  serm.columns.name }">  
+								   <option value="${serm.columns.name }">${serm.columns.name }</option> 
+								    </c:if>
+							</c:forEach>
+ 									</select>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">信息来源：</label>
+							<select id="origin" name="origin"  disabled="disabled" class="select w-130  hide">
+							<c:choose>
+							<c:when test="${fn:contains(listoriginlist,order.origin)}">
+										
+							<option value="">请选择</option>
+								<c:forEach items="${listorigin}" var="serm">
+								 <c:if test="${order.origin eq serm.columns.name }">  
+								 	 <option value="${serm.columns.name }" selected="selected" >${serm.columns.name }</option>
+								    </c:if> 
+		
+								  <c:if test="${order.origin ne  serm.columns.name }">  
+								   <option value="${serm.columns.name }">${serm.columns.name }</option> 
+								    </c:if>   
+							</c:forEach>
+								 
+							</c:when>
+							
+							<c:otherwise>
+							<option value="">请选择</option>
+							 <option value="${order.origin}" selected="selected">${order.origin }</option>
+							<c:forEach items="${listorigin}" var="serm">
+								   <option value="${serm.columns.name }">${serm.columns.name }</option>    
+							</c:forEach>
+							
+							</c:otherwise>
+							
+							</c:choose>
+				
+							</select>
+						</div>
+					</div>
+					<div class="line"></div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1"><em class="mark"></em>用户姓名：</label>
+							 <input type="text" id="customerName" class="input-text w-160 readonly" readonly="readonly" name="customerName"  value="${order.customerName }"/>
+							<input type="hidden" class="input-text w-140" id="sign"   value=""/> 
+							<input type="hidden" class="input-text w-140"  id="siteMsgNums" value=""/> 
+						</div>
+						<div class="f-l pos-r pl-100">
+							<span class="lb w-100 text-r" id="mobileType">
+								<span class="f-r pr-5"><em class="mark"></em>:</span>
+								<select class="lb-sel f-r readonly select" style="width:75px" disabled="disabled" id="mobileOrtel">
+									<option value="1" <c:if test="${order.customerMobile.length() eq 11 }">selected="selected"</c:if> >手机号码</option>
+									<option value="2" <c:if test="${order.customerMobile.length() ne 11 }">selected="selected"</c:if> >固定电话</option>
+								</select>
+								<!-- <em class="mark f-r">*</em> -->
+							</span>
+							<input type="text" id="customerMobile" class="input-text w-120 readonly" readonly="readonly" name="customerMobile" value="${order.customerMobile }"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">联系方式2：</label>
+							<input type="text" id ="customerTelephone" class="input-text w-120 readonly" readonly="readonly" name="customerTelephone"  value="${order.customerTelephone }"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">联系方式3：</label>
+							<input type="text" id="customerTelephone2" class="input-text w-130 readonly" readonly="readonly" name="customerTelephone2" value="${order.customerTelephone2 }"/>
+						</div>
+					</div>
+					<div class="cl mt-10 mb-10">
+						<div class="pos-r txtwrap1" id="pcd">
+							<label class="lb lb1"><em class="mark"></em>详细地址：</label>
+						<span class="select-box w-90 mustfill" id="showProvince" style="display:none">
+						<select class="prov select" id="province"></select>
+						</span>
+						<span class="select-box w-90 mustfill " id="showCity" style="display:none">
+	                    <select class="city select" id="city" disabled="disabled"></select>
+						</span>
+						<span class="select-box w-90 mustfill" id="showArea" style="display:none">
+	                    <select class="dist select" id="area" disabled="disabled"></select>
+						</span>
+							<c:if test="${order.province eq order.city }">
+								<input type="text" style="width:588px;" class="input-text w-430 readonly" readonly="readonly" id="customerAddress1" name="customerAddress1" value="${order.city }${order.area }${order.customerAddress }"/>
+							</c:if>
+							<c:if test="${order.province ne order.city }">
+								<input type="text" style="width:588px;" class="input-text w-430 readonly" readonly="readonly" id="customerAddress1" name="customerAddress1" value="${order.province }${order.city }${order.area }${order.customerAddress }"/>
+							</c:if>
+							<input type="hidden" id="customerAddress" name="customerAddress" value="${order.customerAddress}"/>
+							<input type="hidden" id="lnglat" name="customerLnglat" value="${order.customerLnglat }"/>
+						</div>
+					</div>
+					<div class="line"></div>
+					<div class="cl mt-10" id="styleMark">
+						<div class="f-l pos-r txtwrap1" style="height:26px">
+							<label class="lb lb1"><em class="mark"></em>家电品牌：</label>
+					 		<select disabled="disabled"  class="select w-160 readonly" style="position: absolute;z-index: 1;" class="choose" onmousedown="if(this.options.length>6){this.size=8}" onblur="this.size=0" onchange="this.size=0" name="applianceBrand" id="applianceBrand" datatype="*" nullmsg="请选择品牌！">
+							  <c:choose>
+							<c:when test="${fn:contains(brandlist,order.applianceBrand)}">
+									 	 <option value="">请选择</option>	
+								<c:forEach items="${brand}" var="ba" varStatus="cast">
+								  <c:if test="${order.applianceBrand eq ba.value  }">
+								 	 <option value="${ba.key }" selected="selected">${ba.value }</option>
+								    </c:if> 
+								    <c:if test="${order.applianceBrand ne ba.value }"> 
+								 	 <option value="${ba.key }">${ba.value }</option>
+								    </c:if>
+								</c:forEach>
+							</c:when>
+							
+							
+							<c:otherwise>
+							 <option value="">请选择</option>	
+							<option value="${order.applianceBrand}" selected="selected">${order.applianceBrand}</option>
+							<c:forEach items="${brand}" var="ba" varStatus="cast">
+							 <option value="${ba.key }">${ba.value }</option>
+							</c:forEach>
+							</c:otherwise>
+							</c:choose>
+								</select> 
+							<input type="text" id="applanceBrandMirror" class="input-text w-160 readonly hide" disabled="disabled" value="${order.applianceBrand }"/>
+						</div>
+						<div class="f-l pos-r pl-100" style="height:26px">
+							<label class="lb w-100"><em class="mark"></em>家电品类：</label>
+							<select class="select w-120 readonly" style="position: absolute;z-index: 1;" class="choose" onmousedown="if(this.options.length>6){this.size=8}" onblur="this.size=0" onchange="this.size=0" name="applianceCategory" id="applianceCategory" datatype="*" nullmsg="请选择品类！"  disabled="disabled">
+								 		 <c:choose>
+							<c:when test="${fn:contains(catelist,order.applianceCategory)}">
+									 	 <option value="">请选择</option>
+								 
+								 <c:forEach items="${category}" var="cad" varStatus="cast1">
+								 	 <c:if test="${order.applianceCategory eq cad.columns.name  }">
+								 		 <option value="${cad.columns.name }" selected="selected">${cad.columns.name}</option>
+								     </c:if> 
+								   
+								    <c:if test="${order.applianceCategory ne cad.columns.name }"> 
+								 		 <option value="${cad.columns.name }">${cad.columns.name }</option>
+								    </c:if>
+								 </c:forEach>
+							</c:when>
+							
+							
+							<c:otherwise>
+							<option value="">请选择</option>
+							 <option value="${order.applianceCategory}" selected="selected">${order.applianceCategory}</option>
+							 <c:forEach items="${category}" var="cad" varStatus="cast1">
+							 <option value="${cad.columns.name }">${cad.columns.name }</option>
+							 </c:forEach>
+							</c:otherwise>
+							</c:choose>
+							</select>
+							<input type="text" id="applianceCategoryMirror" class="input-text w-120 readonly hide" disabled="disabled" value="${order.applianceCategory }"/>
+							<%-- <input type="text" class="input-text w-110 readonly" disabled="disabled" name="applianceCategory" value="${order.applianceCategory }"/> --%>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">预约日期：</label>
+							<input id="promiseTime" type="text" onfocus="WdatePicker({minDate: '%y-%M-%d' })" class="input-text w-120 readonly" disabled="disabled" name="promiseTime" value="<fmt:formatDate value='${order.promiseTime }' pattern='yyyy-MM-dd'/>"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">时间要求：</label>
+							<select id="promiseLimit" class="select w-130 readonly" name="promiseLimit"  disabled="disabled">
+							<option value="">请选择</option>
+								<c:forEach items="${proLimitList}" var="serm">
+								 <c:if test="${order.promiseLimit eq serm }">  
+								 	 <option value="${serm }" selected="selected" >${serm }</option>
+								    </c:if> 
+								   
+								  <c:if test="${order.promiseLimit ne  serm }">  
+								   <option value="${serm }">${serm }</option> 
+								    </c:if>
+							</c:forEach>
+							</select>
+						</div>
+					</div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1 h-50">
+							<label class="lb lb1"><em class="mark"></em>服务描述：</label>
+							<textarea type="text" class="input-text w-380 h-50 readonly" readonly="readonly" id="customerFeedback" name="customerFeedback">${order.customerFeedback}</textarea>
+						</div>
+						<div class="f-l pos-r txtwrap2 h-50">
+							<label class="lb lb2">备注：</label>
+							<textarea type="text" class="input-text h-50 w-340 readonly" readonly="readonly" name="remarks" >${order.remarks}</textarea>
+						</div>
+					</div>
+					
+					
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">产品型号：</label>
+							<input type="text" class="input-text w-160 readonly" readonly="readonly" name="applianceModel" value="${order.applianceModel}"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100">产品数量：</label>
+							<input type="text" class="input-text w-120 readonly" readonly="readonly" name="applianceNum" value="${order.applianceNum }"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">内机条码：</label>
+							<input type="text" class="input-text w-120 readonly" readonly="readonly" name="applianceBarcode" value="${order.applianceBarcode}"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">外机条码：</label>
+							<input type="text" class="input-text w-130 readonly" readonly="readonly" name="applianceMachineCode" value="${order.applianceMachineCode}"/>
+						</div>
+					</div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">购买日期：</label>
+							<input type="text" onfocus="WdatePicker({startDate:'1970-01-01'})" class="input-text w-160 readonly ptime" readonly="readonly" name="applianceBuyTime" value="<fmt:formatDate value='${order.applianceBuyTime }' pattern='yyyy-MM-dd'/>"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100 text-r">购机商场：</label>
+							<input type="text" name="pleaseReferMall" class="input-text w-120 readonly" readonly="readonly" value="${order.pleaseReferMall}">
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">保修类型：</label>
+							<%-- <input type="text" class="input-text w-140 readonly" disabled="disabled" name="warrantyType" value="${order.warrantyType}"/> --%>
+							
+								<select class="select w-120 readonly " name="warrantyType"  disabled="disabled" id="warrantyType">
+									<option value="">请选择</option>
+									<c:if test="${order.warrantyType eq '1' }">
+										<option value="1" selected = "selected">保内</option>
+										<option value="2">保外</option>
+									</c:if>
+									<c:if test="${order.warrantyType eq '2' }">
+										<option value="1">保内</option>
+										<option value="2" selected = "selected">保外</option>
+									</c:if>
+									<c:if test="${order.warrantyType ne '1' && order.warrantyType ne '2'}">
+										<option value="1">保内</option>
+										<option value="2">保外</option>
+									</c:if>
+								</select>
+							
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">重要程度：</label>
+							<select class="select w-130 readonly" name="level" id="level"  disabled="disabled">
+								<option value="">请选择</option>
+								<option value="1" <c:if test="${order.level eq '1' }">selected="selected"</c:if>>紧急</option>
+								<option value="2" <c:if test="${order.level eq '2' }">selected="selected"</c:if>>一般</option>
+							</select>
+							
+						</div>
+					</div>
+					<div class="mt-10 cl">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">报修时间：</label>
+							<input type="text" class="input-text w-160 readonly dischange"  readonly="readonly" name="repairTime" value="<fmt:formatDate value='${order.repairTime }' pattern='yyyy-MM-dd HH:mm:ss'/>"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100 text-r">登记人：</label>
+							<input type="text" class="input-text w-120 readonly dischange"  readonly="readonly" name="messengerName" value="${order.xm}"/>
+						</div>
+					</div>
+				</div>
+				</form>
+				
+				<div class="tabCon pt-10">
+					<div class="processWrap">
+						<c:forEach var="pros" items="${fns:getOrderProcess(order.processDetail)}">
+							<p class="processItem">
+								<span class="time">${pros.time}</span>
+								<span>${pros.content}</span>
+							</p>
+						</c:forEach>
+					</div>
+				</div>
+			</div>
+			<div id="serveFb" class="mt-25">
+				<div class="tabBarP">
+					<a href="javascript:;" class="tabswitch current">服务反馈</a>
+					<a href="javascript:showSQMsg();" class="tabswitch ">备件申请</a>
+					<a href="javascript:showSYMsg();" class="tabswitch ">备件使用</a>
+					<a href="javascript:showOldFitting();" class="tabswitch">旧件信息</a>
+					<a href="javascript:;" class="tabswitch">回访</a>
+					<a href="javascript:showGoodsMsg();" class="tabswitch">商品信息</a>
+				</div>
+				<div class="tabCon">
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">服务工程师：</label>
+							<input name="emN" type="text" class="input-text w-160 readonly"  readonly="readonly"  value="${order.employeName}" title="手机号：${msg2Mobiles}"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100">服务状态：</label>
+							<input type="text" name="fankui" class="input-text w-120 readonly" readonly="readonly" value="${dispStatus}"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">故障现象：</label>
+							<input type="text" name="fankui" class="input-text w-120 readonly" readonly="readonly" value="${order.malfunctionType}"/>
+						</div>
+					</div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">收费总额：</label>
+							<div class="priceWrap w-140 readonly">
+								<input type="text" name="fankui" class="input-text readonly" readonly="readonly"  value="${fns:getOrderTotalFee(order.auxiliaryCost, order.serveCost, order.warrantyCost)}"/>
+								<span class="unit">元</span>
+							</div>
+						</div>
+						<div class="f-l pl-10 ">
+							<label class="f-l">（辅材收费：</label>
+							<div class="priceWrap w-80 readonly f-l">
+								<input type="text" name="fankui" class="input-text readonly" readonly="readonly" value="${order.auxiliaryCost}" />
+								<span class="unit">元</span>
+							</div>
+						</div>
+						<div class="f-l pl-10 ">
+							<label class="f-l">服务收费：</label>
+							<div class="priceWrap w-80 readonly f-l">
+								<input type="text" name="fankui"  class="input-text readonly"  readonly="readonly" value="${order.serveCost}" />
+								<span class="unit">元</span>
+							</div>
+						</div>
+						<div class="f-l pl-10 ">
+							<label class="f-l">延保收费：</label>
+							<div class="priceWrap w-80 readonly f-l">
+								<input type="text" name="fankui" class="input-text readonly" readonly="readonly" value="${order.warrantyCost}" />
+								<span class="unit">元</span>
+							</div>
+						</div>
+						<span class="pd-5 f-l">）</span>
+						<c:if test="${not empty collectionslist}">
+							<c:forEach items="${collectionslist}" var="col">
+								<c:set value="${sum + col.columns.payment_amount}" var="sum"/>
+							</c:forEach>
+							<div class="f-l lh-26">
+								<div> 无现金收款：${sum}元
+									<a class="proofImg c-0383dc" id="imgshow">凭证
+										<c:forEach items="${collectionslist}" var="col">
+											<c:if test="${not empty col.columns.imgs}">
+												<img src="${commonStaticImgPath}${col.columns.imgs}"/>
+											</c:if>
+										</c:forEach>
+									</a>
+								</div>
+							</div>
+						</c:if>
+					</div>
+
+					<div class="cl mt-10">
+						<div class="pos-r txtwrap1">
+							<label class="lb lb1">反馈内容：</label>
+							<div class="readonly processWrap2" style="width:807px">
+								<c:forEach var="fbItems" items="${feedbackInfo.feedbackResults}">
+									<p class="processItem">
+										<span class="time">${fbItems.feedbackTime} </span>
+										<span>${fbItems.feedbackName }：${fbItems.feedbackResults }</span>
+									</p>
+								</c:forEach>
+							</div>
+						</div>
+					</div>
+					<div class="cl mt-10">
+						<div class="pos-r txtwrap1 hm-80" id="Imgprocess2">
+							<label class="lb lb1">过程图片：</label>
+							<c:forEach var="fbImgItems" items="${feedbackInfo.feedbackImgs}">
+								<c:if test="${not empty fbImgItems.fbImgPath }">
+									<c:forEach var="fbImgItem" items="${fbImgItems.fbImgPath}">
+										<div class="f-l mr-10">
+											<div class="imgWrap">
+												<img src="${commonStaticImgPath}${fbImgItem}">
+												<p class="lh-20">${fbImgItems.fbImgTime}</p>
+											</div>
+										</div>
+									</c:forEach>
+								</c:if>
+							</c:forEach>
+						</div>
+					</div>
+				</div>
+				
+				<div class="tabCon">
+					<table id="pjsq" class="table table-border table-bordered table-bg table-relatedorder">
+						<caption>工单关联配件申请</caption>
+						<thead>
+							<tr>
+								<th class="w-180">备件条码</th>
+								<th class="w-260">备件名称</th>
+								<th class="w-120">备件型号</th>
+								<th class="w-50">数量</th>
+								<th class="w-70">状态</th>
+							</tr>
+						</thead>
+					</table>
+					<div class="cl mt-10 pos-r txtwrap1 showimg">
+					</div>
+				</div>
+				<div class="tabCon">
+					<div class="cl text-c">
+						<span class="caption_lb">工单关联配件使用</span>
+						<!-- <input onclick="useFit()" type="button" class="btn-usebj mr-20 w-70 mt-5 sfbtn sfbtn-opt f-r pos-r"  value="备件使用" /> -->
+					</div>
+					<div class="" style="max-height:140px;overflow:auto;">
+						<table id="pjsy" class="table table-border table-bordered table-bg table-relatedorder">
+							<thead>
+							<tr>
+								<th class="w-180">备件条码</th>
+								<th class="w-260">备件名称</th>
+								<th class="w-120">备件型号</th>
+								<th class="w-90">最新入库价格</th>
+								<th class="w-80">工程师价格</th>
+								<th class="w-70">零售价格</th>
+								<th class="w-50">数量</th>
+								<th class="w-70">收费金额</th>
+								<th class="w-70">状态</th>
+							</tr>
+							</thead>
+						</table>
+					</div>
+				</div>
+				<div class="tabCon">
+					<div style="width: 920px;overflow: auto;">
+						<table class="table table-border table-bordered table-bg table-relatedorder">
+							<caption>工单关联旧件信息</caption>
+							<thead>
+								<tr>
+									<th class="w-160">旧件条码</th>
+									<th class="w-150">旧件名称</th>
+									<th class="w-160">旧件型号</th>
+									<th class="w-70">旧件品牌</th>
+									<th class="w-70">是否原配</th>
+									<th class="w-70">登记数量</th>
+									<th class="w-70">状态</th>
+									<th class="w-120">登记时间</th>
+								</tr>
+							</thead>
+							<tbody class="oldtbody">
+							</tbody>
+						</table>
+					</div>
+					<div class="cl mt-10 pos-r txtwrap1" id="oldfittingimg">
+					</div>
+				</div>
+
+				<div class="tabCon">
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">交回卡单：</label>
+							<input type="text" class="input-text w-160 readonly" readonly="readonly" value="${extendedOrder.translatedReturnCard}"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100">服务态度：</label>
+							<input type="text" class="input-text w-120 readonly" readonly="readonly" value="${extendedCallback.translatedServiceAttitude}"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">安全评价：</label>
+							<input type="text" class="input-text w-120 readonly" readonly="readonly" value="${extendedCallback.translatedSafeEval}"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">多次上门：</label>
+							<input type="text" class="input-text w-130 readonly" readonly="readonly" value="${extendedCallback.translatedMultipleDropIn}"/>
+						</div>
+					</div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">保修类型：</label>
+							<input type="text" class="input-text w-160 readonly" readonly="readonly" value="${extendedOrder.translatedWarrantyType}"/>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100">是否交款：</label>
+							<input type="text" class="input-text w-120 readonly" readonly="readonly" value="${extendedOrder.translatedWhetherCollection}"/>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">交款总额：</label>
+							<div class="priceWrap w-120 readonly">
+								<input type="text" class="input-text readonly" readonly="readonly" value="${fns:getOrderTotalFee(order.auxiliaryCost, order.serveCost, order.warrantyCost)}"/>
+								<span class="unit">元</span>
+							</div>
+						</div>
+						<div class="f-l pos-r txtwrap2">
+							<label class="lb lb2">回访总额：</label>
+							<div class="priceWrap w-130 readonly">
+								<input type="text" class="input-text readonly" readonly="readonly" value="${order.callbackCost}"/>
+								<span class="unit">元</span>
+							</div>
+						</div>
+						
+					</div>
+					<div class="cl mt-10">
+						<div class="f-l pos-r txtwrap1">
+							<label class="lb lb1">实收总额：</label>
+							<div class="priceWrap w-160 readonly">
+								<input type="text" class="input-text readonly" readonly="readonly" value="${order.confirmCost}"/>
+								<span class="unit">元</span>
+							</div>
+						</div>
+						<div class="f-l pos-r pl-100">
+							<label class="lb w-100">回访结果：</label>
+							<input type="text" class="input-text w-120 readonly" readonly="readonly" value="${extendedCallback.translatedResult}"/>
+						</div>
+					</div>
+					
+					<div class="pos-r mt-10 txtwrap1">
+						<label class="lb lb1">回访内容：</label>
+						<c:if test="${cbInfo.columns.remarks eq null}">
+							<textarea class="textarea h-50 readonly" readonly="readonly" style="width:807px"></textarea>
+						</c:if>
+						<c:if test="${cbInfo.columns.remarks ne null}">
+							<textarea class="textarea h-50 readonly" readonly="readonly" style="width:807px"><fmt:formatDate value='${cbInfo.columns.create_time}' pattern='yyyy-MM-dd HH:mm:ss'/>  ${userLogna} : ${cbInfo.columns.remarks}</textarea>
+						</c:if>
+					</div>
+				</div>
+				<div class="tabCon">
+					<div style="width: 920px;overflow: auto;">
+						<table class="table table-border table-bordered table-bg table-relatedorder">
+							<caption>工单关联商品销售</caption>
+							<thead>
+								<tr>
+									<th class="w-160">订单编号</th>
+									<th class="w-200">商品名称</th>
+									<th class="w-70">购买数量</th>
+									<th class="w-70">入库价格</th>
+									<th class="w-70">成交价</th>
+									<th class="w-70">成交总额</th>
+									<th class="w-70">实收金额</th>
+									<th class="w-70">提成金额</th>
+									<th class="w-120">销售人员</th>
+									<th class="w-150">登记时间</th>
+									<th class="w-120">状态</th>
+								</tr>
+							</thead>
+							<tbody class="oldtbody" id="goodsMsg">
+							</tbody>
+						</table>
+					</div>
+				</div>
+			
+			</div>
+			
+			</div>
+				<div class="btnMenubox pb-80">
+				<c:if test="${'7' ne order.orderType}">
+					<sfTags:pagePermission authFlag="ORDER_MODORDER_BTN_OTHERS" html='<input id="xggd" class="sfbtn sfbtn-opt" value="修改工单" type="button" />'></sfTags:pagePermission>
+					<input class="sfbtn sfbtn-opt sbtn goback hide" type="button" value="取消" onclick="goback()" />
+				</c:if>
+				<sfTags:pagePermission authFlag="SECONDORDER_WAITCALLBACKSECONDORDER_DETAIL_CALLBACK_BTN" html='<a class="sfbtn sfbtn-opt3 sbtn w-70 mr-5" onclick="showCallbackForm()">回访</a>'></sfTags:pagePermission>
+				<sfTags:pagePermission authFlag="SECONDORDER_WAITCALLBACKSECONDORDER_DETAIL_CALLBACK_BTN" html='<a class="sfbtn sfbtn-opt3 sbtn w-70 mr-5" onclick="showCallbackForm()">重新反馈封单</a>'></sfTags:pagePermission>
+				
+				</div>
+			
+		</div>
+		
+	</div>
+</div>
+
+
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+<script type="text/javascript">
+var siteId = "${order.siteId}";
+$(function(){
+	$(".closePopup").bind('click', function() {
+		if (parent.closeOrderdhfForm) {
+			parent.closeOrderdhfForm();
+		}
+	});
+
+	$("input[name='promiseTime']").attr("onfocus","");
+	$("input[name='applianceBuyTime']").attr("onfocus","");
+
+	$("#origin").select2();
+	$(".selection").css("width","130px");
+
+	$('#applianceBrand').select2();
+	$("#applianceBrand").next(".select2").find(".selection").css("width","160px");
+
+	$('#applianceCategory').select2();
+	$("#applianceCategory").next(".select2").find(".selection").css("width","120px");
+	
+ /*    $('.dropdown-sin-2').dropdown({
+        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+        choice: function() {
+        }
+    });
+ */
+    $.Huitab("#detialWd .tabBarP .tabswitch","#detialWd .tabCon","current","click","0");
+	$.Huitab("#serveFb .tabBarP .tabswitch","#serveFb .tabCon","current","click","0");
+    $('.orderdetailVb').popup({fixedHeight:false});
+
+    $(".sdefined0 .input-text").change(function(){
+        var sum = 0;
+        $("input.autoCal").each(function(){
+            if(testCash($(this).val())){
+                sum = numAdd(sum, $(this).val());
+            }else if($(this).val() !=''){
+                $(this).val("");
+            }
+            $("#total_cost").val(sum);
+        });
+    });
+    
+});
+
+function cancerBox(){
+	$.closeDiv($('.showzjfddiv'), true);
+}
+
+function showCallbackForm() {
+	openedCallbackFormIndex = layer.open({
+		type: 2,
+		content: '${ctx}/order/orderParentCallback/newSecondCallBack?id=${order.id}',
+		title: false,
+		area: ['100%', '100%'],
+		closeBtn: 0,
+		shade: 0,
+		fadeIn: 0,
+		anim: -1
+	});
+}
+//获取工单关联备件申请信息
+function showSQMsg(){
+	var orderNumber = "${order.number}";
+	var str="";
+	var imgstr="";
+	var img = [];
+	$.ajax({
+		url:"${ctx}/order/showSQMsg",
+		data:{orderNumber:orderNumber,remark:'SQMsg',siteId:siteId},// 备注信息 wxz 暂时取消，服务中的工单、待回访、待结算的工单中备件信息分为：使用的配件和申请的配件
+		dataType:'json',
+		async:false,
+		success:function(result){
+			$("#pjsq").html("<caption>工单关联配件申请</caption>"+
+					"<thead>"+
+					"<tr>"+
+						"<th class='w-180'>备件条码</th>"+
+						"<th class='w-260'>备件名称</th>"+
+						"<th class='w-120'>备件型号</th>"+
+						"<th class='w-50'>数量</th>"+
+						"<th class='w-70'>状态</th>"+
+					"</tr>"+
+				"</thead>");
+			$(".showimg").html("<label class='lb lb1'>备件图片：</label>");
+
+			if(result.list.length>0){
+			$.each(result.list,function(index,val){
+				str+="<tr>"+
+				"<td class='w-140'>"+val.columns.fitting_code+"</td>"+
+				"<td class='w-300'>"+val.columns.fitting_name+"</td>"+
+				"<td class='w-120'>"+val.columns.fitting_version+"</td>"+
+				"<td class='w-50'>×"+val.columns.fitting_apply_num+"</td>";
+				if(val.columns.status=="0"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-verifyPass'></i>待审核</td>";
+				}else if(val.columns.status=="1"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-waitVerify'></i>缺件中</td>";
+				}else if(val.columns.status=="2"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-waitVerify'></i>待出库</td>";
+				}else if(val.columns.status=="3"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-waitVerify'></i>待领取</td>";
+				}else if(val.columns.status=="4"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-waitVerify'></i>已完成</td>";
+				}else if(val.columns.status=="5"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-waitVerify'></i>已取消</td>";
+				}else if(val.columns.status=="6"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-waitVerify'></i>未通过</td>";
+				}
+					str+="</tr class='w-100'>";
+				img = (val.columns.fitting_img).split(",");
+				for(var i=0;i<img.length;i++){
+					if(img[i]!=""&&img[i]!=null){
+						imgstr+=("<div class='f-l mr-10'><div class='imgWrap'><img src='${commonStaticImgPath}"+img[i]+"'></div></div>");
+					}
+				}
+			});
+					if(imgstr==""){
+					imgstr+=("<div class='f-l mr-10'><div class='imgWrap'><img src='${ctxPlugin}/static/h-ui.admin/images/img-default.png'></img></div></div>");
+				}
+			}else{
+				$(".showimg").html("");
+			}
+
+			$("#pjsq").append(str);
+            jQuery.getScript("${ctxPlugin}/static/h-ui.admin/js/imgShow.js", function(data, status, jqxhr) {
+                $(".showimg").append(imgstr);
+                $('.showimg').imgShow();
+            });
+			return;
+		}
+
+	});
+}
+
+//获取工单关联备件使用信息
+function showSYMsg(){
+	var orderNumber = "${order.number}";
+	var str="";
+	var imgstr="";
+	var img = [];
+	$.ajax({
+		url:"${ctx}/order/showSYMsg",
+		data:{orderNumber:orderNumber,remark:'SYMsg',siteId:siteId},// 备注信息 wxz 暂时取消，服务中的工单、待回访、待结算的工单中备件信息分为：使用的配件和申请的配件
+		dataType:'json',
+		async:false,
+		success:function(result){
+			$("#pjsy").html(
+					"<thead>"+
+					"<tr>"+
+						"<th class='w-180'>备件条码</th>"+
+						"<th class='w-260'>备件名称</th>"+
+						"<th class='w-120'>备件型号</th>"+
+						"<th class='w-90'>最新入库价格</th>"+
+						 "<th class='w-80'>工程师价格</th>"+
+						 "<th class='w-70'>零售价格</th>"+
+						"<th class='w-50'>数量</th>"+
+						"<th class='w-70'>收费金额</th>"+
+                        "<th class='w-100'>使用类型</th>" +
+						"<th class='w-70'>状态</th>"+
+						"<th class='w-70'>操作</th>"+
+					"</tr>"+
+				"</thead>");
+			/* $(".showimg").html("<label class='lb lb1'>备件图片：</label>"); */
+			if(result.list.length>0){
+			$.each(result.list,function(index,val){
+				str+="<tr>"+
+				"<td class='w-140'>"+val.columns.fitting_code+"</td>"+
+				"<td class='w-300'>"+val.columns.fitting_name+"</td>"+
+				"<td class='w-120'>"+val.columns.fitting_version+"</td>"+
+				"<td class='w-90'>"+val.columns.site_price+"</td>"+
+                "<td class='w-80'>"+val.columns.employe_price+"</td>"+
+                "<td class='w-70'>"+val.columns.customer_price+"</td>"+
+				"<td class='w-50'>×"+val.columns.used_num+"</td>"+
+				"<td class='w-70'>"+val.columns.collection_money+"</td>";
+                    str+="<td class='text-c  w-100'>"+fmtVerificationTypeForOrder(val)+"</td>";
+				if(val.columns.status=="1"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-verifyPass'></i>待核销</td>";
+				}else if(val.columns.status=="2"){
+					str+="<td class='c-fe0101 w-70'><i class='oState state-waitVerify'></i>已核销</td>";
+				}else if(val.columns.status=="3"){
+                    str+="<td class='text-c c-fe0101 w-70'><i class='oState state-verify2nopass'></i>已拒绝</td>";
+                }
+                if(val.columns.status=="2"){//已核销，不显示删除
+                    str+="<td class='text-c c-fe0101 w-70'>---</td>";
+                }else{
+                    str+="<td class='text-c c-fe0101 w-70'><a onclick='deleteOneFit(\""+val.columns.id+"\",\""+val.columns.fitting_name+"\",\""+val.columns.used_num+"\")'><i class='sficon sficon-del'></i></a></td>";
+                }
+			});
+			}else{
+				$(".showimg").html("");
+			}
+
+			$("#pjsy").append(str);
+			return;
+		}
+
+	});
+}
+
+//获取工单关联旧件信息
+function showOldFitting(){
+	var orderNumber = "${order.number}";
+	var str="";
+	var imgstr="";
+	$.ajax({
+		url:"${ctx}/order/showOldFitting",
+		data:{orderNumber:orderNumber,siteId:siteId},
+		dataType:'json',
+		async:false,
+		success:function(result){
+			$(".oldtbody").empty();
+			$("#oldfittingimg").html("<label class='lb lb1'>旧件图片：</label>");
+			if(result.list.length>0){
+			$.each(result.list,function(index,val){
+				str+="<tr>"+
+				"<td class='w-180'>"+val.columns.code+"</td>"+
+				"<td class='w-260'>"+val.columns.name+"</td>"+
+				"<td class='w-120'>"+val.columns.version+"</td>"+
+				"<td class='w-100'>"+val.columns.brand+"</td>";
+				if(val.columns.yrpz_flag=="1"){
+					str+="<td class='w-70'>是</td>";
+				}else if(val.columns.yrpz_flag=="2"){
+					str+="<td class='w-70'>否</td>";
+				}
+				str+= "<td class='w-50'>×"+val.columns.num+"</td>";
+				if(val.columns.status=="0"){
+					str+="<td class='w-70'>已登记</td>";
+				}else if(val.columns.status=="1"){
+					str+="<td class='w-70'>已入库</td>";
+				}else if(val.columns.status=="3"){
+					str+="<td class='w-70'>已返厂</td>";
+				}else if(val.columns.status=="4"){
+					str+="<td class='w-70'>已报废</td>";
+				}
+				str+= "<td class='w-50'>"+val.columns.cateTime+"</td>";
+					str+="</tr class='w-100'>";
+
+                var images=val.columns.img.split(",");
+                for(var i=0;i<images.length;i++){
+                    imgstr+= "<div class='f-l mr-10'><div class='imgWrap w-120 text-c'><img src='${commonStaticImgPath}"+images[i]+"'></img>";
+                    imgstr+= "<p class='lh-20'>"+val.columns.cateTime+" </p></div></div>";
+                }
+			});
+
+			}else{
+				$("#oldfittingimg").html("");
+			}
+
+
+			$(".oldtbody").append(str);
+            jQuery.getScript("${ctxPlugin}/static/h-ui.admin/js/imgShow.js", function(data, status, jqxhr) {
+                $("#oldfittingimg").append(imgstr);
+                $('#oldfittingimg').imgShow();
+            })
+			return;
+		}
+
+	});
+}
+
+function showGoodsMsg(){
+	var orderNumber = "${order.number}";
+	$.ajax({
+		url:"${ctx}/order/showGoodsMsg",
+		data:{orderNumber:orderNumber,siteId:siteId},
+		dataType:'json',
+		async:false,
+		success:function(data){
+			var html="";
+			if(data.length > 0){
+				for(var i=0;i<data.length;i++){
+					var dataJson = eval(data[i].columns.detailList);
+					html+="<tr>" +
+                    "<td title='"+data[i].columns.number+"'>"+data[i].columns.number+"</td>" ;
+                    var ht1="";
+                    var ht2="";
+                    var ht3="";
+                    var ht4="";
+                    var ht5="";
+					for(var j=0;j<dataJson.length;j++){
+						var goods = dataJson[j].columns;
+						ht1+="<div style='width:195px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='"+goods.good_name+"'>"+goods.good_name+"</div>";
+						ht2+="<div title='"+goods.purchase_num+"'>"+goods.purchase_num+"</div>";
+						ht3+="<div title='"+goods.site_price+"'>"+goods.site_price+"</div>";
+						ht4+="<div title='"+goods.real_amount+"'>"+goods.real_amount+"</div>";
+						if(j<dataJson.length-1){
+							ht5+="<div style='border-bottom:1px solid #ccc;' title='"+goods.sales_commissions+"'>"+goods.sales_commissions+"</div>";
+						}else{
+							ht5+="<div title='"+goods.sales_commissions+"'>"+goods.sales_commissions+"</div>";
+						}
+					}
+					html+="<td>"+ht1+"</td>"+
+					"<td style='border-left:none;'>"+ht2+"</td>"+
+					"<td style='border-left:none;'>"+ht3+"</td>"+
+					"<td style='border-left:none;'>"+ht4+"</td>";
+                    html+="<td title='"+data[i].columns.real_amount+"'>"+data[i].columns.real_amount+"</td>" +
+                    "<td title='"+data[i].columns.confirm_amount+"'>"+data[i].columns.confirm_amount+"</td>";
+					html+="<td style='padding-left:0px;padding-right:0px;' class='bb h-30 pd-5'>"+ht5+"</td>";
+                    html+= "<td  title='"+data[i].columns.placing_name+"'>"+data[i].columns.placing_name+"</td>" +
+	                    "<td >"+formatDate(data[i].columns.placing_order_time)+"</td>" +
+	                    "<td style='color:red;'>"+goodsOrderStatus(data[i].columns.status,goods.outstock_type,goods.stocks,goods.purchase_num,goods.outstock_type)+"</td>" +
+	                "</tr>";
+				}
+				$("#goodsMsg").empty();
+				$("#goodsMsg").append(html);
+			}
+		}
+	})
+}
+	function saveCallback(){
+		var postData = $("#callback_form").serializeJson();
+		$.post('${ctx}/order/orderCallback/saveCallback', postData, function(result){
+            $.closeDiv($('.orderdetailVb'));
+            parent.search();
+		});
+	}
+
+	function showzjfd(){
+		$('.showzjfddiv').popup({level:2, closeSelfOnly:true});
+	}
+
+
+function isBlank(val) {
+    if(val==null || val=='' || val == undefined) {
+        return true;
+    }
+    return false;
+}
+
+
+</script>
+</body>
+</html>

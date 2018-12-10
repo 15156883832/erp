@@ -1,0 +1,170 @@
+package com.jojowonet.modules.order.service;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.AreaManagerDao;
+import com.jojowonet.modules.order.entity.AreaManager;
+import com.jojowonet.modules.sys.dao.RoleDao;
+import com.jojowonet.modules.sys.dao.UserDao;
+import com.jojowonet.modules.sys.service.SystemService;
+
+
+@Component
+@Transactional(readOnly = true)
+public class AreaManagerService extends BaseService {
+	@Autowired
+	private AreaManagerDao areaManagerDao;
+	@Autowired
+	private UserDao userDao;
+	@Autowired
+	private RoleDao roleDao;
+	@Autowired
+	private SystemService systemService;
+	
+	//区域管理人员的列表查询
+	public Page<Record> findAreaManager(Page<Record> page,Map<String,Object> map){
+		List<Record> list=areaManagerDao.getAreaManagerList(page, map);
+		long count=areaManagerDao.getListCount(map);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+	
+	////在添加和修改时当为二级区管时获取上级区管的列表
+	public List<Record> changedistrict() {
+		return areaManagerDao.changedistrict();
+		
+	}
+
+	//查询条件中获取所有区域列表
+	public List<Record> getarealist() {
+		return areaManagerDao.getarealist();
+	}
+	
+	//关联服务商个数列表
+	public Page<Record> getsiteList(Page<Record> page,String id){
+		List<Record> list=areaManagerDao.getsiteList(page, id);
+		long count=areaManagerDao.getsiteListCount(id);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+
+	//启用和停用区域人员的方法
+	public Integer updateStatus(String id, String status) {
+		String userId="";
+		if(areaManagerDao.getAreaManagerById(id).getStr("user_id")!=null){
+			 userId=areaManagerDao.getAreaManagerById(id).getStr("user_id");
+		}
+		if(StringUtils.isNotBlank(userId)){
+			areaManagerDao.updateUser(userId,status);
+		}
+		
+		return areaManagerDao.updatestatus(id, status);
+		
+	}
+
+//在调用save方法保存修改或者添加的数据时调用方法，分为以下几步1：查询分享码是否符合条件（查重复） 2：查询手机号是否重复 3：将信息放入user表中保存 
+	 //                        4：将信息保存到crm_area_mananger表中并将user_id与sys_user表中的id关联起来，5：保存信息到sys_user_role表中
+	public String save(String superiorDistrict, String name, String phone,
+			String area, String code,String id,String oldname) {
+		String result="";
+		if(areaManagerDao.queryName(name,id)>=1){
+			result="姓名已存在";
+		}else if(areaManagerDao.querycode(code,id)>=1){
+			result="激活码重复，请修改";
+		}else if(areaManagerDao.queryphone(phone,id)>=1){
+				result="该手机号已存在";
+		}else{//当id不为空执行修改操作
+			if(StringUtils.isNotBlank(id)){
+				String userId=areaManagerDao.getAreaManagerById(id).getStr("user_id");//获取改id的区域管理人员的user_id
+
+				 User user = new User();	 
+				 user.setId(userId);
+				 user.setLoginName(phone);
+				 user.setPassword(SystemService.entryptPassword(phone));//设置密码（md5加密）
+				 user.setUpdateTime(new Date());
+			     user.setMobile(phone);
+			     user.setCreateType(2);//设置user为web端添加
+			     user.setUserType("5");//用户类型为区域管理员
+			     userDao.save(user);
+				AreaManager areaManager=new AreaManager();
+				if(StringUtils.isNotBlank(superiorDistrict)){
+					areaManager.setSuperiorDistrict(superiorDistrict);
+				}
+				areaManager.setId(id);
+				areaManager.setName(name);
+				areaManager.setPhone(phone);
+				areaManager.setArea(area);
+				areaManager.setCode(code);
+				
+			   
+			     areaManager.setUserId(user.getId());
+			   //  areaManagerDao.assignUserToRole(roleDao.findByName("区域管理员"), user.getId());
+					if(StringUtils.isEmpty(areaManagerDao.getAreaManagerById(id).getStr("superior_district"))){
+						if(StringUtils.isNotBlank(superiorDistrict)){
+							areaManagerDao.updateSupName("其他",oldname);
+						}else{
+							areaManagerDao.updateSupName(name,oldname);
+						}
+		
+					}
+				areaManagerDao.save(areaManager);
+	
+				
+		       result="ok";
+			}else{//id为空执行添加操作
+				
+				 User user = new User();	 
+				 user.setLoginName(phone);
+				 user.setPassword(SystemService.entryptPassword(phone));//设置密码（md5加密）
+				 user.setUpdateTime(new Date());
+			     user.setCreateDate(new Date());
+			     user.setMobile(phone);
+			     user.setCreateType(2);//添加方式为web端添加
+			     user.setStatus("0");//状态默认正常
+			     user.setUserType("5");//区域管理人员
+			     userDao.save(user);
+				AreaManager areaManager=new AreaManager();
+				if(StringUtils.isNotBlank(superiorDistrict)){
+					areaManager.setSuperiorDistrict(superiorDistrict);
+				}
+				areaManager.setName(name);
+				areaManager.setPhone(phone);
+				areaManager.setArea(area);
+				areaManager.setCode(code);
+				
+			   
+			     areaManager.setUserId(user.getId());
+			     areaManagerDao.assignUserToRole(roleDao.findByName("区域管理员"), user.getId());//添加到sys_user_role表中
+				areaManagerDao.save(areaManager);
+		       result="ok";
+			}
+			
+		}
+		
+	return result;
+		
+		
+	}
+
+
+	public Record getAreaManagerById(String id) {
+		Record rd=areaManagerDao.getAreaManagerById(id);
+		return rd;
+	}
+
+
+}

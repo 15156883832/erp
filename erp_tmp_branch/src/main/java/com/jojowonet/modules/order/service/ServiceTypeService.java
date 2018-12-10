@@ -1,0 +1,171 @@
+package com.jojowonet.modules.order.service;
+
+import java.util.List;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.Page;
+import ivan.common.persistence.Parameter;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.ServiceTypeDao;
+import com.jojowonet.modules.order.entity.ServiceType;
+import com.jojowonet.modules.order.utils.CrmUtils;
+
+@Component
+@Transactional(rollbackFor=Exception.class)
+public class ServiceTypeService extends BaseService{
+	
+	@Autowired
+	private ServiceTypeDao serviceTypeDao;
+	
+	public ServiceType get(Integer id) {
+		return serviceTypeDao.get(id);
+	}
+	
+   public Page<ServiceType> find(Page<ServiceType> page, ServiceType serviceType) {
+		DetachedCriteria dc = serviceTypeDao.createDetachedCriteria();
+		if (serviceType.getId()!=null){
+			dc.add(Restrictions.like("name", "%"+serviceType.getId()+"%"));
+		}
+		dc.add(Restrictions.eq("status", "0"));
+		dc.add(Restrictions.eq("siteId", "0"));
+		//dc.add(Restrictions.eq("delFlag", "0"));
+		dc.addOrder(Order.asc("sort"));
+		
+		return serviceTypeDao.find(page, dc);
+	}
+	
+	@Transactional(readOnly = false)
+	public void save(ServiceType serviceType) {
+		if("1".equals(serviceType.getIsDefault())) {
+			//删除其他默认选项
+			Db.update(" UPDATE crm_service_type  SET is_default = '0' WHERE site_id = ? ",serviceType.getSiteId());
+		}
+		serviceTypeDao.save(serviceType);
+		
+			
+	}
+	
+	@Transactional(readOnly = false)
+	public void delete(Integer id) {
+	
+		serviceTypeDao.deleteByIds(id);
+	}
+	
+	public List<Record> filterServiceType() {
+		return serviceTypeDao.filterServiceType(null);
+	}
+	
+	public boolean sitequeryNumByName(String name,String siteId,Integer id){
+		StringBuilder sf = new StringBuilder();
+		sf.append("select * from crm_service_type where  name = ? and status='0' and site_id= ? ");
+		if(id != null) {
+			sf.append(" and id !="+id+" ");
+		}
+		//List<Record> list = Db.find(sf.toString(),name,siteId);
+		long count = serviceTypeDao.getSiteServiceTypeCount(siteId,name,id);
+		return count>0;
+
+	}
+	public boolean queryNumByName(String name){
+		List list = serviceTypeDao.createSqlQuery("select * from crm_service_type"
+				+ " where  name = :p1 and status='0' ",new Parameter(name)).list();
+		return list.size() > 0;
+	}
+
+	public Record getServiceTypeById(Integer id) {
+		return serviceTypeDao.getServiceTypeById(id);
+	}
+	/*服务商修改*/
+	@Transactional(rollbackFor=Exception.class)
+	public void siteupdates(String name, String sort, Integer id,String isDef) {
+		if(StringUtils.isBlank(sort)) {
+			sort ="0";
+		}
+		ServiceType setype = serviceTypeDao.get(id);
+		if("1".equals(isDef)) {
+			User user =UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			//删除其他默认选项
+			Db.update(" UPDATE crm_service_type  SET is_default = '0' WHERE site_id = ? ",siteId);
+		}
+		 if("0".equals(setype.getSiteId())) {
+			 User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			ServiceType type = new ServiceType();
+			type.setParentId(setype.getId().toString());
+			type.setName(setype.getName());
+			type.setSiteId(siteId);
+			type.setStatus("1");
+			type.setCreateBy(user.getId());
+			serviceTypeDao.save(type);
+			 
+			ServiceType newtype = new ServiceType();
+			newtype.setName(name);
+			newtype.setSort(Integer.valueOf(sort));
+			newtype.setIsDefault(isDef);
+			newtype.setSiteId(siteId);
+			newtype.setCreateBy(user.getId());
+			serviceTypeDao.save(newtype);
+		 }else {
+			 setype.setName(name);
+			 setype.setSort(Integer.valueOf(sort));
+			 setype.setIsDefault(isDef);
+			 //serviceTypeDao.save(setype);
+		 }
+	}
+
+
+	public void updates(String name, String sort, Integer id) {
+		serviceTypeDao.updates(name,sort,id);
+		
+	}
+
+	public boolean queryNumByNames(String names,Integer id){
+		List list = serviceTypeDao.createSqlQuery("select * from crm_service_type"
+				+ " where name = :p1 and id!=:p2 and status='0' ",new Parameter(names,id)).list();
+		return list.size() <= 0;
+	}
+
+
+	public Page<Record> getServiceTypePage(Page<Record> page ,String siteId){
+		List<Record> list = serviceTypeDao.getSiteServiceType(page, siteId);
+		long count = serviceTypeDao.getSiteServiceTypeCount(siteId,"",null);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+	/*服务商删除服务方式*/
+	@Transactional(rollbackFor=Exception.class)
+	public void deleteServiceType(Integer id) {
+		ServiceType setype = serviceTypeDao.get(id);
+		 if("0".equals(setype.getSiteId())) {
+			 User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			ServiceType type = new ServiceType();
+			type.setParentId(setype.getId().toString());
+			type.setName(setype.getName());
+			type.setSiteId(siteId);
+			type.setStatus("1");
+			type.setCreateBy(user.getId());
+			 serviceTypeDao.save(type);
+		 }else {
+			 setype.setStatus("1");
+			// serviceTypeDao.save(setype);
+		 }
+
+	}
+	
+
+}

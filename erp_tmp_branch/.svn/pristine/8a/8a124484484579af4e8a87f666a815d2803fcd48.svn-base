@@ -1,0 +1,940 @@
+package com.jojowonet.modules.order.utils;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.gson.Gson;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.operate.service.EmployeService;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteDriverService;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.operate.service.SiteVehicleService;
+import com.jojowonet.modules.order.dao.CustomerTypeDao;
+import com.jojowonet.modules.order.dao.ServiceModeDao;
+import com.jojowonet.modules.order.dao.ServiceTypeDao;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.utils.caches.CityCache;
+import com.jojowonet.modules.order.utils.caches.DistrictCache;
+import com.jojowonet.modules.sys.config.SFCacheServiceHelper;
+import com.jojowonet.modules.sys.config.SfCacheKey;
+import com.jojowonet.modules.sys.config.SfCacheService;
+import com.jojowonet.modules.sys.util.HttpKit;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.utils.UserUtils;
+
+public class CrmUtils {
+
+	public static final String CACHE_CRM_CATEGORY_LIST = "CategoryList";
+
+	public static final String CACHE_CRM_CATEGORY_KV = "CategoryKV";
+
+	public static SiteService siteService;
+
+	public static NonServicemanService nsService;
+
+	public static EmployeService employeService;
+
+	private static Logger logger = Logger.getLogger(CrmUtils.class);
+	private static volatile Boolean isDev = null;
+
+	public static String getUserName() {
+		String username = "";
+		// 获取当前user
+		User user = UserUtils.getUser();
+		// 获取用户类型
+		String type = user.getUserType();
+		// 根据usertype去不同的表中查找user对应的name
+		if (type.equals(User.USER_TYPE_SIT))// 网点
+		{
+			username = SiteDao.getNameByUserId(user.getId());
+			if (username.length() > 8) {
+				username = username.substring(0, 7).concat("...");
+			}
+		} else if (type.equals(User.USER_TYPE_SYS))// 系统管理员
+		{
+			username = user.getLoginName();
+		} else if (type.equals(User.USER_TYPE_XXY))// 信息员
+		{
+			username = user.getLoginName();
+		} else if (type.equals(User.USER_TYPE_YYS))// 平台运营人员
+		{
+			username = user.getLoginName();
+		} else if (type.equals("6"))// 配件管理员
+		{
+			username = user.getLoginName();
+		}
+		if (username == null || username.isEmpty())
+			username = user.getLoginName();
+		return username;
+	}
+
+	public static String getUserType() {
+		String userType = "";
+		User user = UserUtils.getUser();
+		String type = user.getUserType();
+		if (type.equals(User.USER_TYPE_SIT))// 网点
+		{
+			userType = "服务商";
+		} else if (type.equals(User.USER_TYPE_SYS))// 系统管理员
+		{
+			userType = "系统管理员";
+		} else if (type.equals(User.USER_TYPE_XXY))// 信息员
+		{
+			// userType ="信息员";
+			String siteId = getCurrentSiteId(user);
+			List<Record> rds = getPCRole(siteId, user);
+			Set<String> roleNames = new HashSet<>();
+			for (Record rd : rds) {
+				String roleName = rd.getStr("site_role_name");
+				String roleId = rd.getStr("site_role_id");
+				if (StringUtils.isNotBlank(roleName)) {
+					roleNames.add(roleName);
+				} else {
+					if ("1".equals(roleId)) {
+						roleNames.add("信息员");
+					} else if ("2".equals(roleId)) {
+						roleNames.add("配件员");
+					} else if ("3".equals(roleId)) {
+						roleNames.add("财务人员");
+					}
+				}
+			}
+			userType = StringUtils.join(roleNames, "/");
+			// if(StringUtils.isBlank(rd.getStr("site_role_name"))) {
+			// userType = rd.getStr("site_role_name");
+			// }
+			// if(isPeijianMan(user)){
+			// userType +=" " + "配件管理员";
+			// }
+		} else if (type.equals(User.USER_TYPE_YYS))// 平台运营人员
+		{
+			userType = "平台运营人员";
+		} else if (type.equals("6"))// 配件管理员
+		{
+			userType = "配件管理员";
+		} else if (type.equals(User.USER_TYPE_ADVISOR)) {// 供应商
+			userType = "供应商";
+		} else if (type.equals("5")) {// 区域人员
+			userType = "区域管理员";
+		}
+		return userType;
+	}
+
+	public static boolean isPeijianMan(User user) {
+		if (user.getId() == null) {
+			return false;
+		}
+		String type = user.getUserType();
+		String siteId = getCurrentSiteId(user);
+		if (type.equals(User.USER_TYPE_SIT)) {
+			return true;
+		} else {
+			List<Record> rds = getPCRole(siteId, user);
+			for (Record rd : rds) {
+				if (rd != null && ("2".equals(rd.get("site_role_id")) || "2".equals(rd.get("sys_role_id")))) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	public static boolean isXinxiMan(User user) {
+		String type = user.getUserType();
+		String siteId = getCurrentSiteId(user);
+		if (type.equals(User.USER_TYPE_SIT)) {
+			return true;
+		} else {
+			List<Record> rds = getPCRole(siteId, user);
+			for (Record rd : rds) {
+				if (rd != null && ("1".equals(rd.get("site_role_id")) || "1".equals(rd.get("sys_role_id")))) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	public static List<Record> getPCRole(String siteId, User user) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(" select a.site_role_id, b.sys_role_id,  b.site_role_name  from crm_non_serviceman_role_rel a ");
+		sb.append(" left join crm_site_role_permission b on b.id = a.site_role_id and b.site_id = ? ");
+		sb.append(" INNER JOIN crm_non_serviceman cos  on a.`serviceman_id`  = cos.id and cos.`status`  = '0' ");
+		sb.append(" where cos.`user_id`  = ? ");
+		sb.append("  ");
+		List<Record> rds = Db.find(sb.toString(), siteId, user.getId());
+
+		return rds == null ? new ArrayList<Record>() : rds;
+	}
+
+	public static boolean isSite() {
+		return "2".equals(UserUtils.getUser().getUserType());
+	}
+
+	public static String getSiteName() {
+		String name = "";
+		User user = UserUtils.getUser();
+		String id = getCurrentSiteId(user);
+		if (id != null) {
+			name = SiteDao.getSiteNameId(id);
+		}
+		return name;
+	}
+
+	@SuppressWarnings("unchecked")
+	public static List<Record> getServiceType() {
+		return (List<Record>) SFIMCache.get("ST");
+	}
+
+	@SuppressWarnings("unchecked")
+	public static List<Record> getServiceTypeWithDefault(String defaultVal) {
+		List<Record> serviceTypeList = getServiceType();
+		List<Record> ret = new ArrayList<>();
+		if (serviceTypeList != null) {
+			ret.addAll(serviceTypeList);
+			Set<String> set = (Set<String>) SFIMCache.get("ST_SET");
+			if (set != null && StringUtils.isNotBlank(defaultVal) && !set.contains(defaultVal)) {
+				Record rd = new Record();
+				rd.getColumns().put("name", defaultVal);
+				ret.add(rd);
+			}
+		}
+		return ret;
+	}
+
+	@SuppressWarnings("unchecked")
+	public static List<Record> getServiceMode() {
+		return (List<Record>) SFIMCache.get("SM");
+	}
+
+	/* 服务商可自定义服务类型 */
+	public static List<Record> getServiceTypeDer(String defaultVal) {
+		User user = UserUtils.getUser();
+		String siteId = getCurrentSiteId(user);
+		List<Record> list = ServiceTypeDao.getServiceTypeList(siteId);
+		Set<String> set = new HashSet<>();
+		for (Record rd : list) {
+			set.add(rd.getStr("name"));
+		}
+		if (set != null && StringUtils.isNotBlank(defaultVal) && !set.contains(defaultVal)) {
+			Record rd = new Record();
+			rd.getColumns().put("name", defaultVal);
+			list.add(rd);
+		}
+		return list;
+	}
+
+	/* 服务商可自定义服务方式 */
+	public static List<Record> getNewServiceModeDer(String defaultVal) {
+		User user = UserUtils.getUser();
+		String siteId = getCurrentSiteId(user);
+		List<Record> list = ServiceModeDao.getNewServiceModeList(siteId);
+		Set<String> set = new HashSet<>();
+		for (Record rd : list) {
+			set.add(rd.getStr("name"));
+		}
+		if (set != null && StringUtils.isNotBlank(defaultVal) && !set.contains(defaultVal)) {
+			Record rd = new Record();
+			rd.getColumns().put("name", defaultVal);
+			list.add(rd);
+		}
+		return list;
+	}
+
+	/* 服务商可自定义服务类型 */
+	public static List<Record> getNewServiceType() {
+		User user = UserUtils.getUser();
+		String siteId = getCurrentSiteId(user);
+		return ServiceTypeDao.getServiceTypeList(siteId);
+	}
+
+	/* 服务商可自定义服务方式 */
+	public static List<Record> getNewServiceMode() {
+		User user = UserUtils.getUser();
+		String siteId = getCurrentSiteId(user);
+		return ServiceModeDao.getNewServiceModeList(siteId);
+	}
+
+	/* 服务商可自定义用户类型 */
+	public static List<Record> getCustomerType() {
+		User user = UserUtils.getUser();
+		String siteId = getCurrentSiteId(user);
+		return CustomerTypeDao.getCustomerTypeList(siteId);
+	}
+
+	/* 服务商司机人员 */
+	public static List<Record> getsiteDriver() {
+		User user = UserUtils.getUser();
+		String siteId = getCurrentSiteId(user);
+		return SiteDriverService.getsiteDriverList(siteId);
+	}
+
+	/* 服务商车辆信息 */
+	public static List<Record> getSiteVehicle() {
+		User user = UserUtils.getUser();
+		String siteId = getCurrentSiteId(user);
+		return SiteVehicleService.getVehicleList(siteId);
+	}
+
+	@SuppressWarnings("unchecked")
+	public static List<Record> getServiceModeWithDefault(String defaultVal) {
+		List<Record> serviceModeList = getServiceMode();
+		List<Record> ret = new ArrayList<>();
+		if (serviceModeList != null) {
+			ret.addAll(serviceModeList);
+			Set<String> set = (Set<String>) SFIMCache.get("SM_SET");
+			if (set != null && StringUtils.isNotBlank(defaultVal) && !set.contains(defaultVal)) {
+				Record rd = new Record();
+				rd.getColumns().put("name", defaultVal);
+				ret.add(rd);
+			}
+		}
+		return ret;
+	}
+
+	public static List<Record> getPromiseLimit() {
+		String sql = "SELECT * FROM crm_promise_limit a  WHERE a.status='0' ORDER BY a.sort ASC ";
+		return Db.find(sql);
+	}
+
+	/*
+	 * 查询当前用户下服务商id
+	 * 
+	 */
+
+	/**
+	 * 如何当前用户为服务商用户，获取当前用户的服务商id
+	 *
+	 * @return 服务商id
+	 */
+	public static String getCurrentSiteId(User user) {
+		String userId = user.getId();
+		if (StringUtil.isBlank(userId)) {
+			return null;
+		}
+
+		SfCacheService cacheService = SFCacheServiceHelper.getSFCacheService();
+		String siteId = cacheService.hget(SfCacheKey.uidSiteIdMap, userId);
+		if (StringUtil.isNotBlank(siteId)) {
+			return siteId;
+		}
+
+		siteId = doGetCurrentSiteId(user);
+		if (siteId != null) {
+			cacheService.hset(SfCacheKey.uidSiteIdMap, userId, siteId);
+		}
+		return siteId;
+	}
+
+	private static String doGetCurrentSiteId(User user) {
+		String Id = null;
+		if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+			Id = SiteDao.findSiteIdByUserId(user.getId());
+		} else if (User.USER_TYPE_XXY.equals(user.getUserType())) {
+			String sql = "SELECT site_id FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id =? ";
+			Record rd = Db.findFirst(sql, user.getId());
+			if (rd != null) {
+				Id = rd.getStr("site_id");
+			}
+		} else if ("6".equals(user.getUserType())) {
+		}
+		return Id;
+	}
+
+	public static Record currentSite(User user) {
+		Record rec = null;
+		if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+			rec = SiteDao.findSiteByUserId(user.getId());
+		} else if (User.USER_TYPE_XXY.equals(user.getUserType())) {
+			String sql = "SELECT site_id FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id =? ";
+			Record userRec = Db.findFirst(sql);
+			if (userRec != null) {
+				rec = Db.findFirst("select * from crm_site where id=?", userRec.getStr("site_id"));
+			}
+		}
+		return rec;
+	}
+
+	public static String no() {
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+		Random r = new Random();
+		return sdf.format(new Date()) + String.valueOf(r.nextLong()).substring(0, 4);
+	}
+
+	public static String ImportNumber() {
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHSSS");
+		Random r = new Random();
+		return sdf.format(new Date()) + String.valueOf(r.nextLong()).substring(0, 4);
+	}
+
+	// 商品编号
+	public static String Spno() {
+		Date date = new Date();
+		SimpleDateFormat sdf = new SimpleDateFormat("MMdd");
+		Random r = new Random();
+		return sdf.format(date) + String.valueOf(r.nextLong()).substring(0, 4);
+	}
+
+	public static List<Map<String, String>> getStatic(String[] as, String sta) {
+		List<Map<String, String>> list = Lists.newArrayList();
+
+		Map<String, String> it1 = Maps.newHashMap();
+		it1.put("name", "待接收");
+		it1.put("select", "0");
+		it1.put("value", "10");
+		list.add(it1);
+		Map<String, String> it2 = Maps.newHashMap();
+		it2.put("name", "待派工");
+		it2.put("select", "0");
+		it2.put("value", "1");
+		list.add(it2);
+		Map<String, String> it3 = Maps.newHashMap();
+		it3.put("name", "待接单");
+		it3.put("select", "0");
+		it3.put("value", "8");
+		list.add(it3);
+		Map<String, String> it4 = Maps.newHashMap();
+		it4.put("name", "维修中");
+		it4.put("select", "0");
+		it4.put("value", "9");
+		list.add(it4);
+		// sta等于1表示全部工单下的工单状态
+		if ("1".equals(sta)) {
+			Map<String, String> it5 = Maps.newHashMap();
+			it5.put("name", "待回访");
+			it5.put("select", "0");
+			it5.put("value", "3");
+			list.add(it5);
+			Map<String, String> it6 = Maps.newHashMap();
+			it6.put("name", "待结算");
+			it6.put("select", "0");
+			it6.put("value", "4");
+			list.add(it6);
+			Map<String, String> it7 = Maps.newHashMap();
+			it7.put("name", "已完成");
+			it7.put("select", "0");
+			it7.put("value", "5");
+			list.add(it7);
+			Map<String, String> it8 = Maps.newHashMap();
+			it8.put("name", "无效单");
+			it8.put("select", "0");
+			it8.put("value", "11");
+			list.add(it8);
+		}
+
+		if (as != null) {
+			for (String s : as) {
+				for (Map<String, String> m : list) {
+					if (s.equals(m.get("value"))) {
+						m.put("select", "1");
+					}
+				}
+			}
+		}
+		return list;
+	}
+
+	public static String getUserProvince(String provinceId) {
+		List<Record> rds = getProvinceList();
+		Map<String, String> map = Maps.newHashMap();
+		String priname = "";
+		for (Record rd : rds) {
+			map.put(rd.getLong("ProvinceID").toString(), rd.getStr("ProvinceName"));
+		}
+		String[] ids = provinceId.split(",");
+		for (String id : ids) {
+			if (StringUtil.isBlank(priname)) {
+				priname = map.get(id);
+			} else {
+				priname = priname + "," + map.get(id);
+			}
+		}
+		return priname;
+	}
+
+	@SuppressWarnings("unchecked")
+	public static List<Record> getProvinceList() {
+		List<Record> provList = (List<Record>) SFIMCache.get("PROV_LIST");
+		if (provList == null) {
+			throw new RuntimeException("read cache error");
+		}
+		return provList;
+	}
+
+	public static List<Record> getCityList(String name) {
+		return CityCache.getInstance().get(name);
+	}
+
+	public static List<Record> getDistrictList(String name) {
+		return DistrictCache.getInstance().get(name);
+	}
+
+	/**
+	 * 服务工程师（不包括离职的）
+	 * 
+	 * @param siteId
+	 * @return
+	 */
+	public static List<Record> getEmloyeList(String siteId) {
+		StringBuffer sb = new StringBuffer("");
+		sb.append(
+				" SELECT a.*  FROM crm_employe a  LEFT JOIN sys_user u ON a.user_id=u.id WHERE a.site_id = ? AND a.status = '0' and u.status='0' order by a.hiredate,u.create_date asc ");
+		return Db.find(sb.toString(), siteId);
+	}
+
+	/**
+	 * 服务工程师（包括离职的工程师）
+	 * 
+	 * @param siteId
+	 * @return
+	 */
+	public static List<Record> getEmloyeListForAll(String siteId) {
+		StringBuffer sb = new StringBuffer("");
+		sb.append(
+				" SELECT a.*  FROM crm_employe a  LEFT JOIN sys_user u ON a.user_id=u.id WHERE a.site_id = ? AND a.status in ('0','3') and u.status in ('0','3') order by u.status,a.hiredate,u.create_date asc ");
+		return Db.find(sb.toString(), siteId);
+	}
+
+	public static List<Record> getOrderTypeList() {
+		StringBuffer sb = new StringBuffer("");
+		sb.append(" SELECT *  FROM crm_order_type a WHERE  a.status = '0' ");
+		return Db.find(sb.toString());
+
+	}
+
+	public static Record getUserSite(User user) {
+		return getUserSite(user.getId());
+	}
+
+	public static Record getUserSite(String userId) {
+		return Db.findFirst("select * from crm_site where status='0' and user_id=? ", userId);
+	}
+
+	public static String getUserSiteName(User user) {
+		Record record = Db.findFirst("select * from crm_site where status='0' and user_id=? ", user.getId());
+		return record == null ? null : record.getStr("name");
+	}
+
+	public static String getUserSiteId(User user) {
+		if (user == null) {
+			return null;
+		}
+
+		Record record = Db.findFirst("select id from crm_site where status='0' and user_id=?", user.getId());
+		return record == null ? null : record.getStr("id");
+	}
+
+	/**
+	 * 获取当前用户的姓名。
+	 */
+	public static String getUserXM() {
+		String username = "";
+		// 获取当前user
+		User user = UserUtils.getUser();
+		String type = user.getUserType();
+		// 根据usertype去不同的表中查找user对应的name
+		if (type.equals(User.USER_TYPE_SIT)) {
+			username = SiteDao.getNameByUserId(user.getId());
+		} else {
+			String sql = "SELECT a.`name` FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id =?";
+			Record rd = Db.findFirst(sql, user.getId());
+			if (rd != null) {
+				username = rd.getStr("name");
+			}
+		}
+		return username;
+	}
+
+	/**
+	 * 获取当前用户的姓名。主要小程序中使用
+	 */
+	public static String getCreateName(User user) {
+		String username = "";
+		// 获取当前user
+		String type = user.getUserType();
+		// 根据usertype去不同的表中查找user对应的name
+		if (type.equals(User.USER_TYPE_SIT)) {
+			username = SiteDao.getNameByUserId(user.getId());
+		} else {
+			String sql = "SELECT a.`name` FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id =?";
+			Record rd = Db.findFirst(sql, user.getId());
+			if (rd != null) {
+				username = rd.getStr("name");
+			}
+		}
+		return username;
+	}
+
+	public static String getUserXM(String uid) {
+		String username = SiteDao.getNameByUserId(uid);
+		if (StringUtil.isBlank(username) && StringUtil.isNotBlank(uid)) {
+			String sql = "SELECT a.`name` FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id =?";
+			Record rd = Db.findFirst(sql, uid);
+			if (rd != null) {
+				username = rd.getStr("name");
+			} else {
+				String sqle = "SELECT a.`name` FROM crm_employe a  WHERE a.status='0' AND a.user_id =?";
+				rd = Db.findFirst(sqle, uid);
+				username = rd != null ? rd.getStr("name") : "";
+			}
+
+		}
+		return username;
+	}
+
+	public static boolean isOnlineTestSite(String siteId) {
+		if (StringUtil.isBlank(siteId)) {
+			return false;
+		}
+		return "ff80808158e6b8a30158e7b812340028".equals(siteId) || "ff8080815dd4600e015dd46baced000b".equals(siteId) || "ff8080815d86ba2b015d8c4f6dfa0017".equals(siteId);
+	}
+
+	public static boolean isOfflineTestSite(String siteId) {
+		if (StringUtil.isBlank(siteId)) {
+			return false;
+		}
+		return "40000011111222223333344444555556".equals(siteId);
+	}
+
+	public static String joinInSql(List<String> ids) {
+		if (ids == null || ids.isEmpty()) {
+			throw new RuntimeException("ids is null");
+		}
+
+		String[] el = new String[ids.size()];
+		ids.toArray(el);
+		return StringUtil.joinInSql(el);
+	}
+
+	public static String cusMobiles(String mobile1, String mobile2, String mobile3) {
+		String mobiles = "";
+		if (StringUtils.isNotBlank(mobile1)) {
+			if ("".equals(mobiles)) {
+				mobiles = mobile1;
+			} else {
+				mobiles = mobiles + "," + mobile1;
+			}
+		}
+		if (StringUtils.isNotBlank(mobile2)) {
+			if ("".equals(mobiles)) {
+				mobiles = mobile2;
+			} else {
+				mobiles = mobiles + "," + mobile2;
+			}
+		}
+		if (StringUtils.isNotBlank(mobile3)) {
+			if ("".equals(mobiles)) {
+				mobiles = mobile3;
+			} else {
+				mobiles = mobiles + "," + mobile3;
+			}
+		}
+		return mobiles;
+	}
+
+	public static List<Record> getAllSiteManInfo(String siteId) {
+		StringBuffer sb2 = new StringBuffer();
+		sb2.append(" SELECT u.id,a.name  FROM crm_site a INNER JOIN sys_user u ON a.user_id=u.id WHERE u.status='0' AND a.status='0' AND a.id=? ");
+		return Db.find(sb2.toString(), siteId);
+	}
+
+	public static boolean isL1Site(User user) {
+		return "2".equals(user.getUserType()) && Db.queryLong("select count(1) as c from crm_site as s where s.user_id=? and status=? and `type`=?", user.getId(), "0", "1") > 0;
+	}
+
+	public static boolean isL2Site(User user) {
+		return "2".equals(user.getUserType()) && Db.queryLong("select count(1) as c from crm_site as s where s.user_id=? and status=? and `type`=?", user.getId(), "0", "2") > 0;
+	}
+
+	public static boolean isL1SitePCUser(User user) {
+		SqlKit kit = new SqlKit().append("SELECT * FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id = ? ")
+				.append("AND EXISTS(SELECT 1 FROM crm_site AS s WHERE s.id=a.site_id AND s.`status`='0' AND s.`type`='1') limit 1");
+		Record rd = Db.findFirst(kit.toString(), user.getId());
+		return "3".equals(user.getUserType()) && rd != null;
+	}
+
+	/**
+	 * 获取所有二级网点
+	 * 
+	 * @param siteId
+	 * @return
+	 */
+	public static List<Record> getSecondSites(String siteId) {
+		StringBuffer sb = new StringBuffer();
+		sb.append(" SELECT a.id,a.name FROM crm_site a ");
+		sb.append(" LEFT JOIN crm_site_parent_rel b ON a.id=b.site_id AND b.status='0' ");
+		sb.append(" WHERE b.parent_site_id=? and a.status='0' ");
+		return Db.find(sb.toString(), siteId);
+	}
+
+	public static boolean isL2SitePCUser(User user) {
+		SqlKit kit = new SqlKit().append("SELECT * FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id = ? ")
+				.append("AND EXISTS(SELECT 1 FROM crm_site AS s WHERE s.id=a.site_id AND s.`status`='0' AND s.`type`='2') limit 1");
+		Record rd = Db.findFirst(kit.toString(), user.getId());
+		return "3".equals(user.getUserType()) && rd != null;
+	}
+
+	/**
+	 * 判断用户是否属于一级网点，如果是site本身是一级网点，或者用户是一级网点下的pc使用人员。
+	 * 
+	 * @param user
+	 *            site or pc user in site.
+	 * @return true if user is level 1 site or pc user belongs to level 1 site,
+	 *         false otherwise.
+	 */
+	public static boolean isUserBelongsL1Site(User user) {
+		return isL1Site(user) || isL1SitePCUser(user);
+	}
+
+	/**
+	 * 判断用户是否属于二级网点，如果是site本身是二级网点，或者用户是二级网点下的pc使用人员。
+	 * 
+	 * @param user
+	 *            site or pc user in site.
+	 * @return true if user is level 2 site or pc user belongs to level 2 site,
+	 *         false otherwise.
+	 */
+	public static boolean isUserBelongsL2Site(User user) {
+		return isL2Site(user) || isL2SitePCUser(user);
+	}
+
+	public static OrderNo genOrderNo(String siteId) {
+		String server = Global.getConfig("server.orderno");
+		String ret = HttpKit.post(String.format("%s/orderno/%s", server, siteId), "");
+		OrderNo orderNo = new Gson().fromJson(ret, OrderNo.class);
+		if (orderNo.isValid()) {
+			return orderNo;
+		}
+		throw new RuntimeException("generate order no failed for sid:" + siteId);
+	}
+
+	public static String getShortUrl(String longUrl) {
+		String offline = Global.getConfig("offline");
+		if (StringUtil.isBlank(offline)) {
+			Map<String, String> queryParas = new HashMap<>();
+			queryParas.put("url", longUrl);
+			return HttpKit.post("http://www.sifangerp.cn/wechatApp/api/v2/shortUrl", queryParas, "");
+		}
+		return "";
+	}
+
+	public static List<SimpleOrderNo> genOrderNos(String siteId, int size) {
+		String server = Global.getConfig("server.orderno");
+		String ret = HttpKit.post(String.format("%s/ordernos/%s?size=%d", server, siteId, size), "");
+		BatchOrderNo orderNo = new Gson().fromJson(ret, BatchOrderNo.class);
+		if (orderNo.isValid()) {
+			return orderNo.getData();
+		}
+		throw new RuntimeException("generate order nos failed for sid:" + siteId);
+	}
+
+	/**
+	 * 生成编号
+	 */
+	public static String applyNo(String str) {
+		SimpleDateFormat sdf = new SimpleDateFormat("MMddHHmmssSSS");
+		Random r = new Random();
+		return str + sdf.format(new Date()) + String.valueOf(r.nextLong()).substring(0, 4);
+	}
+
+	public static Set<String> getSiteBindingFactorys(String siteId) {
+		List<Record> records = Db.find("select factory_id from crm_site_factory_rel where site_id=? and status='0'", siteId);
+		Set<String> ret = Sets.newHashSet();
+		for (Record r : records) {
+			ret.add(r.getStr("factory_id"));
+		}
+		return ret;
+	}
+
+	public static Record getUserBindingSite(User user) {
+		if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+			return getUserSite(user);
+		}
+		if (User.USER_TYPE_XXY.equals(user.getUserType())) {
+			Record record = Db.findFirst("select site_id from crm_non_serviceman where user_id=? and status='0' limit 1", user.getId());
+			if (record != null) {
+				return Db.findFirst("select * from crm_site where status='0' and id=? ", record.getStr("site_id"));
+			}
+		}
+		return null;
+	}
+
+	public static Set<String> getUserBindingFactorys(User user) {
+		Record bindingSite = getUserBindingSite(user);
+		if (bindingSite != null) {
+			return getSiteBindingFactorys(bindingSite.getStr("id"));
+		}
+		return new HashSet<>();
+	}
+
+	/* 查询所有自营网点 */
+	public static List<Record> getSecondSiteList(String siteId) {
+		String sql = " SELECT a.* FROM crm_site a " + " INNER JOIN ( " + " SELECT  g.site_id, g.create_time,g.id ,g.site_type "
+				+ " FROM crm_site_parent_rel g WHERE g.parent_site_id = ? AND g.status = '0' and g.site_type='1' ) " + "  AS k ON k.site_id = a.id WHERE a.status = '0' ";
+		return Db.find(sql, siteId);
+	}
+
+	/* 根据工单id查询配送信息 */
+	public static List<Record> getOrderDistribution(String orderId) {
+		String sql = "SELECT * FROM crm_order_distribution WHERE order_id=? ";
+
+		return Db.find(sql, orderId);
+	}
+
+	public static String getSiteIdList(String siteId) {
+		String sql = " SELECT site_id FROM crm_site_parent_rel WHERE parent_site_id=? AND STATUS='0' ";
+		List<String> list = Db.query(sql, siteId);
+
+		return CrmUtils.joinInSql(list);
+	}
+
+	/* 查询当前服务商下所有自营二级网点:type = 1 */
+	/* 查询当前服务商下所有合作型二级网点 :type =2 */
+	public static String getSecondLevelSiteList(String siteId, String type) {
+		StringBuilder sf = new StringBuilder();
+		sf.append("  SELECT a.site_id FROM crm_site_parent_rel a ");
+		sf.append("  WHERE a.parent_site_id=? AND a.status='0' AND a.site_type=? ");
+		List<String> list = Db.query(sf.toString(), siteId, type);
+		if (list.size() < 1) {
+			return "";
+		}
+		return CrmUtils.joinInSql(list);
+	}
+
+	public static Map<String, Object> getProCityArea(Site site, Order order) {
+		Map<String, Object> map = Maps.newHashMap();
+		List<Record> provinceList = CrmUtils.getProvinceList();
+		List<Record> cities = CrmUtils.getCityList(site.getProvince());
+		List<Record> districts = CrmUtils.getDistrictList(site.getCity());
+		if (order != null && ivan.common.utils.StringUtils.isNotBlank(order.getProvince()) && ivan.common.utils.StringUtils.isNotBlank(order.getCity())
+				&& ivan.common.utils.StringUtils.isNotBlank(order.getArea())) {
+			cities = CrmUtils.getCityList(order.getProvince());
+			districts = CrmUtils.getDistrictList(order.getCity());
+		}
+		map.put("provincelist", provinceList);
+		map.put("cities", cities);
+		map.put("districts", districts);
+		return map;
+	}
+
+	/**
+	 * 服务工程师（不包括离职的）
+	 * 
+	 * @param siteId
+	 * @return
+	 */
+	public static List<Record> getEmloyeOtherList(String siteId, String id) {
+		String sql = "select a.employe_id from crm_site_sign_rule a where a.status='0' and a.site_id=?";
+		if (StringUtils.isNotBlank(id)) {
+			sql = "select a.employe_id from crm_site_sign_rule a where a.status='0' and a.site_id=? and a.id!='" + id + "'";
+		}
+		List<Record> list = Db.find(sql, siteId);
+		String empIds = "";
+		for (Record rd : list) {
+			String eIds = rd.getStr("employe_id");
+			if (StringUtils.isNotBlank(eIds)) {
+				if (StringUtils.isBlank(empIds)) {
+					empIds = eIds;
+				} else {
+					empIds += "," + eIds;
+				}
+			}
+		}
+		String[] ids = null;
+		if (StringUtils.isNotBlank(empIds)) {
+			ids = empIds.split(",");
+			Set<String> set = new HashSet<>();
+			for (int i = 0; i < ids.length; i++) {
+				set.add(ids[i]);
+			}
+			ids = (String[]) set.toArray(new String[set.size()]);
+			empIds = StringUtils.join(ids, ",");
+		}
+
+		StringBuffer sb = new StringBuffer("");
+		sb.append(" SELECT a.*  FROM crm_employe a  LEFT JOIN sys_user u ON a.user_id=u.id WHERE a.site_id = ? AND a.status = '0' and u.status='0'  ");
+		if (StringUtils.isNotBlank(empIds)) {
+			sb.append(" and a.id not in (" + StringUtil.joinInSql(empIds.split(",")) + ")");
+		}
+		sb.append(" order by a.hiredate,u.create_date asc");
+		return Db.find(sb.toString(), siteId);
+	}
+
+	public static String getTimeDifference(Date date1, Date date2) {
+		if (date1 == null || date2 == null) {
+			return "";
+		}
+		// 一天的毫秒数
+		long d = 1000 * 24 * 60 * 60;
+		// 一小时的毫秒数
+		long h = 1000 * 60 * 60;
+		// 一分钟的毫秒数
+		long m = 1000 * 60;
+		// long ns = 1000;
+		// 获得两个时间的毫秒时间差异
+		long timeDiff = date1.getTime() - date2.getTime();
+		// 计算差多少天
+		long day = timeDiff / d;
+		// 计算差多少小时
+		long hour = timeDiff % d / h;
+		// 计算差多少分钟
+		long min = timeDiff % d % h / m;
+		// 合并小时
+		long hourss = hour + (day * 24);
+		// 输出结果
+		return hourss + "小时" + min + "分钟";
+
+	}
+
+	/**
+	 * escape js
+	 */
+	private static final Pattern EJ_PATT = Pattern.compile("[\r\n'\"]");
+
+	public static String ej(String val) {
+		if (StringUtils.isBlank(val)) {
+			return "";
+		}
+		return EJ_PATT.matcher(val).replaceAll("");
+	}
+
+	public static boolean isDev() {
+		if (isDev != null) {
+			return isDev;
+		}
+		synchronized (CrmUtils.class) {
+			if (isDev != null) {
+				return isDev;
+			}
+			String env = Global.getConfig("env");
+			boolean ret = "dev".equals(env) || StringUtil.isBlank(env);
+			isDev = ret;
+			return ret;
+		}
+	}
+
+	public static String getSignBySiteId(String siteId) {
+		Record rd = Db.findFirst("select a.name from crm_site_sms_sign a where a.site_id=? and a.status='0' and a.reviewsms_status='1' limit 1 ", siteId);
+		return rd != null ? rd.getStr("name") : "";
+	}
+}

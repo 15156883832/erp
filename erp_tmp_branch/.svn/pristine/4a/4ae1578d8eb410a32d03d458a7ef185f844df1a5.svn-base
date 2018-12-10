@@ -1,0 +1,567 @@
+package com.jojowonet.modules.goods.web;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.formula.functions.T;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.entity.GoodsSiteselfOrder;
+import com.jojowonet.modules.goods.service.GoodsSiteSelfService;
+import com.jojowonet.modules.goods.service.SiteselfOrderService;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.GoodsCategoryService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.sys.util.FreeOrVipUtils;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+
+@Controller
+@RequestMapping(value = "${adminPath}/goods/siteselfOrder")
+public class SiteselfOrderController extends BaseController {
+	@Autowired
+	private GoodsSiteSelfService goodsSiteSelfService;
+	@Autowired
+	private SiteselfOrderService siteselfOrderService;
+	@Autowired
+	private GoodsCategoryService goodsCategoryService;
+	@Autowired
+	private SiteDao siteDao;
+
+	/*
+	 * 服务商权限 订单信息 表头字段
+	 */
+	@RequestMapping(value = "headerList")
+	public String getHeaderList(GoodsSiteselfOrder goodsSiteselfOrder, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		List<Record> records = siteselfOrderService.categoryType(siteId);
+		List<Record> rd2 = goodsSiteSelfService.getSiteEmployeList(siteId);// 服务工程师
+		List<Record> rd1 = goodsSiteSelfService.getSiteServiceInfoList(siteId);// 网点人员
+		model.addAttribute("rd3", siteDao.get(siteId));
+		model.addAttribute("rd2", rd2);
+		model.addAttribute("rd1", rd1);
+		model.addAttribute("categoryType", records);
+		Map<String, Object> map = getParams(request);
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = siteselfOrderService.siteselfOrderList(pages, siteId, map, "1");
+		model.addAttribute("page", page);
+		model.addAttribute("map", map);
+		return "modules/goods/siteselfOrder";
+	}
+
+	/*
+	 * 服务商权限 订单信息 列表
+	 */
+	@ResponseBody
+	@RequestMapping(value = "siteselfOrderGrid")
+	public String getSiteCategoryList(HttpServletRequest request, HttpServletResponse response) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map = request.getParameterMap();
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = siteselfOrderService.siteselfOrderList(pages, siteId, map, "1");
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	/*
+	 * 服务商权限 订单信息 列表中点击收款操作 查出详细信息
+	 */
+	@ResponseBody
+	@RequestMapping(value = "queryById")
+	public Record queryById(String rowId, HttpServletRequest request, HttpServletResponse response) {
+		return siteselfOrderService.queryById(rowId);
+	}
+
+	/*
+	 * 服务商权限 订单信息 列表中点击收款操作 查出详细信息，更具结算利润设置显示
+	 */
+	@ResponseBody
+	@RequestMapping(value = "queryByIdMoney")
+	public Map<String, Object> queryByIdMoney(String rowId, HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> mapMsg = new HashMap<String, Object>();
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Record rd = siteselfOrderService.getQueryGoodsById(rowId);
+		Record salesSet = goodsCategoryService.getGoodsSalesSet(siteId);
+		
+		mapMsg.put("gsd", rd);
+		mapMsg.put("salesSet", salesSet);
+		return mapMsg;
+	}
+	
+	@RequestMapping(value = "receivablesOrder")
+	public String getReceivables(HttpServletRequest request,HttpServletResponse response,Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String orderId = request.getParameter("rowId");
+		String goWhere = request.getParameter("goWhere");
+		String mark = request.getParameter("mark");/*自营商品or工程师库存*/
+		int emsite = 1;
+		//订单信息
+		Record rd = siteselfOrderService.queryById(orderId);
+		Record salesSet = goodsCategoryService.getGoodsSalesSet(siteId);
+		List<Record> records = siteselfOrderService.categoryType(siteId);
+		List<Record> rd2 = goodsSiteSelfService.getSiteEmployeList(siteId);// 服务工程师
+		List<Record> rd1 = goodsSiteSelfService.getSiteServiceInfoList(siteId);// 网点人员
+		//提成明细
+		Map<String,Object> deduct = goodsSiteSelfService.getsiteselfOrderDeductDetailList(siteId, orderId);
+
+		model.addAttribute("goWhere", goWhere);
+		model.addAttribute("orderId", orderId);
+		model.addAttribute("mark", mark);
+		model.addAttribute("deduct", deduct);
+		model.addAttribute("rd3", siteDao.get(siteId));
+		model.addAttribute("rd2", rd2);
+		model.addAttribute("rd1", rd1);
+		model.addAttribute("categoryType", records);
+		model.addAttribute("order", rd);
+		String plac = rd.getStr("placing_order_by");
+		model.addAttribute("empSize", emsite);
+		//商品信息
+		List<Record> rds = siteselfOrderService.getGoodOrderDetail(orderId, siteId);
+		model.addAttribute("empIds", plac);
+		model.addAttribute("goods", rds);
+		model.addAttribute("salesSet", salesSet);
+		return "modules/goods/receivablesOrder";
+	}
+
+	/*
+	 * 服务商权限 订单信息 点击收款按钮确定付款，可以更改实交金额，
+	 */
+	@ResponseBody
+	@RequestMapping(value = "confirmAmount")
+	public String confirmAmount(String rowId, String confirmAmount, String status, String salesCommissions, String oneTch, String idsArr, String nameArrs, String marks,
+			String commissionsRemarks, HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = request.getParameterMap();
+		String pNum1 = ((String[]) map.get("pNum"))[0];
+		double pNum = Double.parseDouble(pNum1);
+		String gId = ((String[]) map.get("gId"))[0];
+		String uid = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String uname = CrmUtils.getUserXM();
+		return siteselfOrderService.confirmAmount(rowId, confirmAmount, status, gId, pNum, uid, uname, salesCommissions, oneTch, idsArr, nameArrs, marks, commissionsRemarks);
+	}
+	/*
+	 * 新版服务商权限 订单信息 点击收款按钮确定付款，可以更改实交金额，
+	 */
+	@ResponseBody
+	@RequestMapping(value = "Receivables")
+	public String Receivables(HttpServletRequest request, HttpServletResponse response) {
+		return siteselfOrderService.savegoodsReceivables(request, response);
+	}
+
+	/*
+	 * 服务商权限 订单信息 点击收款按钮确定付款，可以更改实交金额，
+	 */
+	@ResponseBody
+	@RequestMapping(value = "confirmAmountHz")
+	public String confirmAmountHz(String rowId, String confirmAmount, String status, String salesCommissions, String oneTch, String idsArr, String nameArrs, String marks,
+			String commissionsRemarks, HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = request.getParameterMap();
+		String pNum1 = ((String[]) map.get("pNum"))[0];
+		double pNum = Double.parseDouble(pNum1);
+		String gId = ((String[]) map.get("gId"))[0];
+		String uid = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String uname = CrmUtils.getUserXM();
+		return siteselfOrderService.confirmAmountHz(rowId, confirmAmount, status, gId, pNum, uid, uname, salesCommissions, oneTch, idsArr, nameArrs, marks, commissionsRemarks);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "confirmAmount1")
+	public Boolean confirmAmount1(String rowId, String confirmAmount, String status, String pNum, String gId, String salesCommissions, String oneTch, String idsArr,
+			String nameArrs, HttpServletRequest request, HttpServletResponse response) {
+		String uid = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String uname = CrmUtils.getUserXM();
+		return siteselfOrderService.confirmAmount1(rowId, confirmAmount, status, pNum, gId, uid, uname, salesCommissions, oneTch, idsArr, nameArrs);
+	}
+
+	/*
+	 * 服务商权限 订单信息 订单(出库)详情
+	 */
+	@ResponseBody
+	@RequestMapping(value = "detailMsg")
+	public Record detailMsg(String rowId, HttpServletRequest request, HttpServletResponse response) {
+		return siteselfOrderService.detailMsg(rowId);
+	}
+
+	/*
+	 * 服务商权限 订单信息 订单(出库)详情
+	 */
+	@ResponseBody
+	@RequestMapping(value = "detailMsgEdit")
+	public Record detailMsgEdit(String rowId, HttpServletRequest request, HttpServletResponse response) {
+		return siteselfOrderService.detailMsgEdit(rowId);
+	}
+
+	/*
+	 *净水器（专用）
+	 */
+	@RequestMapping(value = "toDetailMsgPage")
+	public String toDetailMsgPage(String id, String mark, HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Record rd = siteselfOrderService.detailMsgEdit(id);
+		if (StringUtils.isNotBlank(rd.getStr("good_icon"))) {
+			rd.set("firstIcon", rd.getStr("good_icon").split(",")[0]);
+		}
+		List<Record> list = siteselfOrderService.queryTichByOrderId(siteId, id);
+
+		List<Record> rd2 = goodsSiteSelfService.getSiteEmployeList(siteId);// 服务工程师
+		List<Record> rd1 = goodsSiteSelfService.getSiteServiceInfoList(siteId);// 网点人员
+		model.addAttribute("rd3", siteDao.get(siteId));
+		model.addAttribute("rd2", rd2);
+		model.addAttribute("rd1", rd1);
+		model.addAttribute("detail", rd);
+		model.addAttribute("list", list);
+		model.addAttribute("mark", mark);
+		return "modules/goods/goodsOrdersDetail";
+	}
+
+	/**
+	 * 公司订单、工程师自购订单
+	 * @param id
+	 * @param mark
+	 * @param request
+	 * @param response
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value = "toGoodsOrderDetailPage")
+	public String toGoodsOrderDetailPage(String id, String mark, HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Map<String, Object> map = siteselfOrderService.getAllData(id, siteId);
+		model.addAttribute("dataMap", map);
+		model.addAttribute("mark", mark);
+		return "modules/goods/goodsOrdersDetailAmount";
+	}
+
+	/*
+	 * 服务商权限 订单信息 出库操作
+	 */
+	@ResponseBody
+	@RequestMapping(value = "outStock")
+	public String outStock(String rowId, String goodId, Double purchaseNum, HttpServletRequest request, HttpServletResponse response) {
+		return siteselfOrderService.outStock(rowId, goodId, purchaseNum);
+	}
+
+	// 公司订单导出数据
+	@RequestMapping(value = "export")
+	public String exportfile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String, Object> map = getParams(request);
+			map.put("pageSize", 10000);
+			map.put("pageNo", 1);
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			String title = stf.getExcelTitle();
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+
+			List<Record> list = siteselfOrderService.siteselfOrderList(pages, siteId, map, "1").getList();
+			if (list.size() > 0) {
+				for (Record rd : list) {
+					List<Record> list1 = (List<Record>) rd.get("detailList");
+					String goodsName = "";
+					String goodsNumber = "";
+					String goodsCate = "";
+					String purchaseNum = "";
+					String detailRrealAmount = "";
+					for (Record rd1 : list1) {
+						if (StringUtils.isNotBlank(goodsName)) {
+							goodsName += " / " + rd1.getStr("good_name");
+						} else {
+							goodsName = rd1.getStr("good_name");
+						}
+						if (StringUtils.isNotBlank(goodsNumber)) {
+							goodsNumber += " / " + rd1.getStr("good_number");
+						} else {
+							goodsNumber = rd1.getStr("good_number");
+						}
+						if (StringUtils.isNotBlank(goodsCate)) {
+							goodsCate += " / " + rd1.getStr("good_category");
+						} else {
+							goodsCate = rd1.getStr("good_category");
+						}
+						if (StringUtils.isNotBlank(purchaseNum)) {
+							purchaseNum += " / " + String.valueOf(rd1.getBigDecimal("purchase_num"));
+						} else {
+							purchaseNum = String.valueOf(rd1.getBigDecimal("purchase_num"));
+						}
+						if (StringUtils.isNotBlank(detailRrealAmount)) {
+							detailRrealAmount += " / " + String.valueOf(rd1.getBigDecimal("real_amount"));
+						} else {
+							detailRrealAmount = String.valueOf(rd1.getBigDecimal("real_amount"));
+						}
+					}
+					rd.set("good_name", goodsName);
+					rd.set("good_number", goodsNumber);
+					rd.set("good_category", goodsCate);
+					rd.set("purchase_num", purchaseNum);
+					rd.set("d_real_amount", detailRrealAmount);
+					rd.set("customer_msg", rd.getStr("customer_name") + " " + rd.getStr("customer_contact") + " " + rd.getStr("customer_address"));
+					if (rd.getStr("status") != null) {
+						String st = rd.getStr("status");
+						if (st.equals("1") || st.equals("4")) {
+							rd.set("status", "待收款");
+						} else if (st.equals("3") || st.equals("2")) {
+							rd.set("status", "已完成");
+						} else if (st.equals("0")) {
+							rd.set("status", "已取消");
+						}
+					}
+				}
+			}
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+
+	// 工程师自购订单导出数据
+	@RequestMapping(value = "exportZg")
+	public String exportfileZg(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String, Object> map = getParams(request);
+			map.put("pageSize", 10000);
+			map.put("pageNo", 1);
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			String title = stf.getExcelTitle();
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+			List<Record> list = siteselfOrderService.siteselfOrderList(pages, siteId, map, "2").getList();
+			if (list.size() > 0) {
+				for (Record rd : list) {
+					List<Record> list1 = (List<Record>) rd.get("detailList");
+					String goodsName = "";
+					String goodsNumber = "";
+					String goodsCate = "";
+					String purchaseNum = "";
+					String detailRrealAmount = "";
+					for (Record rd1 : list1) {
+						if (StringUtils.isNotBlank(goodsName)) {
+							goodsName += " / " + rd1.getStr("good_name");
+						} else {
+							goodsName = rd1.getStr("good_name");
+						}
+						if (StringUtils.isNotBlank(goodsNumber)) {
+							goodsNumber += " / " + rd1.getStr("good_number");
+						} else {
+							goodsNumber = rd1.getStr("good_number");
+						}
+						if (StringUtils.isNotBlank(goodsCate)) {
+							goodsCate += " / " + rd1.getStr("good_category");
+						} else {
+							goodsCate = rd1.getStr("good_category");
+						}
+						if (StringUtils.isNotBlank(purchaseNum)) {
+							purchaseNum += " / " + String.valueOf(rd1.getBigDecimal("purchase_num"));
+						} else {
+							purchaseNum = String.valueOf(rd1.getBigDecimal("purchase_num"));
+						}
+						if (StringUtils.isNotBlank(detailRrealAmount)) {
+							detailRrealAmount += " / " + String.valueOf(rd1.getBigDecimal("real_amount"));
+						} else {
+							detailRrealAmount = String.valueOf(rd1.getBigDecimal("real_amount"));
+						}
+					}
+					rd.set("good_name", goodsName);
+					rd.set("good_number", goodsNumber);
+					rd.set("good_category", goodsCate);
+					rd.set("purchase_num", purchaseNum);
+					rd.set("d_real_amount", detailRrealAmount);
+					rd.set("customer_msg", rd.getStr("customer_name") + " " + rd.getStr("customer_contact") + " " + rd.getStr("customer_address"));
+					if (rd.getStr("status") != null) {
+						String st = rd.getStr("status");
+						if (st.equals("1") || st.equals("4")) {
+							rd.set("status", "待收款");
+						} else if (st.equals("3") || st.equals("2")) {
+							rd.set("status", "已完成");
+						} else if (st.equals("0")) {
+							rd.set("status", "已取消");
+						}
+					}
+				}
+			}
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "addEmployeDetail")
+	public void addEmployeDetail() {
+		System.out.print("添加工程师明细成功！！！----" + siteselfOrderService.addEmployeDetail());
+	}
+
+	// 取消商品订单
+	@ResponseBody
+	@RequestMapping(value = "cancelGoodsOrder")
+	public Result<T> cancelGoodsOrder(HttpServletRequest request) {
+		String ids = request.getParameter("yxIds");
+		String reason = request.getParameter("reason");
+		return siteselfOrderService.cancelGoodsOrder(ids, reason);
+	}
+
+	// 删除商品订单
+	@ResponseBody
+	@RequestMapping(value = "deleteGoodsOrders")
+	public String deleteGoodsOrders(HttpServletRequest request) {
+		String ids = request.getParameter("ids");
+		return siteselfOrderService.deleteGoodsOrders(ids);
+	}
+
+	// 工程师自购订单-列表
+	@RequestMapping(value = "employeBuyBySelfOrder")
+	public String employeBuyBySelfOrder(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		List<Record> records = siteselfOrderService.categoryType(siteId);
+		List<Record> rd2 = goodsSiteSelfService.getSiteEmployeList(siteId);// 服务工程师
+		List<Record> rd1 = goodsSiteSelfService.getSiteServiceInfoList(siteId);// 网点人员
+		model.addAttribute("rd3", siteDao.get(siteId));
+		model.addAttribute("rd2", rd2);
+		model.addAttribute("rd1", rd1);
+		model.addAttribute("categoryType", records);
+		Map<String, Object> map = getParams(request);
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = siteselfOrderService.siteselfOrderList(pages, siteId, map, "2");
+		model.addAttribute("page", page);
+		model.addAttribute("map", map);
+		return "modules/goods/employeBuyBySelfOrder";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "confirmOrder")
+	public String confirmOrder(String id, HttpServletRequest request) {
+		return siteselfOrderService.confirmOrder(id);
+	}
+
+	@RequestMapping(value = "printGoodsOrder")
+	public String printGoodsOrder(HttpServletRequest request, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String ids = request.getParameter("ids");
+		List<Record> list = siteselfOrderService.getPrintDataByIds(ids, siteId);
+		model.addAttribute("list", list);
+		model.addAttribute("site", siteDao.get(siteId));
+		return "modules/goods/printOrders";
+	}
+
+	/*
+	 * 服务商权限 订单信息 修改订单信息
+	 */
+	@ResponseBody
+	@RequestMapping(value = "editGoodsOrder")
+	public String editGoodsOrder(String rowId, String confirmAmount, String status, String salesCommissions, String oneTch, String idsArr, String nameArrs, String marks,
+			String commissionsRemarks, HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = request.getParameterMap();
+		String pNum1 = ((String[]) map.get("pNum"))[0];
+		double pNum = Double.parseDouble(pNum1);
+		String gId = ((String[]) map.get("gId"))[0];
+		String uid = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String uname = CrmUtils.getUserXM();
+		return siteselfOrderService.editGoodsOrder(rowId, confirmAmount, status, gId, pNum, uid, uname, salesCommissions, oneTch, idsArr, nameArrs, marks, commissionsRemarks);
+	}
+
+	/*
+	 * 订单详情-保存备注信息
+	 */
+	@ResponseBody
+	@RequestMapping(value = "saveMarks")
+	public String saveMarks(String orderId, String marks, HttpServletRequest request) {
+		return siteselfOrderService.saveMarks(orderId, marks);
+	}
+
+	/*
+	 * 商品零售页面
+	 */
+	@RequestMapping(value = "toGoodsSalePage")
+	public String toGoodsSalePage(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String goodsId = request.getParameter("id");
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		List<Record> rd1 = goodsSiteSelfService.getSiteServiceInfoList(siteId);// 网点人员
+		List<Record> rd2 = goodsSiteSelfService.getSiteEmployeList(siteId);// 服务工程师
+		Record rd3 = goodsSiteSelfService.getSiteName(siteId);// 网点名称
+		model.addAttribute("siteId", siteId);
+		model.addAttribute("defaultList", goodsSiteSelfService.getDefaultSaleGoodsList(goodsId));
+		model.addAttribute("rd1", rd1);
+		model.addAttribute("rd2", rd2);
+		model.addAttribute("dict", FreeOrVipUtils.freeVip());
+		model.addAttribute("nowDate", new Date());
+		model.addAttribute("rd3", rd3.getStr("name"));
+		model.addAttribute("rd4", UserUtils.getUser().getId());
+		Record saleSet = goodsCategoryService.getGoodsSalesSet(siteId);
+		model.addAttribute("saleSet", saleSet != null ? saleSet.getStr("set_value") : "");
+		return "modules/goods/goodsSales/oneGoodsSale";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getSiteGoodsList")
+	public List<Record> getSiteGoodsList(HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = getParams(request);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return goodsSiteSelfService.getSiteGoodsList(siteId, map);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getSelectedAddGoods")
+	public List<Record> getSelectedAddGoods(HttpServletRequest request, HttpServletResponse response) {
+		String goodsId = request.getParameter("ids");
+		return goodsSiteSelfService.getDefaultSaleGoodsList(goodsId);
+	}
+
+	/*
+	 * 最新版PC端-零售-保存 操作
+	 */
+	@ResponseBody
+	@RequestMapping(value = "saveSales")
+	public Result<T> saveSales(HttpServletRequest request, HttpServletResponse response) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Map<String, Object> map = getParams(request);
+		/* 后台校验-尤其是-库存 够不够-的问题 */
+		Result<T> checkResult = siteselfOrderService.checkSalesPcLs(map, siteId);
+		if (!"200".equals(checkResult.getCode())) {
+			return checkResult;
+		}
+		return siteselfOrderService.saveSales(siteId, map, user);
+	}
+}

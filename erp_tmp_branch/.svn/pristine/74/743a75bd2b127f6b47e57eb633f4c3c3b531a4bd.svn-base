@@ -1,0 +1,234 @@
+package com.jojowonet.modules.order.service;
+
+import com.google.common.collect.Lists;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.OrderMustFillSettingDao;
+import com.jojowonet.modules.order.entity.OrderMustFillSetting;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import ivan.common.service.BaseService;
+import ivan.common.utils.UserUtils;
+import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+/**
+ *
+ * @author DQChen
+ * @date 2018/3/1 0001
+ */
+@Service
+@Transactional(readOnly = true)
+public class OrderMustFillSettingService extends BaseService{
+
+    @Autowired
+    private OrderMustFillSettingDao orderMustFillSettingDao;
+
+    public List<Record> getMustFillInfo(){
+        String siteId= CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String sql="select * from crm_order_mustfill_setting where site_id=?";
+        return Db.find(sql,siteId);
+    }
+
+    @Transactional
+    public void saveMustFill(Map<String,Object> map){
+        Boolean customerFeedback=Boolean.parseBoolean(getTrimmedParamValue(map,"customerFeedback"));
+        Boolean origin=Boolean.parseBoolean(getTrimmedParamValue(map,"origin"));
+        Boolean promiseTime=Boolean.parseBoolean(getTrimmedParamValue(map,"promiseTime"));
+        Boolean promiseLimit=Boolean.parseBoolean(getTrimmedParamValue(map,"promiseLimit"));
+        Boolean remarks=Boolean.parseBoolean(getTrimmedParamValue(map,"remarks"));
+        Boolean applianceModel=Boolean.parseBoolean(getTrimmedParamValue(map,"applianceModel"));
+        Boolean applianceNum=Boolean.parseBoolean(getTrimmedParamValue(map,"applianceNum"));
+        Boolean applianceBarcode=Boolean.parseBoolean(getTrimmedParamValue(map,"applianceBarcode"));
+        Boolean applianceMachineCode=Boolean.parseBoolean(getTrimmedParamValue(map,"applianceMachineCode"));
+        Boolean applianceBuyTime=Boolean.parseBoolean(getTrimmedParamValue(map,"applianceBuyTime"));
+        Boolean pleaseReferMall=Boolean.parseBoolean(getTrimmedParamValue(map,"pleaseReferMall"));
+        Boolean warrantyType=Boolean.parseBoolean(getTrimmedParamValue(map,"warrantyType"));
+        Boolean level=Boolean.parseBoolean(getTrimmedParamValue(map,"level"));
+
+        List<OrderMustFillSetting> mustFillList= Lists.newArrayList();
+        Date now =new Date();
+        String userId=UserUtils.getUser().getId();
+        String siteId=CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        for(int i=0;i<13;i++){
+            OrderMustFillSetting mustFill=new OrderMustFillSetting();
+            mustFill.setCreateBy(userId);
+            mustFill.setCreateTime(now);
+            mustFill.setSiteId(siteId);
+            String sql="select * from crm_order_mustfill_setting where name=? and site_id=?";
+            if(i==0){
+                Record re = Db.findFirst(sql,"customerFeedback",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("customerFeedback");
+                if(customerFeedback){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==1){
+                Record re = Db.findFirst(sql,"origin",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("origin");
+                if(origin){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==2){
+                Record re = Db.findFirst(sql,"promiseTime",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("promiseTime");
+                if(promiseTime){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==3){
+                Record re = Db.findFirst(sql,"promiseLimit",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("promiseLimit");
+                if(promiseLimit){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==4){
+                Record re = Db.findFirst(sql,"remarks",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("remarks");
+                if(remarks){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==5){
+                Record re = Db.findFirst(sql,"applianceModel",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("applianceModel");
+                if(applianceModel){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==6){
+                Record re = Db.findFirst(sql,"applianceNum",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("applianceNum");
+                if(applianceNum){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==7){
+                Record re = Db.findFirst(sql,"applianceBarcode",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("applianceBarcode");
+                if(applianceBarcode){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==8){
+                Record re = Db.findFirst(sql,"applianceMachineCode",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("applianceMachineCode");
+                if(applianceMachineCode){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==9){
+                Record re = Db.findFirst(sql,"applianceBuyTime",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("applianceBuyTime");
+                if(applianceBuyTime){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==10){
+                Record re = Db.findFirst(sql,"pleaseReferMall",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("pleaseReferMall");
+                if(pleaseReferMall){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==11){
+                Record re = Db.findFirst(sql,"warrantyType",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("warrantyType");
+                if(warrantyType){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }else if(i==12){
+                Record re = Db.findFirst(sql,"level",siteId);
+                if(re!=null){
+                    mustFill.setId(re.getStr("id"));
+                }
+                mustFill.setName("level");
+                if(level){
+                    mustFill.setStatus("0");
+                }else{
+                    mustFill.setStatus("1");
+                }
+                mustFillList.add(mustFill);
+            }
+        }
+        orderMustFillSettingDao.save(mustFillList);
+    }
+
+    private String getTrimmedParamValue(Map<String, Object> map, String param) {
+        return StringUtils.trim(getParamValue(map, param));
+    }
+
+    private String getParamValue(Map<String, Object> map, String param) {
+        Object value = map.get(param);
+        return value == null ? null : ((String[]) map.get(param))[0];
+    }
+
+}

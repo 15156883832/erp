@@ -1,0 +1,798 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>工单录入</title>
+<meta name="decorator" content="base"/>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.css"/>
+<script type="text/javascript" src="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/Validform/5.3.2/Validform.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/jquery.rotate.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/imgShow.js"></script>
+<style type="text/css">
+/* .webuploader-pick{
+	background:#fff;
+	padding:0;
+	color: #0e8ee7;
+} */
+.webuploader-pick{
+	background:none;
+	color:#22a0e6;	
+	padding:0;
+	
+}
+/* .spimg1{ border:none;} */
+.spimg1 .webuploader-pick{
+	width:134px;
+	height:134px;
+}
+.spimg2 .webuploader-pick{
+	width:80px;
+	height:80px;
+}
+
+.webuploader-pick img{
+	width:100%;
+	height:100%;
+	position:absolute;
+	left:0;
+	top:0;
+}
+</style>
+</head>
+
+<body>
+<!-- 审核申请 -->
+<div class="popupBox shsqbox" style="width: 945px">
+	<h2 class="popupHead">
+		审核申请
+		<a href="javascript:;" class="sficon closePopup" id="topOne"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain" style="padding: 0">
+			<div class="pcontent pd-15" id="detialWd">
+				<div class="cl mb-10">
+					<label class="f-l">&#12288;申请人：</label>
+					<input type="text" class="input-text w-140 readonly f-l"  readonly="readonly" value="${fa.employeName }" />
+					<input type="hidden" id="emNamId"  value="${fa.employeId }" />
+					<label class="f-l w-90">申请时间：</label>
+					<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="<fmt:formatDate value='${fa.createTime }' pattern='yyyy-MM-dd HH:mm:ss'/>"/>
+				</div>
+				<div class="tabBarP mr-15" >
+					<a href="javascript:;" class="tabswitch current">申请信息</a>
+					<a href="javascript:;" class="tabswitch ">备件计划</a>
+					<a href="javascript:;" class="tabswitch ">申请反馈</a>
+				</div>
+				<div class="tabCon pt-10">
+					<c:choose>
+						<c:when test="${fa.orderNumber eq '' }">
+						</c:when>
+						<c:when test="${fa.orderNumber eq null }">
+						</c:when>
+						<c:otherwise>
+							<%--<h3 class="modelHead mb-10">工单信息</h3>--%>
+							<div class="cl mb-10">
+								<label class="f-l w-80">工单编号：</label>
+								<input type="text" class="input-text w-160 readonly f-l" readonly="readonly" id="orderNumber" value="${order.columns.number }"/>
+								<input type="text" hidden="hidden" class="input-text w-160 readonly f-l" id="orderType" readonly="readonly" value="${order.columns.order_type }"/>
+								<label class="f-l w-80">家电品牌：</label>
+								<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.columns.appliance_brand }"/>
+								<label class="f-l w-80">家电品类：</label>
+								<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.columns.appliance_category }"/>
+								<label class="f-l w-80">家电型号：</label>
+								<input id="applianceVersion" type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.columns.appliance_model }"/>
+							</div>
+							<div class="cl mb-10">
+								<label class="f-l w-80">保修类型：</label>
+								<input type="text" class="input-text w-160 readonly f-l" readonly="readonly" value="${fmtWT}"/>
+								<label class="f-l w-80">报修时间：</label>
+								<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="<fmt:formatDate value='${order.columns.repair_time }' pattern='yyyy-MM-dd HH:mm:ss'/>"/>
+								<label class="f-l w-80">内机条码：</label>
+								<input type="text" class="input-text w-360 readonly f-l" readonly="readonly" value="${order.columns.appliance_barcode }"/>
+							</div>
+							<div class="cl mb-10">
+								<label class="f-l w-80">用户姓名：</label>
+								<input type="text" class="input-text w-160 readonly f-l" readonly="readonly" value="${order.columns.customer_name }"/>
+								<label class="f-l w-80">联系方式：</label>
+								<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.columns.customer_mobile }"/>
+								<label class="f-l w-80">详细地址：</label>
+								<input type="text" class="input-text w-360 readonly f-l" readonly="readonly" value="${order.columns.customer_address }"/>
+							</div>
+						<!-- 	<div class="cl mb-10">
+								
+							</div> -->
+						</c:otherwise>
+					</c:choose>
+					<h3 class="modelHead mb-10 mr-15">
+						备件信息
+						<a href="javascript:addbjsq('${fitting.id }');" style="position: relative;bottom: 5px;font-weight: normal;" class="sfbtn sfbtn-opt f-r ml-5" id="btn-gcssq"><i class="sficon sficon-gcsapplication"></i>添加申请</a>
+						<a href="javascript:savezjfd();" style="position: relative;bottom: 5px;font-weight: normal;" class="sfbtn sfbtn-opt f-r w-80" >保存</a>
+					</h3>
+
+					<div class="cl mb-10">
+						<label class="f-l w-80"><em class="mark">*</em>备件条码：</label>
+						<input type="text" class="input-text w-160 f-l" value="${fa.fittingCode }" id="fittingCode"/>
+						<input type="hidden" value="${fa.id }" id="id"/>
+						<input type="hidden" value="${fitting.id }" id="fittingId"/>
+						<input type="hidden" value="${fa.fittingCode }" id="fittingCode1"/>
+						<label class="w-80 f-l">备件名称：</label>
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="${fitting == null ? fa.fittingName : fitting.name }" id="fittingName"/>
+						<label class="w-80 f-l">备件型号：</label>
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="${fitting == null ? fa.fittingVersion : fitting.version }" id="fittingVersion"/>
+						<label class="w-80 f-l">适用品类：</label>
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="${fitting == null ? fa.suitCategory : fitting.suitCategory }" id="suitCategory"/>
+					</div>
+					<div class="cl mb-10">
+						<label class="f-l w-80">家电型号：</label>
+						<input type="text" class="w-160 f-l input-text readonly" readonly="readonly" value="${fa.suitMode }" />
+						<label class="w-80 f-l">当前库存：</label>
+						<div class="priceWrap w-140 f-l readonly">
+							<input type="text" class="input-text readonly" readonly="readonly" value="${fitting.warning }" id="fittingWarning"/>
+							<span class="unit">件</span>
+						</div>
+						<label class="f-l w-80">返还旧件：</label>
+						<select class="select w-140 f-l" id="oldFittingFlag">
+							<c:choose>
+								<c:when test="${fa.oldFittingFlag eq '0' }">
+									<option value="">请选择</option>
+									<option value="0" selected="selected">无需返还</option>
+									<option value="1">需要返还</option>
+								</c:when>
+								<c:when test="${fa.oldFittingFlag eq '1' }">
+									<option value="">请选择</option>
+									<option value="0">无需返还</option>
+									<option value="1" selected="selected">需要返还</option>
+								</c:when>
+								<c:otherwise>
+									<option value="">请选择</option>
+									<option value="0">无需返还</option>
+									<option value="1">需要返还</option>
+								</c:otherwise>
+							</c:choose>
+						</select>
+					</div>
+					<div class="cl mb-10">
+						<label class="w-80 f-l">申请数量：</label>
+						<div class="priceWrap w-140 f-l readonly">
+							<input type="text" class="input-text readonly" readonly="readonly" value="${fa.fittingApplyNum }" />
+							<span class="unit">件</span>
+						</div>
+						<label class="w-100 f-l">申请备注：</label>
+						<input type="text" class="input-text f-l readonly" style="width: 470px;" readonly="readonly"   id="" value="${fa.employeFeedback}" title=""/>
+					</div>
+					<div class="cl mb-10">
+						<label class="w-80 f-l"><em class="mark">*</em>审核数量：</label>
+						<div class="priceWrap w-140 f-l">
+							<input type="text" class="input-text"  id="fittingAuditNum" value="${auditNum }"/>
+							<span class="unit">件</span>
+						</div>
+						<label class="f-l w-100">审核备注：</label>
+						<input class="input-text f-l" style="width: 470px" id="auditMarks" name="employeFeedback" value="${fa.auditMarks}"/>
+					</div>
+					<c:if test="${hasApplyImgs}">
+					<div class="cl" id="spimg1">
+						<label class="f-l w-80">申请图片：</label>
+						<div class="f-l w-820">
+							<c:forEach items="${fittingApplyImgs}" var="item">
+								<c:if test="${not empty item}">
+								<div class="imgbox f-l mr-10 mb-10 spimg1" style="width: 65px;height: 65px;">
+									<img src="${commonStaticImgPath}${item}" />
+								</div>
+								</c:if>
+							</c:forEach>
+						</div>
+					</div>
+					</c:if>
+					<c:if test="${hasFitImgs}">
+					<div class="cl " id="spimg2">
+						<label class="f-l w-80">备件图片：</label>
+						<div class="f-l w-820">
+							<c:forEach items="${fitImgs}" var="item">
+								<c:if test="${not empty item}">
+									<div class="imgbox f-l mr-10 mb-10 spimg1" style="width: 65px;height: 65px;">
+										<img src="${commonStaticImgPath}${item}" />
+									</div>
+								</c:if>
+							</c:forEach>
+						</div>
+					</div>
+					</c:if>
+
+					<div class="text-c ">
+						<a href="javascript:adoptFittingApply();" class="sfbtn sfbtn-opt3 w-70 mr-5">通过</a>
+						<a href="javascript:refuseFittingApply1();" class="sfbtn sfbtn-opt w-70 mr-5">拒绝</a>
+					</div>
+				</div>
+				<div class="tabCon pt-10">
+					<p class="mb-10 c-fe0101">提示：当缺件的备件需要向厂家申请时，可以维护备件计划信息</p>
+					<div class="cl mb-10">
+						<label class="f-l w-80"><em class="mark">*</em>计划状态：</label>
+						<c:if test="${applyPlan.columns.status eq '0' or empty applyPlan.columns.status}">
+							<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" id="" value="待提交" />
+						</c:if>
+						<c:if test="${applyPlan.columns.status eq '1'}">
+							<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" id="" value="已提交" />
+						</c:if>
+						<c:if test="${applyPlan.columns.status eq '2'}">
+							<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" id="" value="已入库" />
+						</c:if>
+
+						<label class="f-l w-100"><em class="mark">*</em>计划时间：</label>
+						<c:if test="${applyPlan.columns.status eq '0' or empty applyPlan.columns.status}">
+							<input type="text" onfocus="WdatePicker()" name="planTime" id="planTime" value="<fmt:formatDate value="${applyPlan.columns.plan_time}" pattern="yyyy-MM-dd"/>" class="input-text f-l Wdate w-140 " >
+						</c:if>
+						<c:if test="${applyPlan.columns.status ne '0' && not empty applyPlan.columns.status}">
+							<input type="text" name="planTime" id="planTime" value="<fmt:formatDate value="${applyPlan.columns.plan_time}" pattern="yyyy-MM-dd"/>" class="input-text f-l w-140 readonly" readonly="readonly" >
+						</c:if>
+
+						<label class="f-l w-100"><em class="mark">*</em>计划申请人：</label>
+						<span class="select-box f-l w-140">
+							<select class="select ${applyPlan.columns.status ne '0' && not empty applyPlan.columns.status ?'readonly':'' }" ${applyPlan.columns.status ne '0' && not empty applyPlan.columns.status  ?'disabled="disabled"':''} id="planApplicant">
+								<option value="">请选择</option>
+								<c:forEach var="re" items="${siteRelos}">
+									<option value="${re.columns.id}" ${applyPlan.columns.plan_applicant_id eq re.columns.id?'selected':''}>${re.columns.name}</option>
+								</c:forEach>
+							</select>
+						</span>
+					</div>
+					<div class="cl mb-10">
+						<label class="f-l w-80"> 备注：</label>
+						<textarea class="textarea h-50 w-820 ${applyPlan.columns.status ne '0' && not empty applyPlan.columns.status  ?'readonly':''}" ${applyPlan.columns.status ne '0' && not empty applyPlan.columns.status ?'readonly="readonly"':''} id="planMarks">${applyPlan.columns.marks}</textarea>
+					</div>
+					<h3 class="modelHead mb-10 mr-15"> 备件信息 </h3>
+					<div class="cl mb-10">
+						<label class="f-l w-80"><em class="mark">*</em>条码：</label>
+						<input type="text" class="input-text w-160 readonly f-l" readonly="readonly"  value="${fa.fittingCode}"/>
+						<label class="f-l w-100"><em class="mark">*</em>名称：</label>
+						<input type="text w-160" class="input-text w-160 readonly f-l" readonly="readonly" value="${fitting == null ? fa.fittingName : fitting.name }"/>
+						<label class="f-l w-100"><em class="mark">*</em>型号：</label>
+						<input type="text w-160" class="input-text w-160 readonly f-l" readonly="readonly" value="${fitting == null ? fa.fittingVersion : fitting.version }"/>
+					</div>
+					<div class="cl mb-10">
+						<label class="f-l w-80"><em class="mark">*</em>计划数量：</label>
+						<input type="text" class="input-text w-160  f-l ${applyPlan.columns.status ne '0' && not empty applyPlan.columns.status ?'readonly':''} " ${applyPlan.columns.status ne '0' && not empty applyPlan.columns.status ?'readonly="readonly"':''} id="planNum" value="${empty applyPlan.columns.plan_num ? fa.fittingApplyNum:applyPlan.columns.plan_num}"/>
+					</div>
+					<div class="text-c ">
+						<input type="hidden" id="applyPlanId" value="${applyPlan.columns.id}" />
+						<c:if test="${applyPlan.columns.status eq '0' or empty applyPlan.columns.status}">
+							<a href="javascript:commitApplyPlan();" class="sfbtn sfbtn-opt3 w-70">提交计划</a>
+						</c:if>
+						<a href="javascript:doPutInStock();" class="sfbtn sfbtn-opt w-70 ${applyPlan.columns.status ne '1'?'hide':''}">确认入库</a>
+					</div>
+				</div>
+				<div class="tabCon pt-10">
+					<p class="mb-10 c-fe0101">提示：需要给申请工程师发送审核信息时，请填写申请反馈，直接发送至工程师思傅帮APP。<span class="iconDec" id="showImg"></span></p>
+					<img src="${ctxPlugin}/static/h-ui.admin/images/img_app1.jpg" class="hide pos-f imgApp" id="imgApp" />
+					<textarea class="textarea" rows="6" style="width: 900px;" placeholder="请填写申请反馈" id="message"></textarea>
+					<h3 class="modelHead mb-10 mr-15">历史信息</h3>
+					<div class="pd-10 mr-15 mb-10 ${empty fa.message ?'':'hide'} ">
+						示例：2017-01-20 16:20&nbsp;&nbsp;&nbsp;申请的备件缺件，已向厂家申请备件，大概需要2天时间。
+					</div>
+					<div class="bk-gray pd-10 mr-15 mb-10 ${empty fa.message ?'hide':''} " style="height: 140px;overflow: auto;">
+						<c:forEach var="pros" items="${fns:getFittingProcess(fa.message)}">
+							<c:set value="${pros.name }" var="name"></c:set>
+							<p>
+								<span class="time">${pros.time}</span>
+								<span> ${pros.name}</span>
+								<span> ：${pros.content}</span>
+							</p>
+						</c:forEach>
+						<input type="hidden" value="${name}" id="nametest" />
+					</div>
+					<div class="text-c pt-10">
+						<a href="javascript:messageApply();" class="sfbtn sfbtn-opt3 w-70 ">申请反馈</a>
+					</div>
+				</div>
+			<%--<div class="sqfkbox pt-10">
+				<div class="h-50 bk-gray ">
+					<p class="notetxt c-666">暂无申请反馈内容，如需反馈请点击申请反馈按钮</p>
+					<c:forEach var="pros" items="${fns:getFittingProcess(fa.message)}">
+					<c:set value="${pros.name }" var="name"></c:set>
+							<p>
+								<span class="time">${pros.time}</span>
+								<span> ${pros.name}</span>
+								<span> ：${pros.content}</span>
+							</p>
+				    </c:forEach>
+				    <input type="hidden" value="${name}" id="nametest" />
+				</div>
+			</div>--%>
+		</div>
+		</div>
+
+	</div>
+</div>
+
+<!-- 申请反馈 -->
+<%--<div class="popupBox shfkbox shfkboxfk">
+	<h2 class="popupHead">
+		申请反馈
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain pd-20">
+			<textarea class="textarea" placeholder="请输入申请反馈" id="message"></textarea>
+			<div class="text-c mt-25">
+				<a href="javascript:messageApply();" class="sfbtn sfbtn-opt3 w-70 mr-5">发送</a>
+				<a href="javascript:closeDivApp();" class="sfbtn sfbtn-opt w-70 mr-5">取消</a>
+			</div>
+			
+		</div>
+	</div>
+</div>--%>
+
+<!-- 拒绝 -->
+<div class="popupBox shfkbox shfkboxjj">
+	<h2 class="popupHead">
+		拒绝
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain pd-20">
+			<textarea class="textarea" placeholder="请输入拒绝理由" id="reason"></textarea>
+			<div class="text-c mt-25">
+				<a href="javascript:refuseFittingApply();" class="sfbtn sfbtn-opt3 w-70 mr-5">发送</a>
+				<a href="javascript:closeDivApp1();" class="sfbtn sfbtn-opt w-70 mr-5">取消</a>
+			</div>
+			
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript" src="${ctxPlugin}/lib/layer/2.4/layer.js"></script>
+<script type="text/javascript">
+	var ck = /^\d+(\.\d+)?$/;
+	var exit="ok";
+
+	function closeDivApp(){
+		$.closeDiv($('.shfkboxfk'));	
+	}
+	function closeDivApp1(){
+		$.closeDiv($('.shfkboxjj'));	
+	}
+	$(function(){
+		$.Huitab("#detialWd .tabBarP .tabswitch","#detialWd .tabCon","current","click","0");
+		
+		$('.shsqbox').popup({fixedHeight:false});
+		
+		$('#fittingAuditNum').blur(function () {
+			var fittiNum = $("#fittingAuditNum").val();
+			var ficount = $("#fittingWarning").val();
+			if (isBlank(fittiNum)) {
+				layer.msg("请输入审核数量");
+			} else if(ck.test(fittiNum)){
+			    if(parseFloat(fittiNum)>parseFloat(ficount)){
+			    	layer.msg("库存数量不足");
+			    }
+			}else{
+				layer.msg("申请数量大于0");
+			}
+		});
+
+		//检验条码是否存在并带出相应的信息
+		$('#fittingCode').change(function () {
+			var code = $("#fittingCode").val();
+			if (!isBlank(code)) {
+				$.ajax({
+					type: "POST",
+					url: "${ctx}/fitting/getfitting",
+					data: {code:code},
+					dataType: "json",
+					success: function (data) {
+						var obj = eval('data');
+						if (obj.co == '1') {
+							$("#fittingId").val(obj.record.columns.id);
+							$("#suitCategory").val(obj.record.columns.suit_category);
+							$("#oldFittingFlag").val(obj.record.columns.refund_old_flag);
+							$("#fittingVersion").val(obj.record.columns.version);
+							$("#fittingName").val(obj.record.columns.name);
+							
+							maxpj = parseFloat(obj.record.columns.warning);
+							if (maxpj <= 0) {
+								layer.msg('该配件已无库存');
+								$("#fittingWarning").val(0);
+							}else{
+								$("#fittingWarning").val(obj.record.columns.warning);
+							}
+						} else {
+						    // 配件条码不存在的时候，领导决定不清空已经有的信息。
+							layer.msg("该条码配件不存在");
+							exit = "no";
+						}
+					}
+				});
+			} else {
+				layer.msg("请输入配件条码");
+			}
+		});
+		
+		// 如果申请反馈内容不为空则隐藏提示文字
+		var name = $("#nametest").val();
+		if(!isBlank(name)){
+			$(".notetxt").hide();
+		}
+		
+		var codename = '${fa.fittingCode }';
+		checkExistsByFittingCode(codename);
+	});
+
+
+    $('#showImg').hover(function(ev){
+        var mouseX = ev.pageX,
+            mouseY = ev.pageY,
+            winW = $(window).width(),
+            winH = $(window).height();
+        imgW = $('#imgApp').width(),
+            imgH = $('#imgApp').height();
+        if(mouseX + imgW > winW ){
+            $('#imgApp').css({'left': ( mouseX - imgW - 5) + 'px'});
+        }else{
+            $('#imgApp').css({'left': ( mouseX + 5) + 'px'});
+        }
+        if(mouseY + imgH > winH ){
+            $('#imgApp').css({'bottom': '0px','top':'auto'});
+        }else{
+            $('#imgApp').css({'top': mouseY+'px','bottom':'auto'});
+        }
+        $('#imgApp').show();
+
+    },function(){
+        $('#imgApp').hide()
+    })
+
+
+    /*提交计划*/
+    var commitApplyP=false;
+    function commitApplyPlan(){
+        if(commitApplyP){
+            return;
+        }
+        var applyId=$("#id").val();
+        var planTime=$("#planTime").val();
+        var planApplicantId=$("#planApplicant").val();
+        var planApplicant=$("#planApplicant").find("option:selected").text();
+        var planMarks=$("#planMarks").val();
+        var planNum=$("#planNum").val();
+        var fittingCode=$("#fittingCode").val();
+        if(isBlank(planTime)){
+            layer.msg("请选择计划时间！");
+        }else if(isBlank(planApplicantId)){
+            layer.msg("请选择计划申请人！");
+        }else if(isBlank(planNum)){
+            layer.msg("请填写计划数量！");
+        }else if(!ck.test(planNum)){
+            layer.msg("计划数量格式不正确！");
+        }else{
+            commitApplyP=true;
+            $.ajax({
+                type:"post",
+                url:"${ctx}/fitting/fittingApply/commitApplyPlan",
+                data:{
+                    applyId:applyId,
+                    planTime:planTime,
+                    planApplicant:planApplicant,
+                    planApplicantId:planApplicantId,
+                    planMarks:planMarks,
+                    planNum:planNum,
+                    fittingCode:fittingCode
+                },
+                dataType:"text",
+                success:function(data){
+					if(data=="ok"){
+					    layer.msg("提交成功");
+                        location.href="${ctx}/fitting/fittingApply/form?id="+applyId;
+					}else if(data=="202"){
+                        layer.msg("条码\""+fittingCode+"\"在备件库存管理中不存在！");
+					}else if(data=="201"){
+                        layer.msg("提交数据存在问题，请联系管理员！");
+                    }
+                },
+                complete:function(){
+                    commitApplyP=false;
+                }
+            })
+        }
+    }
+
+    /*入库*/
+    var putInStock=false;
+    function doPutInStock(){
+		if(putInStock){
+		    return;
+		}
+        var applyId=$("#id").val();
+		var fittingId=$("#fittingId").val();
+		var fittingName=$("#fittingName").val();
+		var fittingCode=$("#fittingCode").val();
+		var applyPlanId=$("#applyPlanId").val();
+		var planNum=$("#planNum").val();
+
+        var content = "您确认入库 "+planNum+"*"+fittingName+"("+fittingCode+")吗？";
+        $('body').popup({
+            level:3,
+			type:2,
+            title:"入库",
+            content:content,
+            fnConfirm :function(){
+                putInStock=true;
+                $.ajax({
+                    type: "POST",
+                    url: "${ctx}/fitting/stock/putInStock",
+                    data: {
+                        fittingId: fittingId,
+                        applyPlanId:applyPlanId,
+                        planNum:planNum
+                    },
+                    dataType: "text",
+                    success: function (data) {
+                        layer.msg("入库成功！");
+                        location.href="${ctx}/fitting/fittingApply/form?id="+applyId;
+                    },
+					complete:function(){
+                        putInStock=false;
+					}
+                });
+            }
+        });
+	}
+
+    function checkExistsByFittingCode(code) {
+        if (!isBlank(code) && $("#fittingId").val().length == 0) {
+            $.ajax({
+                type: "POST",
+                url: "${ctx}/fitting/getfitting",
+                data: {code: code},
+                dataType: "json",
+                success: function (data) {
+                    var obj = eval('data');
+                    if (obj.co == '1') {
+                    } else {
+                        $("#fittingWarning").val("");
+                    }
+                }
+            });
+        }
+    }
+
+    $("#topOne").on("click",function(){
+		parent.search();
+	});
+	
+	function isBlank(val) {
+		if(val==null || val=='' || val == undefined) {
+			return true;
+		}
+		return false;
+	}
+	var adpoting = false;
+    function savezjfd() {
+        if (adpoting) {
+            return;
+        }
+        var auditMarks = $("#auditMarks").val();
+        var id = $("#id").val();
+        var fittingId = $("#fittingId").val();
+        var fittingCode = $("#fittingCode").val();//备件条码
+        var fittingCode1 = $("#fittingCode1").val();//原来的备件条码
+        var fittingAuditNum = $("#fittingAuditNum").val();//审核数量
+        var oldFittingFlag = $("#oldFittingFlag").val();
+        var fittingWarning = $("#fittingWarning").val();
+        var fittingName = $("#fittingName").val();
+        var orderType = $("#orderType").val();
+        var orderNumber = $("#orderNumber").val();
+        var exits = exit;
+        if (isBlank(fittingWarning)) {
+            if (parseFloat(fittingAuditNum) > 0) {
+                exits = "no";
+            }
+        } else {
+            if (parseFloat(fittingAuditNum) > parseInt(fittingWarning)) {
+                exits = "no";
+            }
+        }
+        if (!ck.test(fittingAuditNum)) {
+            layer.msg("审核数量格式错误!");
+            return;
+        } else {
+            adpoting = true;
+            $.ajax({
+                type: "POST",
+                url: "${ctx}/fitting/fittingApply/updateFittingApply",
+                data: {
+                    exi: exits,
+                    id: id,
+                    fittingId: fittingId,
+                    fittingCode: fittingCode,
+                    fittingCode1: fittingCode1,
+                    fittingAuditNum: fittingAuditNum,
+                    oldFittingFlag: oldFittingFlag,
+                    orderNumber: orderNumber,
+                    orderType: orderType,
+                    fittingName: fittingName,
+                    ficount: fittingWarning,
+                    auditMarks: auditMarks
+                },
+                success: function (result) {
+                    layer.msg("保存成功！");
+                    setTimeout(function () {
+                        window.parent.search();
+                    }, 300);
+                    setTimeout(function () {
+                        $.closeDiv($('.shsqbox'))
+                    }, 500);
+                },
+                complete: function () {
+                    adpoting = false;
+                }
+            });
+        }
+    }
+	
+	//通过申请
+	var adpotin = false;
+	function adoptFittingApply() {
+		if (adpotin) {
+			return;
+		}
+		var auditMarks = $("#auditMarks").val();
+		var id = $("#id").val();
+		var fittingId = $("#fittingId").val();
+		var fittingCode = $("#fittingCode").val();
+		var fittingCode1 = $("#fittingCode1").val();//原来的备件条码
+		var fittingAuditNum = $("#fittingAuditNum").val();
+		var oldFittingFlag = $("#oldFittingFlag").val();
+		var fittingWarning = $("#fittingWarning").val();
+
+		if (isBlank(fittingCode)) {
+			layer.msg("请输入备件条码!");
+			return;
+		} else if (!ck.test(fittingAuditNum)) {
+			layer.msg("审核数量格式错误!");
+			return;
+		} else if (parseFloat(fittingAuditNum) <= 0) {
+			layer.msg("审核数量必须大于0!");
+			return;
+		} else if (isBlank(fittingWarning)) {
+			if (parseFloat(fittingAuditNum) > 0) {
+				layer.msg("库存数量不足!");
+				return;
+			}
+		} else if (parseFloat(fittingAuditNum) > parseFloat(fittingWarning)) {
+			layer.msg("库存数量不足!");
+			return;
+		} else {
+			adpotin = true;
+			$.ajax({
+				type: "POST",
+				url: "${ctx}/fitting/fittingApply/adoptFittingApply",
+				data: {
+					id: id,
+					fittingId: fittingId,
+					fittingCode: fittingCode,
+					fittingCode1: fittingCode1,
+					fittingAuditNum: fittingAuditNum,
+					oldFittingFlag: oldFittingFlag,
+					auditMarks: auditMarks
+				},
+				success: function (result) {
+					var code = result.code;
+					if ('200' == code) {
+						parent.layer.msg("申请成功！");
+						parent.search();
+						$.closeAllDiv();
+					} else if('422' == code) {
+						layer.msg("审核已提交，请勿重复提交");
+					} else if('423' == code) {
+						layer.msg("备件信息有误。");
+					} else if('424' == code) {
+						layer.msg("请确认配件条码");
+					} else if('425' == code) {
+						layer.msg("备件库存不足");
+					} else {
+						layer.msg("申请审核失败");
+					}
+				},
+				complete: function () {
+					adpotin = false;
+				}
+			});
+		}
+	}
+	
+	function refuseFittingApply1(){
+		$('.shfkboxjj').popup({level:2});
+	}
+	
+	//拒绝通过备件申请
+	var adpoti1 = false;
+	function refuseFittingApply(){
+		var auditMarks = $("#auditMarks").val();
+		var reason = $("#reason").val();
+		if($.trim(reason)=="" || reason==null){
+			layer.msg("请填写拒绝理由！");
+		}else{
+			 if(adpoti1) {
+			        return;
+		        }
+			 adpoti1 = true;
+			var id = $("#id").val();
+			//需要加二级提示
+			$.ajax({
+				type:"POST",
+				url:"${ctx}/fitting/fittingApply/refuseFittingApply",
+				data:{
+					id:id,
+					reason:reason,
+					auditMarks:auditMarks
+					},
+				success:function(result){
+					layer.msg("拒绝成功！");
+					setTimeout(function(){
+						parent.search();
+						$.closeAllDiv();
+					},300);
+				},
+	            complete: function() {
+	                adpoti1 = false;
+	            }
+			});
+		}
+	}
+	
+	//点击申请反馈按钮
+	function applyfeedback(){
+		$('.shfkboxfk').popup({level:2});
+	}
+	
+	function messageApply(){
+		var message = $("#message").val();
+		var id = $("#id").val();
+		if(isBlank($.trim(message))){
+			layer.msg("请输入反馈内容！");
+		}else{
+			$.ajax({
+				type:"POST",
+				url:"${ctx}/fitting/fittingApply/messageApply",
+				data:{
+					id:id,
+					message:message
+					},
+				success:function(result){
+					layer.msg("反馈发送成功！");
+					//$.closeDiv($('.shfkboxfk'));
+					$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+					location.href="${ctx}/fitting/fittingApply/form?id="+id;
+				}
+			});
+		}
+	}
+
+    //添加申请
+    function addbjsq(fitid){
+	    var number=$("#orderNumber").val();
+	    var emNamId=$("#emNamId").val();
+	    if(isBlank(emNamId)){
+	        layer.msg("该信息没有申请人,不能直接添加申请！");
+		}else{
+            layer.open({
+                type : 2,
+                content:'${ctx}/fitting/fittingApply/addFittingApply?id='+fitid+"&emNamId="+emNamId+"&number="+number,
+                title:false,
+                area: ['100%','100%'],
+                closeBtn:0,
+                shade:0,
+                fadeIn:0,
+                anim:-1
+            });
+        }
+    }
+
+
+	 $('#spimg1').imgShow();
+	 $('#spimg2').imgShow();
+
+</script> 
+</body>
+</html>

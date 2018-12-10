@@ -1,0 +1,196 @@
+@charset "utf-8";
+
+.navbar .logo{ background-color: #13b6a1 ;}
+/* 导航栏-续费文本 */
+.navbar-userbar .btn_renew{color: #13b6a1 ;}
+
+/*菜单收缩切换*/
+.dislpayArrow a{background-position: 5px 0; }
+.dislpayArrow a.open{ background-position:-35px -49px}
+.dislpayArrow a:hover{ text-decoration:none; background-position:-48px 0px}
+.dislpayArrow a.open:hover{background-position:-53px -49px}
+
+/*选项卡导航*/
+.Hui-tabNav .acrossTab li{ background-position: 0 -120px;}
+.acrossTab li em{background-position: right -150px; }
+.acrossTab li:hover,
+.acrossTab li.active{background-position:0 -180px;}
+.acrossTab li:hover em,
+.acrossTab li.active em{background-position:right -210px}
+
+/* sifang icon css */
+.sficon{ background-image: url(../images/icons_cyan.png) ;}
+
+/* 复选框 */
+.label-cbox,
+.label-cbox2,
+.label-cbox3,
+.radiobox,
+.label-cbox4{ 
+	background-image: url(../images/icons_cyan.png) ;	
+}
+
+/* 按钮 */
+.sfbtn {
+	color: #2a2a2a;		
+}
+.sfbtn-opt2{border: 1px solid #fff;}
+.sfbtn-opt,
+.sfbtn-opt2:hover,
+.btn-count{	
+	border: 1px solid #13b6a1;
+	background: -webkit-linear-gradient(top,#e6fbfd,#d2f6fa);
+	background: -moz-linear-gradient(top,#e6fbfd,#d2f6fa);
+	background: -ms-linear-gradient(top,#e6fbfd,#d2f6fa);
+	background: linear-gradient(top,#e6fbfd,#d2f6fa);
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#e6fbfd', endColorstr='#d2f6fa',GradientType=0 );
+}
+.sfbtn-opt3,
+.sfbtn-opt:hover,
+.sfbtn-active{
+	background: #13b6a1;
+	border: 1px solid #13b6a1;
+	color: #fff;
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#13b6a1', endColorstr='#13b6a1',GradientType=0 );
+}
+.sfbtn-disabled,
+.sfbtn-disabled:hover {
+	cursor:not-allowed;
+	border: 1px solid #ccc;
+	background: #eee;
+	color: #888888;
+}
+/* 发送短信的按钮 */
+.sfbtn-green{
+	color: #fff;
+	background: #13b6a1;
+}
+
+/* 导航栏部分 */
+.navbar-sf{
+	background-color: #13b6a1;
+}
+.navbar-sfbar .sfnav{
+	background-image: url(../images/icon-navbar_cyan.png) ;
+}
+.navbar-sfbar a:hover,
+.navbar-sfbar .current{
+	color: #113d64;
+}
+/* 左侧菜单栏 */
+.Hui-aside .menu_dropdown .current a,
+.Hui-aside .menu_dropdown li a:hover{
+	background-color: #13b6a1;
+}
+.sfnav2 .aside-menu{ background-image: url(../images/menu-orders_cyan.png) ;} /* 工单管理 */
+.sfnav3 .aside-menu{ background-image: url(../images/menu-beijian_cyan.png) ;}
+.sfnav4 .aside-menu{ background-image: url(../images/menu-commodityF_cyan.png) ;} /* 商品管理 */
+.sfnav5 .aside-menu{ background-image: url(../images/menu-syssetS_cyan.png) ;} /* 服务商权限下的 */
+.sfnav6 .aside-menu{ background-image: url(../images/menu-order2_cyan.png) ;}   /* 订单管理 */
+.sfnav7 .aside-menu{ background-image: url(../images/menu-operative_cyan.png) ;}   /* 运营管理 */
+.sfnav8 .aside-menu{ background-image: url(../images/menu-finance_cyan.png) ;}   /* 财务管理 */
+.sfnav9 .aside-menu{ background-image: url(../images/menu-statistic_cyan.png) ;}   /* 统计分析 */
+
+/* 表格 */
+.table-sdrk th,
+.table2 th{
+	color: #2A2A2A;
+}
+/* jQgrid */
+.ui-jqgrid label{
+	background-image: url(../images/icons_cyan.png);
+}
+.ui-jqgrid-htable th.ui-state-default {   
+    color: #2A2A2A;
+}
+.ui-state-highlight, 
+.ui-widget-content .ui-state-highlight, 
+.ui-widget-header .ui-state-highlight  {
+	background: #b1e4dd; 
+}
+
+/* 选项卡 */
+.tabBar a.current{
+	border-bottom: #038675 2px solid;
+	color: #038675;
+}
+
+/* 弹出框 */
+.popupBox{	
+	background: #13b6a1;
+	border: 1px solid #0b88bc;	
+}
+.popupBox .popupHead{	
+	color: #fff;	
+	background: url(../images/bg-pupuphead_cyan.png) repeat-x;
+}
+.popupBox .popupHead .closePopup{
+	background-position: -120px -160px;
+}
+.popupContainer{
+	border: 1px solid #0b88bc;	
+}
+.btnMenubox{
+	border: 1px dotted #13b6a1;
+	background-color: #e0f7f4;
+}
+.modelHead{
+	color: #2A2A2A;
+	border-bottom: 1px solid #0ea08d;
+}
+.modelHead:before{
+	background: #0ea08d;
+}
+
+/* 弹出框中的选项卡 */
+.tabBarP{
+	border-bottom: 1px solid #0ea08d;
+}
+.tabBarP .current{
+	background-color: #13b6a1;
+}
+
+.homepage .boxHeader,
+.homepage .boxHeader2{
+	background: #13b6a1;
+}
+.tabBarP2 .tabswitch{ background: #0ea08d;}
+.tabBarP2 .tabswitch.current{
+	color: #2A2A2A;
+}
+
+/* 冒泡提示 */
+.tooltipLink{
+	border: 1px solid #4caf50;
+	background: #edfcf3;
+}
+/* 新增角色按钮 */
+.roleWrap .btn-addRole{
+	border: 1px dashed #13b6a1;
+	background: #e0f7f4;
+	color: #2a2a2a;
+}
+.roleWrap .roleList_edit .current{
+	background: #038675;
+	border-color: #038675;
+}
+
+.sysSetBox .sysLink:hover{ color: #038675;}
+.nav-logo{
+	background-color: #13b6a1;
+}
+.nav-logo2{
+	background-color: #13b6a1;
+}
+.navbar .logo {
+	background-color: #13b6a1;
+}
+.logo{
+	background-color: #13b6a1;
+}
+.logo:last-of-type{
+	background-color: #13b6a1;
+}
+.logoBtmBtn{
+	 background-color: #13b6a1!important;
+ }

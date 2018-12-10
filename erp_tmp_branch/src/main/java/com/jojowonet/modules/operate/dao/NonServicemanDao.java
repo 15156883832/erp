@@ -1,0 +1,296 @@
+/**
+ */
+package com.jojowonet.modules.operate.dao;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.entity.NonServiceman;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import org.springframework.stereotype.Repository;
+
+import java.util.*;
+
+/**
+ * 人员DAO接口
+ * 
+ * @author Ivan
+ * @version 2017-05-04
+ */
+@Repository
+public class NonServicemanDao extends BaseDao<NonServiceman> {
+
+	public String getSiteId(String userId) {
+		String sql = "SELECT site_id FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id =? ";
+		Record rd = Db.findFirst(sql, userId);
+		if (rd != null) {
+			return rd.getStr("site_id");
+		}
+		return null;
+	}
+
+	public NonServiceman getNonServiceman(User user) {
+		String sql = "SELECT * FROM crm_non_serviceman a  WHERE a.status='0' AND a.user_id =? ";
+		Record rd = Db.findFirst(sql, user.getId());
+		NonServiceman ns = new NonServiceman();
+		if (rd != null) {
+			ns.setBrand(rd.getStr("brand"));
+			ns.setCategory(rd.getStr("category"));
+			ns.setCreateBy(rd.getStr("create_by"));
+			ns.setCreateTime(rd.getDate("create_time"));
+			ns.setId(rd.getStr("id"));
+			ns.setMobile(rd.getStr("mobile"));
+			ns.setName(rd.getStr("name"));
+			ns.setRemarks(rd.getStr("remarks"));
+			ns.setStatus(rd.getStr("status"));
+			Date hiredate = rd.getDate("hiredate");
+			ns.setHiredate(hiredate == null ? "" : DateUtils.formatDate(hiredate,"yyyy-MM-dd hh:mm:ss"));
+			ns.setUpdateTime(rd.getDate("update_time"));
+			ns.setUser(user);
+
+		}
+		return ns;
+	}
+
+	// 员工信息管理table(网点人员信息表)
+	public List<Record> getServiceInfoList(Page<Record> page, String siteId, Map<String, Object> map) {
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select ns.id,ns.name,u.user_type as gangStatus,ns.site_id as roleName,ns.mobile,u.status,ns.hiredate, ns.img,u.login_name ");
+		sql.append(" from crm_non_serviceman ns");
+		sql.append(" left join sys_user u on ns.user_id=u.id");
+		sql.append(" where ns.site_id='" + siteId + "' and u.status in ('0','3') and ns.status in ('0','3') ");
+		sql.append(getQuery(map));
+		sql.append(" order by u.status ,ns.hiredate,u.create_date asc ");
+		if (page != null) {
+			sql.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		return Db.find(sql.toString());
+	}
+
+	// 计算数量
+	public long getCountServiceInfo(Page<Record> page, String siteId,
+			Map<String, Object> map) {
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select count(*) from crm_non_serviceman ns ");
+		sql.append(" left join sys_user u on ns.user_id=u.id");
+		sql.append(" where ns.site_id='" + siteId + "' and u.status in ('0','3') and ns.status in ('0','3') ");
+		sql.append(getQuery(map));
+		sql.append(" order by u.status asc,ns.hiredate desc ");
+		return Db.queryLong(sql.toString());
+	}
+
+	// 查询条件
+	public String getQuery(Map<String, Object> map) {
+
+		if (map == null) {
+			return "";
+		}
+
+		StringBuffer sf = new StringBuffer();
+
+		String name = getTrimmedParamValue(map, "name");
+		if (StringUtil.isNotBlank(name)) {
+			sf.append(" and ns.name like '%" + name + "%' ");
+		}
+
+		String mobile = getTrimmedParamValue(map, "mobile");
+		if (StringUtil.isNotBlank(mobile)) {
+			sf.append(" and ns.mobile like '%" + mobile + "%' ");
+		}
+
+		String roleName = getTrimmedParamValue(map, "roleName");
+		if (StringUtil.isNotBlank(roleName)) {
+			sf.append(" and r.name like '%" + roleName + "%' ");
+		}
+
+		String status = getTrimmedParamValue(map, "status");
+		if (StringUtil.isNotBlank(status)) {
+			sf.append(" and u.status  = '" + status + "' ");
+		}
+
+		return sf.toString();
+	}
+
+	// 员工信息管理table(服务工程师信息表)
+	public List<Record> getEmplyeInfoList(Page<Record> page, String siteId, Map<String, Object> map) {
+		StringBuffer sql = new StringBuffer("");
+		sql.append(" select ns.id,ns.name,u.user_type as gangStatus,u.email as roleName,ns.mobile,ns.hiredate,u.status,ns.`category`,ns.`ratio` ");
+		sql.append(" from crm_employe  ns LEFT JOIN sys_user u ON ns.user_id=u.id ");
+		sql.append(" where ns.site_id='" + siteId + "' and u.status in ('0','3') and ns.status in ('0','3') ");
+		sql.append(getQuery(map));
+		sql.append(" order by u.status,ns.hiredate,u.create_date asc  ");
+		if (page != null) {
+			sql.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		Map<String, String> categoryMap = getCategoryMap(siteId);
+		List<Record> ret = Db.find(sql.toString());
+		for (Record r : ret) {
+			String categoryIds = r.getStr("category");
+			List<String> categoryNames = new ArrayList<>();
+			if (categoryIds != null) {
+				String[] split = categoryIds.split(",");
+				for (String s : split) {
+					String name = categoryMap.get(s);
+					if (name != null) {
+						categoryNames.add(name);
+					}
+				}
+				r.set("category", org.apache.commons.lang.StringUtils.join(categoryNames, ","));
+			} else {
+				r.set("category", "");
+			}
+		}
+		return ret;
+	}
+
+	public Map<String, String> getCategoryMap(String siteId) {
+		String sqlt = "select * from crm_category  where site_id ='' or site_id is null or site_id=?";
+		Map<String, String> ret = new HashMap<>();
+		List<Record> r = Db.find(sqlt, siteId);//品类
+		for (Record rec : r) {
+			ret.put(rec.getInt("id").toString(), rec.getStr("name"));
+		}
+		return ret;
+	}
+
+	// 计算服务工程师数量
+	public long getCountEmplyeInfo(Page<Record> page, String siteId,
+			Map<String, Object> map) {
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select  count(*)");
+		sql.append(" from crm_employe  ns LEFT JOIN sys_user u ON ns.user_id=u.id ");
+		sql.append(" where ns.site_id='" + siteId + "' and u.status in ('0','3') and ns.status in ('0','3') ");
+		sql.append(getQuery(map));
+
+		return Db.queryLong(sql.toString());
+	}
+
+	private String getParamValue(Map<String, Object> map, String param) {
+		Object value = map.get(param);
+		return value == null ? null : (map.get(param).toString());
+	}
+
+	private String getTrimmedParamValue(Map<String, Object> map, String param) {
+		return StringUtils.trim(getParamValue(map, param));
+	}
+	
+	/***
+	 * 查询服务商下面的NonserviceMan的角色<id, name>列表
+	 * @param siteId
+	 * @return
+	 */
+	public List<Map<String, String>> getNonserviceManRoles(String siteId){
+		String defaultaroleIs = "1_2_3";
+		StringBuilder sb = new StringBuilder("");
+		sb.append("select a.id, a.sys_role_id, a.site_role_name from crm_site_role_permission a where a.site_id = '"+siteId+"'");
+		List<Record> rds = Db.find(sb.toString());
+		List<Map<String, String>> list = Lists.newArrayList();
+		if(rds != null){
+			for(Record rd : rds){
+				Map<String, String> map = Maps.newHashMap();
+				String sysRoleId = rd.getStr("sys_role_id");
+				map.put("id", rd.getStr("id"));
+				map.put("name", rd.getStr("site_role_name"));
+				list.add(map);
+				if("1".equals(sysRoleId)){//自定义过信息员
+					defaultaroleIs = defaultaroleIs.replace("1", "N");
+				}else if("2".equals(sysRoleId)){
+					defaultaroleIs = defaultaroleIs.replace("2", "N");
+				}else if("3".equals(sysRoleId)){
+					defaultaroleIs = defaultaroleIs.replace("3", "N");
+				}
+			}
+			String[] dfRoleArr = defaultaroleIs.split("_");
+			for(String ri : dfRoleArr){
+				if(!"N".equals(ri)){
+					Map<String, String> map = Maps.newHashMap();
+					String roleName = "1".equals(ri) ? "信息员" : "2".equals(ri) ? "备件人员" : "3".equals(ri) ? "财务人员" : "";
+					if(StringUtils.isNotBlank(roleName)){
+						map.put(ri, roleName);
+						list.add(map);
+					}
+				}
+			}
+		}
+		return list;
+	}
+	
+	public List<Map<String, String>> getNonserviceManRolesTwo(String siteId){
+		String defaultaroleIs = "1_2_3";
+		StringBuilder sb = new StringBuilder("");
+		sb.append("select a.id, a.sys_role_id, a.site_role_name from crm_site_role_permission a where a.site_id = '"+siteId+"'");
+		List<Record> rds = Db.find(sb.toString());
+		List<Map<String, String>> list = Lists.newArrayList();
+		if(rds != null){
+			for(Record rd : rds){
+				Map<String, String> map = Maps.newHashMap();
+				String sysRoleId = rd.getStr("sys_role_id");
+				map.put("id", rd.getStr("id"));
+				map.put("name", rd.getStr("site_role_name"));
+				list.add(map);
+				if("1".equals(sysRoleId)){//自定义过信息员
+					defaultaroleIs = defaultaroleIs.replace("1", "N");
+				}else if("2".equals(sysRoleId)){
+					defaultaroleIs = defaultaroleIs.replace("2", "N");
+				}else if("3".equals(sysRoleId)){
+					defaultaroleIs = defaultaroleIs.replace("3", "N");
+				}
+			}
+			String[] dfRoleArr = defaultaroleIs.split("_");
+			for(String ri : dfRoleArr){
+				if(!"N".equals(ri)){
+					Map<String, String> map = Maps.newHashMap();
+					String roleName = "1".equals(ri) ? "信息员" : "2".equals(ri) ? "备件人员" : "3".equals(ri) ? "财务人员" : "";
+					if(StringUtils.isNotBlank(roleName)){
+						map.put("id",ri);
+						map.put("name",roleName);
+						list.add(map);
+					}
+				}
+			}
+		}
+		return list;
+	}
+
+	public List<Record> getUserPermissions(String userId) {
+		StringBuilder sb = new StringBuilder(" select a.id, a.user_id, b.site_role_id, c.sys_role_id, c.permissions ");
+		sb.append(" from crm_non_serviceman a left join crm_non_serviceman_role_rel b on b.serviceman_id = a.id ");
+		sb.append(" left join crm_site_role_permission c on c.id = b.site_role_id ");
+		sb.append(" where a.user_id = '"+userId+"' ");
+		return Db.find(sb.toString());
+	}
+
+	public List<Record> getAllDefaultPermissions() {
+		return Db.find("select * from crm_site_default_nonservice_permission");
+	}
+//	public Integer queryCate(String name,String id){
+//		return Db.queryInt("select FIND_IN_SET(?,category) from crm_non_serviceman where id=?",name,id);
+//	}
+//	public Integer queryBrand(String name,String id){
+//		return Db.queryInt("select FIND_IN_SET(?,brand) from crm_non_serviceman where id=?",name,id);
+//	}
+	
+	public boolean getCkeckWorkNo(String workNo){
+		String sql = " SELECT id FROM crm_employe a WHERE a.status !='1' AND a.work_no=? limit 1";
+		Record rd = Db.findFirst(sql,workNo);
+		if(rd != null){
+			return true;
+		}
+		return false;
+	}
+	public boolean getCkeckidCard(String idCard){
+		String sql = " SELECT id FROM crm_employe a WHERE a.status !='1' AND a.id_card=? limit 1";
+		Record rd = Db.findFirst(sql,idCard);
+		if(rd != null){
+			return true;
+		}
+		return false;
+	}
+	
+}

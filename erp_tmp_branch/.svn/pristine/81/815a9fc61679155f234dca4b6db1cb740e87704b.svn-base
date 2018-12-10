@@ -1,0 +1,250 @@
+/**
+ */
+package com.jojowonet.modules.goods.dao;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.entity.GoodsSiteselfOrder;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+
+/**
+ * DAO接口
+ * 
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Repository
+public class SiteselfOrderDao extends BaseDao<GoodsSiteselfOrder> {
+
+	public List<Record> getFinanceOrderExcelList(Page<Record> page, String siteId, Map<String, Object> map) {// 列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(
+				"SELECT a.*,(a.purchase_num*b.site_price) AS lsChengben,(a.confirm_amount-a.sales_commissions-(a.purchase_num*b.site_price)) AS lsLsrun FROM crm_goods_siteself_order a  LEFT JOIN crm_goods_siteself b ON a.good_id=b.id   WHERE  a.site_id='"
+						+ siteId + "' and a.status !='0' ");
+		stringBuilder.append(selectConditions(map));
+		if (page != null) {
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+
+	}
+
+	public Long queryCount(String siteId, Map<String, Object> map) {// 总数
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT count(*) FROM crm_goods_siteself_order a  WHERE  a.site_id='" + siteId + "' and a.status !='0' ");
+		stringBuilder.append(selectConditions(map));
+		return Db.queryLong(stringBuilder.toString());
+	}
+
+	public String selectConditions(Map<String, Object> map) {// 来电弹屏条件查询
+		StringBuilder stringBuilder = new StringBuilder();
+		if (map != null) {
+			if (map.get("placingName") != null && StringUtils.isNotEmpty(((String[]) map.get("placingName"))[0])) {
+				stringBuilder.append(" and a.placing_name = '" + ((String[]) map.get("placingName"))[0] + "' ");
+			}
+			if (map.get("placingOrderTime") != null && StringUtils.isNotEmpty(((String[]) map.get("placingOrderTime"))[0])) {
+				stringBuilder.append(" and a.placing_order_time >= '" + ((String[]) map.get("placingOrderTime"))[0] + "' ");
+			}
+			if (map.get("placingOrderTime1") != null && StringUtils.isNotEmpty(((String[]) map.get("placingOrderTime1"))[0])) {
+				stringBuilder.append(" and a.placing_order_time < '" + ((String[]) map.get("placingOrderTime1"))[0] + " 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+
+	// 以商品订单编号获取列表
+	public List<Record> getSiteSelfGoodsOrderList(Page<Record> page, String siteId, Map<String, Object> map, String orderType) {
+		String sqlChange = " a.outstock_type!='3' and b.good_brand!='浩泽' ";// 公司订单
+		if ("2".equals(orderType)) {// 自购订单
+			sqlChange = " a.outstock_type='3' ";
+		}
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(
+				"SELECT a.placing_name,a.placing_order_time,a.confirm_time,oc.id as ocId,oc.imgs as ocImgs,a.status,a.id,a.number,a.customer_name,a.customer_contact,a.customer_address,a.order_id,a.order_number,a.real_amount,a.paid_commissions,a.confirm_amount,a.confirmor,a.cancel_reason,a.creator from crm_goods_siteself_order a left join crm_goods_siteself_order_goods_detail b on a.id=b.site_order_id and b.status='0' LEFT JOIN crm_order_collections oc ON oc.order_id=a.id AND oc.status='0' AND oc.source='1'  where "
+						+ sqlChange + "  and a.site_id=?");
+		stringBuilder.append(getSiteSelfOrderConditions(map));
+		stringBuilder.append(" group by a.id order by a.placing_order_time desc");
+		if (page != null) {
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString(), siteId);
+	}
+
+	// 以商品订单编号获取总数
+	public Long getSiteSelfGoodsOrderCount(String siteId, Map<String, Object> map, String orderType) {
+		String sqlChange = " a.outstock_type!='3' and b.good_brand!='浩泽' ";
+		if ("2".equals(orderType)) {
+			sqlChange = " a.outstock_type='3' ";
+		}
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(" select count(*) from( ");
+		stringBuilder.append("SELECT distinct(a.id) from crm_goods_siteself_order a ");
+		stringBuilder.append(" left join crm_goods_siteself_order_goods_detail b on a.id=b.site_order_id and b.status='0' ");
+		stringBuilder.append(" LEFT JOIN crm_order_collections oc ON oc.order_id=a.id AND oc.status='0' AND oc.source='1' ");
+		stringBuilder.append(" where " + sqlChange + " and a.site_id=? ");
+		stringBuilder.append(getSiteSelfOrderConditions(map));
+		stringBuilder.append(") as t ");
+
+		return Db.queryLong(stringBuilder.toString(), siteId);
+	}
+
+	// 以商品浩泽订单编号获取列表
+	public List<Record> getSiteSelfGoodsOrderHaozeList(Page<Record> page, String siteId, Map<String, Object> map) {
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(
+				"SELECT b.good_id,oc.id as ocId,oc.imgs as ocImgs,a.id,a.number,a.outstock_type,a.status,a.customer_name,a.customer_contact,a.customer_address,a.placing_name,a.placing_order_time,a.order_number,a.creator,a.confirmor,a.confirm_time,a.confirm_amount,a.real_amount,b.good_amount,b.purchase_num,b.good_number,b.good_name,c.stocks FROM  crm_goods_siteself_order_goods_detail b INNER JOIN crm_goods_siteself_order a  ON a.id=b.site_order_id AND b.status='0' left join crm_goods_siteself c on b.good_id=c.id and c.status='0' LEFT JOIN crm_order_collections oc ON oc.order_id=a.id AND oc.status='0' AND oc.source='1' WHERE a.site_id=? AND b.good_brand='浩泽' ");
+		stringBuilder.append(platFormOrderSql(map));
+		stringBuilder.append(" group by a.id order by a.placing_order_time desc");
+		if (page != null) {
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString(), siteId);
+	}
+
+	// 以商品订单编号获取总数
+	public Long getSiteSelfGoodsOrderHaozeCount(String siteId, Map<String, Object> map) {
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(
+				"SELECT count(*) FROM  crm_goods_siteself_order_goods_detail b INNER JOIN crm_goods_siteself_order a  ON a.id=b.site_order_id AND b.status='0' left join crm_goods_siteself c on b.good_id=c.id and c.status='0' LEFT JOIN crm_order_collections oc ON oc.order_id=a.id AND oc.status='0' AND oc.source='1' WHERE a.site_id=? AND b.good_brand='浩泽' ");
+		stringBuilder.append(platFormOrderSql(map));
+		return Db.queryLong(stringBuilder.toString(), siteId);
+	}
+
+	public String platFormOrderSql(Map<String, Object> map) {
+		StringBuilder stringBuilder = new StringBuilder();
+		if (StringUtils.isNotEmpty((CharSequence) map.get("number"))) {
+			String numb = map.get("number").toString().trim();
+			stringBuilder.append(" and a.number like '%" + numb + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) map.get("status"))) {
+			String st = map.get("status").toString().trim();
+			if (st.equals("2x")) {// 已收款待下单
+				stringBuilder.append(" and a.status = '2' and (b.purchase_num > c.stocks) ");
+			} else if (st.equals("2c")) {// 已收款待出库
+				stringBuilder.append(" and a.status = '2' and (b.purchase_num <= c.stocks) ");
+			} else if (st.equals("3x")) {// 已下单
+				stringBuilder.append(" and a.status = '3' and a.outstock_type = '2' ");// 平台发货
+			} else if (st.equals("3c")) {// 已出库
+				stringBuilder.append(" and a.status = '3' and a.outstock_type = '1' ");// 公司库存
+			} else if (st.equals("4c")) {// 待付款已出库
+				stringBuilder.append(" and (a.status='4' and a.outstock_type in('0','1')) ");
+			} else if (st.equals("4x")) {// 待收款已下单
+				stringBuilder.append(" and (a.status='4' and a.outstock_type = '2') ");
+			} else if (st.equals("1x")) {// 待收款待下单
+				stringBuilder.append(" and (a.status='1' and (b.purchase_num > c.stocks) )");
+			} else if (st.equals("1c")) {// 待收款待出库
+				stringBuilder.append(" and (a.status='1' and (b.purchase_num <= c.stocks))");
+			} else {
+				stringBuilder.append(" and (a.status = '" + st + "' )");
+			}
+		}
+		if (StringUtils.isNotEmpty((CharSequence) map.get("placingOrderBy"))) {
+			String numb = map.get("placingOrderBy").toString().trim();
+			stringBuilder.append(" and a.creator like '%" + numb + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) map.get("goodName"))) {
+			String numb = map.get("goodName").toString().trim();
+			stringBuilder.append(" and b.good_name like '%" + numb + "%' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("xiaoNames"))) {
+			String[] xiaoNames = ((map.get("xiaoNames").toString())).split(",");
+			if (xiaoNames.length > 0) {
+				stringBuilder.append("and (a.placing_name like " + StringUtil.joinInSqlforselforder(xiaoNames) + ")");
+			}
+		}
+
+		if (StringUtil.checkParamsValid(map.get("placingOrderTimeMin"))) {
+			String placingOrderTimeMin = map.get("placingOrderTimeMin").toString().trim();
+			stringBuilder.append(" and a.placing_order_time >= '" + placingOrderTimeMin + " 00:00:00' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("placingOrderTimeMax"))) {
+			String placingOrderTimeMax = map.get("placingOrderTimeMax").toString().trim();
+			stringBuilder.append(" and a.placing_order_time <= '" + placingOrderTimeMax + " 23:59:59' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("confirmTimeMin"))) {
+			String confirmTimeMin = map.get("confirmTimeMin").toString().trim();
+			stringBuilder.append(" and a.confirm_time >= '" + confirmTimeMin + " 00:00:00' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("confirmTimeMax"))) {
+			String confirmTimeMax = map.get("confirmTimeMax").toString().trim();
+			stringBuilder.append(" and a.confirm_time <= '" + confirmTimeMax + " 23:59:59' ");
+		}
+
+		return stringBuilder.toString();
+	}
+
+	public String getSiteSelfOrderConditions(Map<String, Object> map) {
+		StringBuilder sb = new StringBuilder();
+		if (map != null) {
+			// 订单编号
+			if (map.get("number") != null && StringUtils.isNotEmpty(map.get("number").toString())) {
+				sb.append(" and a.number like '%" + map.get("number").toString() + "%' ");
+			}
+			// 订单状态
+			if (StringUtils.isNotEmpty((CharSequence) map.get("status"))) {
+				String st = map.get("status").toString().trim();
+				if (st.equals("1z")) {
+					sb.append(" and (a.status in ('1','4'))");
+				} else if (st.equals("2z")) {
+					sb.append(" and a.status in ('2','3') ");
+				} else if (st.equals("0z")) {
+					sb.append(" and a.status = '0' ");
+				} else {
+					sb.append(" and a.status = '" + st + "' ");// 工程师自购订单
+				}
+
+			}
+			// 销售人员
+			if (StringUtil.checkParamsValid(map.get("xiaoNames"))) {
+				String[] xiaoNames = ((map.get("xiaoNames").toString())).split(",");
+				if (xiaoNames.length > 0) {
+					sb.append("and (a.placing_name like " + StringUtil.joinInSqlforselforder(xiaoNames) + ")");
+				}
+			}
+			// 用户姓名
+			if (StringUtils.isNotEmpty((CharSequence) map.get("customerName"))) {
+				String numb = map.get("customerName").toString().trim();
+				sb.append(" and a.customer_name like '%" + numb + "%' ");
+			}
+			// 联系方式
+			if (StringUtils.isNotEmpty((CharSequence) map.get("customerMobile"))) {
+				String numb = map.get("customerMobile").toString().trim();
+				sb.append(" and a.customer_contact like '%" + numb + "%' ");
+			}
+			// 下单时间
+			if (StringUtil.checkParamsValid(map.get("placingOrderTimeMin"))) {
+				String placingOrderTimeMin = map.get("placingOrderTimeMin").toString().trim();
+				sb.append(" and a.placing_order_time >= '" + placingOrderTimeMin + " 00:00:00' ");
+			}
+			if (StringUtil.checkParamsValid(map.get("placingOrderTimeMax"))) {
+				String placingOrderTimeMax = map.get("placingOrderTimeMax").toString().trim();
+				sb.append(" and a.placing_order_time <= '" + placingOrderTimeMax + " 23:59:59' ");
+			}
+			// 收款时间
+			if (StringUtil.checkParamsValid(map.get("confirmTimeMin"))) {
+				String confirmTimeMin = map.get("confirmTimeMin").toString().trim();
+				sb.append(" and a.confirm_time >= '" + confirmTimeMin + " 00:00:00' ");
+			}
+			if (StringUtil.checkParamsValid(map.get("confirmTimeMax"))) {
+				String confirmTimeMax = map.get("confirmTimeMax").toString().trim();
+				sb.append(" and a.confirm_time <= '" + confirmTimeMax + " 23:59:59' ");
+			}
+			// 商品名称
+			if (StringUtils.isNotEmpty((CharSequence) map.get("goodName"))) {
+				String goodsName = map.get("goodName").toString().trim();
+				sb.append(" and b.good_name like '%" + goodsName + "%' ");
+			}
+		}
+		return sb.toString();
+	}
+
+}

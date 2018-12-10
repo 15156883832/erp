@@ -1,0 +1,100 @@
+package com.jojowonet.modules.sys.util.care;
+
+import java.util.Date;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class ActionStat {
+    private final String actionPath;
+    private final long[] invokeTimes = new long[24];
+    private final long[] performConsumed = new long[24];
+    private final ReentrantLock lock = new ReentrantLock();
+    private long invokeTimesBetweens;
+    private double avgTimeCostBetweens;
+
+    public ActionStat(String actionPath) {
+        this.actionPath = actionPath;
+    }
+
+    public String getActionPath() {
+        return actionPath;
+    }
+
+    public long[] getInvokeTimes() {
+        return invokeTimes;
+    }
+
+    public long[] getPerformConsumed() {
+        return performConsumed;
+    }
+
+    /**
+     * call snapBetweens first before call this method.
+     */
+    public long getInvokeTimesBetweens() {
+        return invokeTimesBetweens;
+    }
+
+    /**
+     * call snapBetweens first before call this method.
+     */
+    public double getAvgTimeCostBetweens() {
+        return avgTimeCostBetweens;
+    }
+
+    public double getAvgConsumed(int hour) {
+        return performConsumed[hour] * 1.0d / invokeTimes[hour];
+    }
+
+    public void reset() {
+        lock.lock();
+        try {
+            resetArray(invokeTimes);
+            resetArray(performConsumed);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void resetArray(long[] arr) {
+        for (int i = 0, n = arr.length; i < n; i++) {
+            arr[i] = 0;
+        }
+    }
+
+    public void stat(ActionInfo actionInfo) {
+        Long performAt = actionInfo.getPerformAt();
+        long consumed = actionInfo.getPerformConsumed();
+        int hour = new Date(performAt).getHours();
+
+        lock.lock();
+        try {
+            performConsumed[hour] += consumed;
+            invokeTimes[hour] += 1;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public ActionStat snap() {
+        lock.lock();
+        try {
+            ActionStat snap = new ActionStat(this.actionPath);
+            System.arraycopy(this.invokeTimes, 0, snap.invokeTimes, 0, 24);
+            System.arraycopy(this.performConsumed, 0, snap.performConsumed, 0, 24);
+            return snap;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public ActionStat snapBetweens(int start, int end) {
+        ActionStat snap = snap();
+        long performConsumedStats = 0L;
+        for (int i = start; i < end; i++) {
+            snap.invokeTimesBetweens += snap.invokeTimes[i];
+            performConsumedStats += snap.performConsumed[i];
+        }
+        snap.avgTimeCostBetweens = snap.invokeTimesBetweens == 0 ? 0 : (performConsumedStats * 1.0d / snap.invokeTimesBetweens);
+        return snap;
+    }
+}

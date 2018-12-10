@@ -1,0 +1,132 @@
+package com.jojowonet.modules.operate.service;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.jojowonet.modules.operate.dao.SiteSignRuleDao;
+import com.jojowonet.modules.operate.entity.SiteSignRule;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.utils.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.EmployeDailySignDao;
+import com.jojowonet.modules.order.dao.OrderDao;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+
+/**
+ * 员工每日签到记录表Service
+ * 
+ * @author Ivan
+ * @version 2017-06-13
+ */
+@Component
+@Transactional(readOnly = true)
+public class EmployeDailySignService extends BaseService {
+	@Autowired
+	private EmployeDailySignDao employeDailySignDao;
+	@Autowired
+	private OrderDao orderDao;
+	@Autowired
+	private SiteSignRuleDao siteSignRuleDao;
+	
+	public Page<Record> employeDailySignList(Page<Record> page,String siteId,Map<String,Object> map){//查询grid表格
+		List<Record> list = employeDailySignDao.employeDailySignList(page,siteId,map);
+		Long count = employeDailySignDao.queryCount(siteId,map);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+	
+	public  Boolean editSignTime(String rowId,String signTime,String signType){//修改打卡时间
+		return employeDailySignDao.editSignTime(rowId,signTime,signType);
+	}
+	
+	public Record ifExist(String siteId){
+		return employeDailySignDao.ifExist(siteId);
+	}
+	
+	public  String saveSign(String workingTime,String offWorkingTime,String signPoint,Integer signRange,BigDecimal latitude,BigDecimal longitude,String employeIds){
+		return employeDailySignDao.saveSign(workingTime,offWorkingTime,signPoint,signRange,latitude,longitude,employeIds);
+	}
+
+	public void deleteSign(String id){
+		SiteSignRule siteSignRule = siteSignRuleDao.get(id);
+		siteSignRule.setStatus("1");
+		siteSignRuleDao.save(siteSignRule);
+	}
+
+	public Record getInfoById(String id,String siteId){
+		return Db.findFirst("SELECT *,DATE_FORMAT(working_time,'%H:%i:%s') as workingTime,DATE_FORMAT(off_working_time,'%H:%i:%s') as offWorkingTime  FROM crm_site_sign_rule WHERE id=? AND STATUS='0' AND site_id=?", id, siteId);
+	}
+
+	public List<Record> getSignInfos(String siteId){
+		return Db.find("SELECT * FROM crm_site_sign_rule WHERE STATUS='0' AND site_id=?",siteId);
+	}
+
+	public  String saveSignEdit(String workingTime,String offWorkingTime,String signPoint,Integer signRange,BigDecimal latitude,BigDecimal longitude,String signId,String employeIds){
+		return employeDailySignDao.saveSignEdit(workingTime,offWorkingTime,signPoint,signRange,latitude,longitude,signId,employeIds);
+	}
+	
+	//导出数据的不分页查询所有数据
+	public List<Record> employeDailySignforexcel(String siteId,Map<String,Object> map){
+		List<Record> employeDailySignList=employeDailySignDao.employeDailySignforexcel(siteId, map);
+	    return employeDailySignList;
+	}
+
+
+	/**
+	 * 考情设置记录
+	 * @param siteId
+	 * @param page
+	 * @return
+	 */
+	public Page<Record> getSignSetList(String siteId,Page<Record> page){
+		List<Record> reList=employeDailySignDao.getSignList(siteId,page);
+		for(Record re:reList){
+			String empNams="";
+			if(StringUtils.isNotBlank(re.getStr("employe_id"))){
+				String[] employeIds=re.getStr("employe_id").split(",");
+				String sql="select * from crm_employe where id in ("+StringUtil.joinInSql(employeIds) +") and site_id=? and status='0' ";
+				List<Record> empList = Db.find(sql, siteId);
+				int i=0;
+				for(Record emp:empList){
+					if(i==empList.size()){
+						empNams+=emp.getStr("name");
+					}else{
+						empNams+=emp.getStr("name")+",";
+					}
+					i++;
+				}
+			}
+			re.set("employeNames",empNams);
+		}
+		page.setList(reList);
+		page.setCount(employeDailySignDao.getSignListCount(siteId));
+		return page;
+	}
+
+	/*public List<Record> getEmployes(String siteId){
+		List<Record> empList = Db.find(" select employe_id from crm_site_sign_rule where status='0' and type='1' and site_id=? ",siteId);
+		String hadChoicedEmpIds="";
+		for(Record re:empList){
+			hadChoicedEmpIds+=re.getStr("employe_id");
+		}
+		if(!"".equals(hadChoicedEmpIds)){
+			return Db.find("select * from crm_employe where status='0' and site_id=? and id not in ("+StringUtil.joinInSql(hadChoicedEmpIds.split(","))+") ",siteId);
+		}else{
+			return Db.find("select * from crm_employe where status='0' and site_id=? ",siteId);
+		}
+	}*/
+
+}

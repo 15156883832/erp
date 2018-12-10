@@ -1,0 +1,238 @@
+package com.jojowonet.modules.sys.util;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import cn.jiguang.common.ClientConfig;
+import cn.jiguang.common.ServiceHelper;
+import cn.jiguang.common.connection.NativeHttpClient;
+import cn.jiguang.common.resp.APIConnectionException;
+import cn.jiguang.common.resp.APIRequestException;
+import cn.jpush.api.JPushClient;
+import cn.jpush.api.push.PushResult;
+import cn.jpush.api.push.model.Message;
+import cn.jpush.api.push.model.Options;
+import cn.jpush.api.push.model.Platform;
+import cn.jpush.api.push.model.PushPayload;
+import cn.jpush.api.push.model.audience.Audience;
+import cn.jpush.api.push.model.audience.AudienceTarget;
+import cn.jpush.api.push.model.notification.AndroidNotification;
+import cn.jpush.api.push.model.notification.IosNotification;
+import cn.jpush.api.push.model.notification.Notification;
+import ivan.common.config.Global;
+import ivan.common.utils.StringUtils;
+
+/**
+ * 极光推送工具类
+ * @author ivan
+ *
+ */
+public class JGPushUtils {
+
+	protected static final Logger LOG = LoggerFactory
+			.getLogger(JGPushUtils.class);
+
+	protected static final String APP20_KEY = Global.getConfig("jgPush.appKey");
+	protected static final String MASTER20_SECRET = Global.getConfig("jgPush.masterSecret");
+	
+	protected static final String APP10_KEY = "43c3d36c6e228d9ce53892c1";
+	protected static final String MASTER10_SECRET = "a833079601f202d30e64e616";
+
+	/**
+	 * 极光推送方法
+	 * @return true 推送成功  false 推送失败
+	 */
+	public static boolean testSendPush(Audience audience ,String title,String content,String key,String sound,int type,int appType) {
+		ClientConfig clientConfig = ClientConfig.getInstance();
+		String secret = MASTER20_SECRET;
+		String appKey = APP20_KEY;
+		if(appType != 0){
+			secret = MASTER10_SECRET;
+		  appKey = APP10_KEY;
+		}
+			
+		final JPushClient jpushClient = new JPushClient(secret, appKey,
+				null, clientConfig);
+		String authCode = ServiceHelper.getBasicAuthorization(appKey,
+				secret);
+		NativeHttpClient httpClient = new NativeHttpClient(authCode, null,
+				clientConfig);
+		jpushClient.getPushClient().setHttpClient(httpClient);
+
+		// // For push, all you need do is to build PushPayload object.
+		PushPayload payload = null;
+		switch (appType) {
+		case 0:// android
+			/*if(type == 1){//新工单提醒
+				payload = buildPushAndroidMessage(audience,title,content,key);
+			}
+			else {
+				payload = buildPushAndroidNotification(audience,title,content,key);
+			}*/
+			
+			payload = buildPushAndroidNotification(audience,title,content,key);
+			
+			break;
+
+		default://ios
+			payload = buildPushIosNotification(audience,content,sound);
+			break;
+		}
+		try {
+			PushResult result = jpushClient.sendPush(payload);
+			LOG.info("Got result - " + result);
+			// 如果使用 NettyHttpClient，需要手动调用 close 方法退出进程
+			jpushClient.close();
+			int code = result.statusCode;
+			if(code == 0){
+				return true;
+			}
+			LOG.error("本次推送失败，返回结果是："+result);
+		} catch (APIConnectionException e) {
+			LOG.error("Connection error. Should retry later. ", e);
+			LOG.error("Sendno: " + payload.getSendno());
+
+		} catch (APIRequestException e) {
+			LOG.info(
+					"Error response from JPush server. Should review and fix it. ",
+					e);
+			LOG.info("HTTP Status: " + e.getStatus());
+			LOG.info("Error Code: " + e.getErrorCode());
+			LOG.info("Error Message: " + e.getErrorMessage());
+			LOG.info("Msg ID: " + e.getMsgId());
+			LOG.info("Sendno: " + payload.getSendno());
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * 给android手机推送透传消息
+	 * @param audience 消息传送对象
+	 * @param content 消息内容
+	 * @param key 消息类型 透视消息现只有新增待接工单时用到，值为DJGD
+	 * @return
+	 */
+	public static PushPayload buildPushAndroidMessage(Audience audience,String title,String content,String key){
+		Message message = Message.newBuilder().addExtra("type", key).addExtra("title", title)
+				.setMsgContent(content).build();
+		Options options = Options.sendno();
+		options.setApnsProduction(true);
+		return PushPayload
+				.newBuilder()
+				.setPlatform(Platform.android())
+				.setAudience(audience)
+				.setMessage(message)
+				.setOptions(options)
+						.build();
+	}
+	
+	/**
+	 * 给android手机推送通知消息
+	 * @param audience 消息传送对象
+	 * @param content 消息内容
+	 * @param key 消息类型 暂时可以不传
+	 * @return
+	 */
+	public static PushPayload buildPushAndroidNotification(Audience audience,String title,String content,String key){
+		AndroidNotification.Builder builder = AndroidNotification.newBuilder();
+		if(StringUtils.isNotBlank(key)){
+			builder.addExtra("type", key);
+		}
+		builder.setTitle(title);
+		Options options = Options.sendno();
+		options.setApnsProduction(true);
+		return PushPayload
+				.newBuilder()
+				.setPlatform(Platform.android())
+				.setAudience(audience)
+				.setOptions(options)
+				.setNotification(Notification.newBuilder()
+						.setAlert(content)
+						.addPlatformNotification(builder.build())
+						.build())
+				.build();
+	}
+
+	/**
+	 * 给IOS手机推送通知消息
+	 * @param audience 消息传送对象
+	 * @param content 消息内容
+	 * @param sound 消息类型 :
+	 * @return
+	 */
+	public static PushPayload buildPushIosNotification(Audience audience,String content,String sound){
+		IosNotification.Builder builder = IosNotification.newBuilder();
+		if(StringUtils.isNotBlank(sound)){
+			builder.setSound(sound);
+		}
+		builder.setAlert(content);
+		Options options = Options.sendno();
+		options.setApnsProduction(true);
+		return PushPayload
+				.newBuilder()
+				.setPlatform(Platform.ios())
+				.setAudience(audience)
+				.setOptions(options)
+				.setNotification(Notification.newBuilder()
+						.setAlert(content)
+						.addPlatformNotification(builder.build())
+						.build())
+				.build();
+	}
+	
+	/**
+	 * 发送推送消息
+	 * @param title
+	 * @param content
+	 * @param type 发送消息类型：1表示新工单提醒, 默认是2(通知类)
+	 * @param appType 发送终端手机类型：0.android手机  1.ios手机
+	 * @return true 表示发送成功 ，false 表示失败
+	 */
+	public static boolean sendMsg(String regIds, String title,String content, int type,int appType){
+		Audience.Builder builder = Audience.newBuilder();
+		if(!StringUtils.isNotBlank(regIds)){
+			return false;
+		}
+		List<String> list = new ArrayList<String>();
+		String[] ids = regIds.split(",");
+		for (int i = 0; i < ids.length; i++) {
+			list.add(ids[i]);
+		}
+		if(list != null && list.size() > 0){
+			builder.addAudienceTarget(AudienceTarget.registrationId(list));
+		}
+		else {
+			return false;
+		}
+		String sound = null;
+		String key = null;
+		if(appType != 0){
+			if(type ==1){
+				sound = "order_tip.caf";
+			}
+			else {
+				sound = "default";
+			}
+		}
+		else {
+			if(type ==1){
+				key = "DJGD";
+			}
+		}
+		boolean flag = testSendPush(builder.build(),title,content,key,sound,type, appType);
+		LOG.info(" >> " + regIds + " push "+flag+":[appType:"+appType+", content:"+content+"] ");
+//		System.out.println(flag);
+		return flag;
+	}
+
+	public static void main(String[] args) {
+		String android = "170976fa8ab3a306195,1507bfd3f7f4b2cc24a";
+		String ios = "1517bfd3f7f48205909";
+		sendMsg(ios,"新工单提醒","您有新的待接收工单请及时处理!",2,1);
+	}
+
+}

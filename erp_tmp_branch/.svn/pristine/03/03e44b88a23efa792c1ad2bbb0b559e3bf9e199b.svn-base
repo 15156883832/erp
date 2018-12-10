@@ -1,0 +1,15 @@
+
+<dwr>
+<allow>
+    <!-- <create creator="new" javascript="MessagePush">
+       <param name="class" value="com.jojowonet.modules.order.utils.dwr.MessagePush"/>
+    </create> -->
+
+	<create creator="new" javascript="ReverseMsgCenter">
+       <param name="class" value="com.jojowonet.modules.order.utils.dwr.ReverseMsgCenter"/>
+    </create>
+     <!-- <create creator="new" javascript="TestPush">
+       <param name="class" value="com.huatech.messageremind.service.Test"/>
+    </create> -->
+</allow>
+</dwr>

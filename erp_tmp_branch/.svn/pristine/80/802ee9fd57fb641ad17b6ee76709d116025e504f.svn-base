@@ -1,0 +1,95 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html> 	
+  <head>
+    <title>My JSP 'proLimitList.jsp' starting page</title>
+    <meta name="decorator" content="base"/>
+
+  </head>
+  
+  <body>
+ <div class="sfpagebg bk-gray"><div class="sfpage">
+ <div class="page-orderCaution">
+ 			<div class="tabBar cl mb-10">
+
+					<sfTags:pagePermission authFlag="SMSMGM_SIGN_SET_TAB" html='<a class="btn-tabBar current" href="${ctx}/order/smsSignSet">短信签名设置</a>'/>
+					<sfTags:pagePermission authFlag="SMSMGM_SIGN_SEND_TAB" html='<a class="btn-tabBar " href="${ctx}/order/commonsetting/getShortmessage">短信发送设置</a>'/>
+				<sfTags:pagePermission authFlag="SMSMGM_SIGN_CREATETEMP_TAB" html=' <a class="btn-tabBar  " href="${ctx}/order/smstempletSet/headlist">短信模板</a>'></sfTags:pagePermission>
+			</div>
+		<div class="cl mt-40">
+			<div class="f-l w-450">
+				<div class="f-l">
+					<label class=" w-100 text-r f-l">联系电话：</label>
+					<input type="text" class="input-text w-200 f-l" id="smsPhone"  value="${site.columns.sms_phone }"/>
+				</div>
+				<div class="mt-10 f-l">
+					<label class=" w-100 text-r f-l">短信签名：</label>
+					<input type="text" class="input-text w-200 f-l" id="smsSign"  value="${site.columns.sms_sign }"/>
+					<span class="ml-10 lh-26 f-l"><i class="sficon sficon-note mr-5"></i>最多可输入6个汉字</span>
+				</div>
+				<div class="mt-20 pl-90 ml-10 f-l">
+					<a href="javascript:baocun();" class="sfbtn sfbtn-opt3 w-70">保存</a>
+				</div>
+			</div>
+			<div class="f-l ">
+				<div class="bk-blue-dotted msgNoteBox" >
+					<div class="pos-r pl-60 "> 
+						<label class="lb">示例：</label>
+						<div class="lh-18">
+							<span class="c-888 va-t pr-5 ">某女士</span>您好，您的
+							<span class="c-888 va-t pr-5 ">空调安装</span>业务
+							<span class="c-888 va-t pr-5">某某某服务部</span>已受理，
+							<span class="c-888 va-t pr-5 ">张三（13805510551）</span>，将为您提供服务，请保持电话畅通，监督电话：
+							<span class="c-f55025 va-t pr-5 ">${site.columns.telephone }</span>。
+							【<span class="c-f55025 va-t pr-5 pl-5">${site.columns.name }</span>服务】
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div></div></div>
+
+   
+    <script type="text/javascript">
+function baocun(){
+	var smsPhone=$("#smsPhone").val();
+	var smsSign=$("#smsSign").val();
+	//var pattern = /^(0[0-9]{2,3}\-)?([2-9][0-9]{6,7})+(\-[0-9]{1,4})?$|(^(1[0-9])\d{9}$)/; 
+	var pattern = /^[0-9\-]{6,20}$/;
+	if(!smsPhone.match(pattern)){
+		layer.msg("联系方式格式不正确");
+		$("#smsPhone").focus();
+		return;
+	}
+	if(!(smsSign.match(/[\u4e00-\u9fa5]/)&&smsSign.length<=6)){
+		layer.msg("签名最多只能输入6个中文");
+		$("#smsSign").focus();
+		return;
+	}
+	$.ajax({
+		type:'POST',
+		url:'${ctx}/order/smsSignSet/smsSignUpdate',
+		dataType:'json',
+		data:{"smsPhone":smsPhone,
+			"smsSign":smsSign
+			
+		}, 
+		success:function(result){
+			if(result){
+				layer.msg("保存成功");
+				window.location.reload(true);
+			}else{
+				layer.msg("保存失败");
+				return;
+			}
+		},
+		error:function(){
+			layer.msg("系统错误,请稍后重试");
+			return;
+		}
+	})
+}
+</script>
+  </body>
+</html>

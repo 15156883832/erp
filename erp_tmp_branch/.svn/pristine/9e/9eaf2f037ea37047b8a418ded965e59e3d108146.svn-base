@@ -1,0 +1,685 @@
+package com.jojowonet.modules.fitting.service;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.dao.*;
+import com.jojowonet.modules.fitting.entity.*;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.service.OrderFittingService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.order.utils.SqlKit;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.util.SMSUtils;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.IdGen;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+import org.apache.log4j.Logger;
+import org.hibernate.Query;
+import org.hibernate.SQLQuery;
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 备件申请Service
+ *
+ * @version 2017-05-20
+ */
+@Component
+@Transactional(readOnly = true)
+public class FittingApplyService extends BaseService {
+
+    @Autowired
+    private FittingApplyDao fittingApplyDao;
+
+    @Autowired
+    private FittingDao fittingDao;
+    @Autowired
+    private EmpFittingKeepDao empfkDao;
+    @Autowired
+    private EmployeFittingDao empfiDao;
+    @Autowired
+    private SiteService siteService;
+    @Autowired
+    private NonServicemanService nonService;
+
+    @Autowired
+    private SiteFittingKeepDao sitekpDao;
+    @Autowired
+    private OrderFittingService orderFittingService;
+
+    public static final String APPLY_ERR_TYPE_NOT_ENOUGH_STOCK = "400";
+    public static final String APPLY_ERR_TYPE_INVALID_NUM = "401";
+    public static final String APPLY_ERR_TYPE_NOT_ENOUGH_AUDIT_NUM = "402";
+
+    private static Logger logger = Logger.getLogger(SMSUtils.class);
+
+    public FittingApply getFittingApplyId(String id) {
+        return fittingApplyDao.getFittingApplyId(id);
+    }
+
+    public Page<FittingApply> find(Page<FittingApply> page, FittingApply fittingApply) {
+        DetachedCriteria dc = fittingApplyDao.createDetachedCriteria();
+        dc.add(Restrictions.eq("delFlag", "0"));
+        dc.addOrder(Order.desc("id"));
+        return fittingApplyDao.find(page, dc);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<FittingApply> getFittingApplyList(String[] ids, String siteId) {
+        List<FittingApply> ret = new ArrayList<>();
+        if (ids == null) {
+            return ret;
+        }
+        Query query = fittingApplyDao.getSession().createQuery("from FittingApply where id in (:ids) and siteId=:sid");
+        query.setParameterList("ids", ids);
+        query.setParameter("sid", siteId);
+        return query.list();
+    }
+
+    // type:表示配件申请菜单中的类别 0:待审核；1:待出库；2:全部申请
+    public Page<Record> getfindList(Page<Record> page, String siteId, int type, Map<String, Object> ma) {
+        List<Record> list = fittingApplyDao.getFittingApplyList(page, siteId, type, ma);
+        long count = fittingApplyDao.getFittingApplyCount(siteId, type, ma);
+        page.setList(list);
+        page.setCount(count);
+        return page;
+    }
+    
+    //system权限下配件统计信息
+    public Page<Record> getfitList(Page<Record> page, Map<String, Object> ma) {
+        List<Record> list = fittingApplyDao.getFittingList(page, ma);
+        long count = fittingApplyDao.getCountFitCount(ma);
+        page.setList(list);
+        page.setCount(count);
+        return page;
+    }
+
+    @Transactional
+    public void save(FittingApply fittingApply) {
+        fittingApplyDao.save(fittingApply);
+    }
+
+    @Transactional(propagation = Propagation.NEVER) // 有意没有使用事务
+    public FittingApply refuseFittingApply(String applyId,String reason,String auditMarks) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String name = "";
+        User user = UserUtils.getUser();
+        FittingApply fa = getFittingApplyId(applyId);
+        if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+            name = siteService.getUserSite(user.getId()).getName();
+        } else {
+            name = nonService.getNonServiceman(user).getName();
+        }
+        fa.setAuditor(name);
+        fa.setAuditMarks(auditMarks);
+        fa.setAuditorId(user.getId());
+        fa.setAuditTime(new Date());
+        fa.setUpdateTime(new Date());
+        fa.setUpdateName(name);
+        fa.setRefuseReason(reason);
+        fa.setStatus("6");
+        save(fa);
+        fittingApplyDao.flush();
+
+        String orderNumber = fa.getOrderNumber();
+        if (StringUtil.isNotBlank(orderNumber)) {
+        	Long countOrder = countOrder(orderNumber,siteId);
+        	if(countOrder > 0 ){
+        		String orderFittingFlag = getOrderFittingFlag(orderNumber, siteId);
+        		Db.update("update crm_order a set a.fitting_flag = ? where a.number =? ",orderFittingFlag,orderNumber);
+        	}
+        }
+
+
+        //取消预警
+        StringBuilder sb = new StringBuilder();
+        sb.append(" update crm_site_alarm set is_cancel = '1' ");
+        sb.append(" where site_id = '" + siteId + "' and target_id = '" + applyId + "' and type = '1'  ");
+        Db.update(sb.toString());
+        return fa;
+    }
+
+    @Transactional
+    public void adoptFittingApply(FittingApply fittingApply, Fitting fi) {
+        BigDecimal v = fittingApply.getFittingAuditNum();
+        if (fi.getAuditedSum() == null) {
+            throw new IllegalStateException("audited sum is null, it should be zero instead of null");
+        }
+
+        String adoptApplySql = new SqlKit()
+                .append("update crm_site_fitting as f")
+                .append("set f.`audited_sum`=f.`audited_sum`+" + v)
+                .append("where f.id=:id")
+                .toString();
+
+        SQLQuery sqlQuery = fittingApplyDao.getSession().createSQLQuery(adoptApplySql);
+        sqlQuery.setParameter("id", fi.getId());
+        if (org.apache.commons.lang.StringUtils.isNotBlank(fi.getId())) {
+            sqlQuery.executeUpdate();
+        } else {
+            throw new RuntimeException("invalid fitting id");
+        }
+        fittingApplyDao.save(fittingApply);
+        fittingApplyDao.getSession().flush();
+    }
+    
+    /*
+     * 驳回
+    */
+    @Transactional
+    public void RejectFittingApply(FittingApply fittingApply, Fitting fi) {
+    	BigDecimal v = fittingApply.getFittingAuditNum();
+    	if (fi.getAuditedSum() == null) {
+    		throw new IllegalStateException("audited sum is null, it should be zero instead of null");
+    	}
+    	
+    	String adoptApplySql = new SqlKit()
+    	.append("update crm_site_fitting as f")
+    	.append("set f.`audited_sum`=f.`audited_sum`-" + v)
+    	.append("where f.id=:id")
+    	.toString();
+    	
+    	SQLQuery sqlQuery = fittingApplyDao.getSession().createSQLQuery(adoptApplySql);
+    	sqlQuery.setParameter("id", fi.getId());
+    	if (org.apache.commons.lang.StringUtils.isNotBlank(fi.getId())) {
+    		sqlQuery.executeUpdate();
+    	} else {
+    		throw new RuntimeException("invalid fitting id");
+    	}
+    	fittingApplyDao.save(fittingApply);
+    	fittingApplyDao.getSession().flush();
+    }
+
+    public Record getalarm(String siteId,String id){
+    	StringBuilder sb = new StringBuilder();
+    	sb.append(" select * from crm_site_alarm  ");
+    	sb.append(" where site_id = '" + siteId + "' and target_id = '" + id + "' and type = '4'  ");
+    	return Db.findFirst(sb.toString());
+    }
+    
+    @Transactional
+    public void delete(String id) {
+        fittingApplyDao.deleteById(id);
+    }
+    
+    public Long getFittingApplyCount1(String siteId){
+    	return fittingApplyDao.getFittingApplyCount1(siteId);
+    }
+    public Long getFittingApplyCount2(String siteId){
+    	return fittingApplyDao.getFittingApplyCount2(siteId);
+    }
+
+    /**
+     * 备件出库
+     * 1.更改申请表crm_site_fitting_apply(状态->已领取，出库人，领取时间，出库人userId，出库时间，更新时间。)
+     * 2.更改备件库存表crm_site_fitting(库存数量减[warning]，已审核待出库数量减[audited_sum]，已领取待核销加[number])
+     * 3.更改工程师备件库存数量crm_employe_fitting(库存数量加[warning],领用数量加[total])
+     * 4.网点出入库明细表添加记录crm_site_fitting_keep
+     * 5.服务工程师出入库明细表添加记录crm_employe_fitting_keep
+     */
+    @Transactional
+    public Result<Void> outStockByFittingApply(FittingApply fittingApply, User user) {
+        BigDecimal fittingAuditNum = fittingApply.getFittingAuditNum();
+        if (fittingAuditNum == null || fittingAuditNum.compareTo(BigDecimal.valueOf(0)) != 1) {
+            return Result.fail(APPLY_ERR_TYPE_INVALID_NUM, "invalid apply num: " + fittingApply);
+        }
+        Fitting fi = fittingDao.get(fittingApply.getFittingId());
+        if (Double.valueOf(fittingAuditNum.doubleValue()).compareTo(fi.getWarning()) > 0) {
+            return Result.fail(APPLY_ERR_TYPE_NOT_ENOUGH_STOCK, "invalid apply num: " + fittingApply);
+        }
+        if (Double.valueOf(fittingAuditNum.doubleValue()).compareTo(fi.getAuditedSum()) > 0) {
+            return Result.fail(APPLY_ERR_TYPE_NOT_ENOUGH_AUDIT_NUM, "invalid apply num: " + fittingApply);
+        }
+
+        if ("4".equals(fittingApply.getStatus())) {
+            return Result.fail(String.format("fitting apply[%s] already out stocked", fittingApply.getId()));
+        }
+
+        Date now = new Date();
+        fittingApply.setStatus("4");
+        fittingApply.setUpdateName(fittingApply.getConfirmor());
+        fittingApply.setConfirmorId(user.getId());
+        fittingApply.setConfirmTime(now);
+        fittingApply.setUpdateTime(now);
+        fittingApply.setEndTime(now);
+        fittingApplyDao.save(fittingApply);
+
+        logger.info("before update site fitting apply,fitting.id=" + fi.getId() + ";warning=" + fi.getWarning() + ";audited_sum=" + fi.getAuditedSum() + ";number=" + fi.getNumber() + ";apply.id=" + fittingApply.getId());
+        fi = updateSiteFittingByApply(fittingApply);
+        changeEmployeFittingStockByApply(fittingApply, user, fi);
+        createSiteOutStockDetailByApply(fittingApply, user, fi);
+        createEmployeInStockDetailByApply(fittingApply, user, fi);
+        return Result.ok();
+    }
+
+    /**
+     * 配件出库时，根据配件申请更新配件信息。
+     *
+     * @param fittingApply 配件申请信息
+     * @return 修改后的配件信息
+     */
+    private Fitting updateSiteFittingByApply(FittingApply fittingApply) {
+        BigDecimal auditNum = fittingApply.getFittingAuditNum();
+        String fittingId = fittingApply.getFittingId();
+        if (org.apache.commons.lang.StringUtils.isBlank(fittingId)) {
+            throw new IllegalStateException("empty fitting id found when dealing with fitting apply");
+        }
+
+        SimpleDateFormat fm=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Date now=new Date();
+        String date=fm.format(now);
+
+        String sql = new SqlKit()
+                .append("update crm_site_fitting")
+                .append("set `warning`=`warning`-" + auditNum)
+                .append(",`audited_sum`=`audited_sum`-" + auditNum)
+                .append(",`number`=`number`+" + auditNum)
+                .append(",`newest_keep_time`='"+date+"'")
+                .append("where id=:id and `status`='1'")
+                .toString();
+
+        SQLQuery sqlQuery = fittingDao.getSession().createSQLQuery(sql);
+        sqlQuery.setParameter("id", fittingId);
+        sqlQuery.executeUpdate();
+        return fittingDao.get(fittingId);
+    }
+
+    /**
+     * 信息员在pc端替工程师申请配件时更新网点配件。
+     *
+     * @param fittingApply 配件申请
+     */
+    private Fitting updateSiteFittingWhenAssign(FittingApply fittingApply) {
+        BigDecimal auditNum = fittingApply.getFittingAuditNum();
+        String fittingId = fittingApply.getFittingId();
+        if (org.apache.commons.lang.StringUtils.isBlank(fittingId)) {
+            throw new IllegalStateException("empty fitting id found when dealing with fitting apply");
+        }
+
+        SimpleDateFormat fm=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Date now=new Date();
+        String date=fm.format(now);
+        logger.info(String.format("[更新网点库存],fitting.id=%s,auditNum=%s", fittingId, auditNum));
+        String sql = new SqlKit()
+                .append("update crm_site_fitting")
+                .append("set `warning`=`warning`-" + auditNum)
+                .append(",`number`=`number`+" + auditNum)
+                .append(",`newest_keep_time`='"+date+"'")
+                .append("where id=:id and `status`='1'")
+                .toString();
+
+        SQLQuery sqlQuery = fittingDao.getSession().createSQLQuery(sql);
+        sqlQuery.setParameter("id", fittingId);
+        int count = sqlQuery.executeUpdate();
+        if (count <= 0) {
+            logger.error(String.format("[更新网点库存],fitting.id=%s,auditNum=%s", fittingId, auditNum));
+            throw new RuntimeException(sql);
+        }
+        return fittingDao.get(fittingId);
+    }
+
+    /**
+     * 配件出库时，根据申请创建网点出库明细。
+     *
+     * @param fittingApply 配件申请记录
+     * @param user         当前用户
+     * @param fitting      配件信息
+     */
+    private void createEmployeInStockDetailByApply(FittingApply fittingApply, User user, Fitting fitting) {
+        EmpFittingKeep ekp = new EmpFittingKeep();
+        ekp.setNumber(CrmUtils.no());
+        ekp.setType("0");
+        ekp.setFittingId(fitting.getId());
+        ekp.setFittingCode(fitting.getCode());
+        ekp.setFittingName(fitting.getName());
+        ekp.setAmount(fittingApply.getFittingAuditNum().doubleValue());
+        ekp.setPrice(fitting.getSitePrice());
+        String orderId = fittingApply.getOrderId();
+        if (StringUtils.isNotBlank(orderId)) {
+            Record orderOr400Rd = orderFittingService.getOrderOr400Rd(orderId);
+            ekp.setCustomerMobile(orderOr400Rd!=null ? orderOr400Rd.getStr("customer_mobile") : "");
+            ekp.setCustomerName(orderOr400Rd!=null ? orderOr400Rd.getStr("customer_name") : "");
+            String warrantyType = orderOr400Rd!=null ? orderOr400Rd.getStr("warranty_type") : "";
+            if ("保内".equals(warrantyType)) {
+                ekp.setWarrantyType("1");
+            } else if ("保外".equals(warrantyType)) {
+                ekp.setWarrantyType("2");
+            } else if ("1".equals(warrantyType) || "2".equals(warrantyType)) {
+                ekp.setWarrantyType(warrantyType);
+            }
+            ekp.setOrderNumber(orderOr400Rd!=null ? orderOr400Rd.getStr("number") : "");
+        }
+        if (fitting.getEmployePrice() != null) {
+            ekp.setEmployePrice(fitting.getEmployePrice());
+        }
+        if (fitting.getCustomerPrice() != null) {
+            ekp.setCustomerPrice(fitting.getCustomerPrice());
+        }
+        ekp.setEmployeId(fittingApply.getEmployeId());
+        ekp.setEmployeName(fittingApply.getEmployeName());
+        ekp.setSiteId(fitting.getSiteId());
+        ekp.setCreateBy(user.getId());
+        empfkDao.save(ekp);
+    }
+
+    /**
+     * 配件出库时，根据申请创建网点出库明细。
+     *
+     * @param fittingApply 配件申请记录
+     * @param user         当前用户
+     * @param fitting      配件信息n
+     */
+    private void createSiteOutStockDetailByApply(FittingApply fittingApply, User user, Fitting fitting) {
+        SiteFittingKeep sfkp = new SiteFittingKeep();
+        sfkp.setNumber(CrmUtils.no());
+        sfkp.setType("1"); // 出库
+        sfkp.setFittingId(fitting.getId());
+        sfkp.setFittingCode(fitting.getCode());
+        sfkp.setFittingName(fitting.getName());
+        sfkp.setAmount(fittingApply.getFittingAuditNum().doubleValue());
+        sfkp.setPrice(fitting.getSitePrice());
+        if (fitting.getEmployePrice() != null) {
+            sfkp.setEmployePrice(fitting.getEmployePrice());
+        }
+        if (fitting.getCustomerPrice() != null) {
+            sfkp.setCustomerPrice(fitting.getCustomerPrice());
+        }
+        sfkp.setSiteId(fitting.getSiteId());
+        sfkp.setCreateBy(user.getId());
+        sfkp.setApplicant(fittingApply.getEmployeName());
+        sfkp.setConfirmor(CrmUtils.getUserXM());
+        sitekpDao.save(sfkp);
+    }
+
+    /**
+     * 配件出库时，根据配件申请来更新工程师库存。
+     *
+     * @param fittingApply 配件申请
+     * @param user         当前用户
+     * @param fitting      配件信息
+     */
+    private void changeEmployeFittingStockByApply(FittingApply fittingApply, User user, Fitting fitting) {
+        if (fittingApply.getFittingAuditNum() == null) {
+            throw new IllegalArgumentException("invalid fitting audit num");
+        }
+
+        //修改工程师库存
+        EmployeFitting efi = empfiDao.getEmpId(fittingApply.getEmployeId(), fitting.getSiteId(), fittingApply.getFittingId());
+        if (efi == null || StringUtils.isBlank(efi.getId())) {
+            efi = new EmployeFitting();
+            efi.setFittingId(fitting.getId());
+            efi.setSuitCategory(fitting.getSuitCategory());
+            efi.setSuitBrand(fitting.getSuitBrand());
+            efi.setEmployeId(fittingApply.getEmployeId());
+            efi.setSiteId(fitting.getSiteId());
+            efi.setCreateBy(user.getId());
+            efi.setNumber(new BigDecimal("0.00"));
+            efi.setTotal(fittingApply.getFittingAuditNum());
+            efi.setWarning(fittingApply.getFittingAuditNum());
+            efi.setCjnum(new BigDecimal("0.00"));
+            efi.setStatus("1");
+            empfiDao.save(efi);
+        } else {
+            SqlKit kit = new SqlKit()
+                    .append("update crm_employe_fitting")
+                    .append("set `warning`=`warning`+" + fittingApply.getFittingAuditNum())
+                    .append(",`total`=`total`+" + fittingApply.getFittingAuditNum())
+                    .append("where id=:id and `status`='1'");
+
+            SQLQuery sqlQuery = empfiDao.getSession().createSQLQuery(kit.toString());
+            sqlQuery.setParameter("id", efi.getId());
+            sqlQuery.executeUpdate();
+        }
+    }
+
+    /**
+     * 获取工单当前的配件标记状态值
+     *
+     * @param siteId
+     *            服务商id
+     * @return fittingFlag:配件标记，0未申请 1待件中 2缺件中 3待领取 4已领取
+     */
+    public String getOrderFittingFlag(String orderNumber, String siteId) {
+        String flag = "0";
+        StringBuffer sb = new StringBuffer();
+        sb.append("  SELECT COUNT( CASE WHEN a.`status` = '1' THEN 0 END ) AS qjCount ,  ");
+        sb.append("  		COUNT( CASE WHEN a.`status` = '0' THEN 0 END ) AS djCount ,	  ");
+        sb.append("  		COUNT( CASE WHEN a.`status` IN ('2','3') THEN 0 END ) AS dlCount ,	  ");
+        sb.append("  		COUNT( CASE WHEN a.`status` = '4' THEN 0 END ) AS ylCount , a.`site_id`	  ");
+        sb.append("  FROM crm_site_fitting_apply a WHERE a.`site_id` = ? AND a.`order_number` = ? AND a.`status` < 5 GROUP BY a.`site_id`  ");
+        Record r = Db.findFirst(sb.toString(), siteId, orderNumber);
+        if (r == null) {
+            return flag;
+        }
+        if (r.getLong("qjCount") != null && r.getLong("qjCount") > 0) {
+            return "2";
+        }
+        if (r.getLong("djCount") != null && r.getLong("djCount") > 0) {
+            return "1";
+        }
+        if (r.getLong("dlCount") != null && r.getLong("dlCount") > 0) {
+            return "3";
+        }
+        if (r.getLong("ylCount") != null && r.getLong("ylCount") > 0) {
+            return "4";
+        }
+        return flag;
+    }
+
+
+    /**
+     * pc端口替服务工程师申请配件。
+     * 1.创建申请表crm_site_fitting_apply(状态->已领取，出库人，领取时间，出库人userId，出库时间，更新时间。)
+     * 2.更改备件库存表crm_site_fitting(库存数量减[warning]，已领取待核销加[number])
+     * 3.更改工程师备件库存数量crm_employe_fitting(库存数量加[warning],领用数量加[total])
+     * 4.网点出入库明细表添加记录crm_site_fitting_keep
+     * 5.服务工程师出入库明细表添加记录crm_employe_fitting_keep
+     */
+    @Transactional
+    public Result<Void> employeApply(FittingApply fittingApply, Fitting fitting, User user) { // 这个地方应该叫分配更合适
+        String userXM = CrmUtils.getUserXM();
+        fittingApply.setConfirmor(userXM);
+        fittingApply.setConfirmorId(user.getId());
+        fittingApply.setFittingAuditNum(fittingApply.getFittingApplyNum());
+        fittingApply.setStatus("4"); // 已领取可使用
+        fittingApply.setSiteId(fitting.getSiteId());
+        fittingApply.setNumber(CrmUtils.no());
+        fittingApply.setCreateTime(new Date());
+        fittingApply.setSuitCategory(fitting.getSuitCategory());
+        fittingApply.setFittingImg(fitting.getImg());
+        fittingApply.setCreator(userXM);
+        fittingApply.setEndTime(new Date());
+        fittingApply.setUpdateTime(new Date());
+        fittingApply.setOldFittingFlag(StringUtils.isEmpty(fitting.getRefundOldFlag()) ? "0" : fitting.getRefundOldFlag());
+        fittingApply.setAuditor(userXM);
+        fittingApply.setAuditorId(user.getId());
+        fittingApply.setAuditTime(new Date());
+        if(StringUtils.isBlank(fittingApply.getEmployeFeedback())){
+            fittingApply.setEmployeFeedback("WEB申请");
+        }
+
+        Record re = Db.findFirst("select * from crm_site_fitting where id=? ", fitting.getId());
+        if(re.getBigDecimal("warning").compareTo(fittingApply.getFittingAuditNum())==-1){
+            throw new RuntimeException("fitting stocks is not enough");
+        }
+
+        fittingApplyDao.save(fittingApply);
+
+        Fitting fi = updateSiteFittingWhenAssign(fittingApply);
+
+        changeEmployeFittingStockByApply(fittingApply, user, fi);
+        createSiteOutStockDetailByApply(fittingApply, user, fi);
+        createEmployeInStockDetailByApply(fittingApply, user, fi);
+        return Result.ok();
+    }
+
+    @Transactional
+    public void addEmpApply(FittingApply fittingApply,User user,Fitting fitting){
+        if(StringUtils.isNotBlank(fittingApply.getWarrantyType())){
+            if("保内".equals(fittingApply.getWarrantyType())){
+                fittingApply.setWarrantyType("1");
+            }else if("保外".equals(fittingApply.getWarrantyType())){
+                fittingApply.setWarrantyType("2");
+            }else{
+                fittingApply.setWarrantyType("");
+            }
+        }
+        String userXM = CrmUtils.getUserXM();
+        fittingApply.setConfirmor(userXM);
+        fittingApply.setConfirmorId(user.getId());
+        fittingApply.setFittingAuditNum(fittingApply.getFittingApplyNum());
+        fittingApply.setSiteId(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+        fittingApply.setNumber(CrmUtils.no());
+        fittingApply.setCreateTime(new Date());
+        if(fitting!=null){
+            if(fittingApply.getFittingApplyNum().doubleValue()>fitting.getWarning().doubleValue()){
+                fittingApply.setStatus("1"); // 1.缺件中
+            }else{
+                fittingApply.setStatus("0"); // 0.申请待审核
+            }
+            fittingApply.setSuitCategory(fitting.getSuitCategory());
+            if(StringUtils.isEmpty(fittingApply.getFittingImg())){
+                fittingApply.setFittingImg(fitting.getImg());
+            }
+            fittingApply.setOldFittingFlag(StringUtils.isEmpty(fitting.getRefundOldFlag()) ? "0" : fitting.getRefundOldFlag());
+        }else{
+            fittingApply.setStatus("1"); // 1.缺件中
+        }
+        fittingApply.setCreator(userXM);
+        fittingApply.setEndTime(new Date());
+        fittingApply.setUpdateTime(new Date());
+        fittingApply.setAuditor(userXM);
+        fittingApply.setAuditorId(user.getId());
+        fittingApply.setAuditTime(new Date());
+        if(StringUtils.isBlank(fittingApply.getEmployeFeedback())){
+            fittingApply.setEmployeFeedback("WEB申请");
+        }
+
+        
+        fittingApplyDao.save(fittingApply);
+        fittingApplyDao.getSession().flush();
+        if(fitting!=null){
+            if(fittingApply.getFittingApplyNum().doubleValue()>fitting.getWarning().doubleValue()){
+                //if(StringUtils.isNotBlank(fittingApply.getOrderNumber())){
+                String fiCount = fitting.getWarning().toString();//库存数量
+                Record re=orderFittingService.getOrderOr400(fittingApply.getOrderNumber(),CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+                String type="";
+                if(re!=null){
+                    type=re.getStr("order_type");
+                }
+                String typeStr="";
+                if("1".equals(type)){
+                    typeStr="ERP系统录入";
+                }else if("2".equals(type)){
+                    typeStr="美的厂家系统";
+                }else if("3".equals(type)){
+                    typeStr="惠而浦厂家系统 ";
+                }else if("4".equals(type)){
+                    typeStr="海信厂家系统";
+                }else if("5".equals(type)){
+                    typeStr="海尔厂家系统";
+                }else{
+                    typeStr=" ";
+                }
+                //系统预警
+                Double fCount =0.0;
+                if(StringUtils.isNotBlank(fiCount)){
+                    fCount = Double.valueOf(fiCount);
+                }
+                if (fCount == 0) {
+                    String content;
+                    if (StringUtils.isNotEmpty(fittingApply.getOrderNumber())) {
+                        content = "" + fittingApply.getOrderNumber() + "、" + typeStr+ "申请的" + fitting.getName() + "、" + fitting.getCode() + "缺件，请及时处理！";
+                    } else {
+                        content = "" + fitting.getName() + "、" + fitting.getCode() + "缺件，请及时处理！";
+                    }
+
+                    String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(" insert into crm_site_alarm (id, site_id, type, target_id, target_name, content, create_time, status, is_cancel, is_send) ");
+                    sb.append(" values ('" + IdGen.uuid() + "', '" + siteId + "', '4', '" +fittingApply.getId() + "', '" + fitting.getCode() + "', '" + content + "', '" + DateUtils.getDate("yyyy-MM-dd HH:mm:ss") + "', '0', '0', '0') ");
+                    Db.update(sb.toString());
+                }
+                //}
+            }
+        }else{
+            Record re=orderFittingService.getOrderOr400(fittingApply.getOrderNumber(),CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+            String type="";
+            if(re!=null){
+                type=re.getStr("order_type");
+            }
+            String typeStr="";
+            if("1".equals(type)){
+                typeStr="ERP系统录入";
+            }else if("2".equals(type)){
+                typeStr="美的厂家系统";
+            }else if("3".equals(type)){
+                typeStr="惠而浦厂家系统 ";
+            }else if("4".equals(type)){
+                typeStr="海信厂家系统";
+            }else if("5".equals(type)){
+                typeStr="海尔厂家系统";
+            }else{
+                typeStr=" ";
+            }
+            //系统预警
+            Double fCount =0.0;
+            if (fCount == 0) {
+                String content;
+                if (StringUtils.isNotEmpty(fittingApply.getOrderNumber())) {
+                    content = "" + fittingApply.getOrderNumber() + "、" + typeStr+ "申请的" + fittingApply.getFittingName() + "、" + fittingApply.getFittingCode() + "缺件，请及时处理！";
+                } else {
+                    content = "" + fittingApply.getFittingName() + "、" + fittingApply.getFittingCode()  + "缺件，请及时处理！";
+                }
+                String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+                StringBuilder sb = new StringBuilder();
+                sb.append(" insert into crm_site_alarm (id, site_id, type, target_id, target_name, content, create_time, status, is_cancel, is_send) ");
+                sb.append(" values ('" + IdGen.uuid() + "', '" + siteId + "', '4', '" +fittingApply.getId() + "', '" + fittingApply.getFittingCode()  + "', '" + content + "', '" + DateUtils.getDate("yyyy-MM-dd HH:mm:ss") + "', '0', '0', '0') ");
+                Db.update(sb.toString());
+            }
+        }
+
+    }
+
+    public Map<String, Object> getCount(String siteId) {
+        return fittingApplyDao.getCount(siteId);
+    }
+
+    public List<Record> q_bjapply(String siteId, String code) {
+        return fittingApplyDao.q_bjapply(siteId, code);
+    }
+
+    @Transactional
+    public void bjApplyTj(FittingApply fa) {
+        fittingApplyDao.save(fa);
+    }
+    @Transactional
+    public void deleteFittingApply(FittingApply fa){
+    	fittingApplyDao.save(fa);
+    }
+    
+    public Long countOrder(String orderNumber,String siteId){
+    	return Db.queryLong("select count(*) from crm_order a where a.number=? and a.site_id=?",orderNumber,siteId);
+    }
+    
+}

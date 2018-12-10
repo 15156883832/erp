@@ -1,0 +1,72 @@
+package com.jojowonet.modules.order.service;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.ViewManagerDao;
+import com.jojowonet.modules.order.entity.SiteTeleDevice;
+/**
+ * 来电弹屏Service
+ * @author cdq
+ * @version 2017-08-04
+ */
+@Component
+@Transactional(readOnly = true)
+public class ViewManagerService extends BaseService{
+
+	@Autowired
+	private ViewManagerDao viewManagerDao;
+	
+	
+	//数据
+	public Page<Record> getViewManagerList(Page<Record> page,Map<String,Object> map) {
+		List<Record> list = viewManagerDao.getViewList(page,map);
+		long count =viewManagerDao.getViewCount();
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+	
+	
+	public String addPingView(String id,String oldserino,String name,String seriNo){
+		String sql="select id from crm_site where name='"+name+"' and status='0' ";
+		Record re=Db.findFirst(sql);
+		SiteTeleDevice std=new SiteTeleDevice();
+		if(StringUtils.isNotBlank(id) && StringUtils.isNotBlank(oldserino) ){
+			std=viewManagerDao.get(id);
+			std.setSerialNo(seriNo);
+			viewManagerDao.save(std);
+		}else{
+			Date now=new Date();
+			std.setSerialNo(seriNo);
+			std.setCreateTime(now);
+			std.setSerialNo(seriNo);
+			std.setSiteId(re.getStr("id"));
+			std.setStatus("0");
+			viewManagerDao.save(std);
+		}		
+		
+		return "ok";
+	}
+	
+	public List<Record> oldserino(String seriNo,String deviceId){
+		String sql="select * from crm_site_tele_device where serial_no='"+seriNo+"' and status='0' and id !='"+deviceId+"' ";
+		return Db.find(sql);
+	}
+	
+	public Record oldserinoNoId(String seriNo){
+		String sql="select * from crm_site_tele_device where serial_no='"+seriNo+"' and status='0' ";
+		return Db.findFirst(sql);
+	}
+}

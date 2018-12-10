@@ -1,0 +1,73 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta name="renderer" content="webkit|ie-comp|ie-stand">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+<title>备件出库单</title>
+<!-- <meta name="decorator" content="base"/> -->
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/print_style.css"/> 
+<script type="text/javascript" src="${ctxPlugin}/lib/zTree/v3/js/jquery-1.4.4.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/jquery-migrate-1.4.1.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/jquery.jqprint-0.3.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/jquery.qrcode.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/JsBarcode.all.min.js"></script>
+
+<script type="text/javascript">
+	function printOrder() {
+		//document.getElementById("btn").style.display="none";
+		
+		$(".content").jqprint({
+			debug: false, //如果是true则可以显示iframe查看效果（iframe默认高和宽都很小，可以再源码中调大），默认是false
+			importCSS: true, //true表示引进原来的页面的css，默认是true。（如果是true，先会找$("link[media=print]")，若没有会去找$("link")中的css文件）
+			printContainer: true, //表示如果原来选择的对象必须被纳入打印（注意：设置为false可能会打破你的CSS规则）。
+			operaSupport: true//表示如果插件也必须支持歌opera浏览器，在这种情况下，它提供了建立一个临时的打印选项卡。默认是true
+		});
+		
+	}
+</script>
+</head>
+<body>
+
+<!-- <input type="button" value="打印"  onclick="printOrder();" class="btn-print" style="width:100px;display:inline-block;height:30px; line-height:30px; border:1px solid #ccc"/>
+<span style="margin-left:25px; color:red; font-size:14px;">建议使用谷歌浏览器</span> -->
+<button onclick="printOrder();">打印</button>
+<div class="content">
+    <h2>备件出库单</h2>
+    <p>出库日期：${time }</p>
+    <table cellspacing="0" cellpadding="0" border="1">
+        <thead>
+        <tr>
+            <th style="width: 120px;">备件条码</th>
+            <th style="width: 100px;">备件名称</th>
+            <th style="width: 120px;">备件型号</th>
+            <th style="width: 76px;">适用品类</th>
+            <th style="width: 80px;">申请人</th>
+            <th style="width: 76px;">出库数量</th>
+            <th style="width: 100px;">备注</th>
+            <th style="width: 100px;">申请时间</th>
+        </tr>
+        </thead>
+        <tbody>
+        <c:forEach items="${rds }" var="rd" >
+        <tr>
+            <td >${rd.columns.fitting_code }</td>
+            <td >${rd.columns.fitting_name }</td>
+            <td >${rd.columns.fitting_version }</td>
+            <td >${rd.columns.suit_category }</td>
+            <td >${rd.columns.employe_name }</td>
+            <td >${rd.columns.fitting_apply_num }</td>
+            <td >${rd.columns.audit_marks }</td>
+            <td >${fns:formatDateTime(rd.columns.create_time)}</td>
+        </tr>
+        </c:forEach>
+        </tbody>
+    </table>
+    <div>
+        <span>出库人：${creaname }</span><span>出库单位：${sitename }</span>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,188 @@
+@charset "utf-8";
+
+.navbar .logo{ background-color: #3a993d ;}
+/* 导航栏-续费文本 */
+.navbar-userbar .btn_renew{color: #3a993d ;}
+/*菜单收缩切换*/
+.dislpayArrow a{background-position: 5px 0; }
+.dislpayArrow a.open{ background-position:-35px -49px}
+.dislpayArrow a:hover{ text-decoration:none; background-position:-119px 0px}
+.dislpayArrow a.open:hover{background-position:-124px -49px}
+
+/*选项卡导航*/
+.Hui-tabNav .acrossTab li{ background-position: 0 -360px;}
+.acrossTab li em{background-position: right -390px; }
+.acrossTab li:hover,
+.acrossTab li.active{background-position:0 -420px;}
+.acrossTab li:hover em,
+.acrossTab li.active em{background-position:right -450px}
+
+/* sifang icon css */
+.sficon{
+	background-image: url(../images/icons_green.png) ;
+}
+
+/* 复选框 */
+.label-cbox,
+.label-cbox2,
+.label-cbox3,
+.radiobox,
+.label-cbox4{ 
+	background-image: url(../images/icons_green.png) ;	
+}
+
+/* 按钮 */
+.sfbtn {
+	color: #2a2a2a;		
+}
+.sfbtn-opt2{border: 1px solid #fff;}
+.sfbtn-opt,
+.sfbtn-opt2:hover,
+.btn-count{	
+	border: 1px solid #3a993d;
+	background: #fff;
+}
+.sfbtn-opt3,
+.sfbtn-opt:hover,
+.sfbtn-active{
+	background: #3a993d;
+	border: 1px solid #3a993d;
+	color: #fff;
+}
+.sfbtn-disabled,
+.sfbtn-disabled:hover {
+	cursor:not-allowed;
+	border: 1px solid #ccc;
+	background: #eee;
+	color: #888888;
+}
+/* 发送短信的按钮 */
+.sfbtn-green{
+	color: #fff;
+	background: #4caf50;
+}
+
+/* 导航栏部分 */
+.navbar-sf{
+	background-color: #4caf50;
+}
+.navbar-sfbar .sfnav{
+	background-image: url(../images/icon-navbar_green.png) ;
+}
+.navbar-sfbar a:hover,
+.navbar-sfbar .current{
+	color: #113d64;
+}
+/* 左侧菜单栏 */
+.Hui-aside .menu_dropdown .current a,
+.Hui-aside .menu_dropdown li a:hover{
+	background-color: #3a993d;
+}
+.sfnav2 .aside-menu{ background-image: url(../images/menu-orders_green.png) ;} /* 工单管理 */
+.sfnav3 .aside-menu{ background-image: url(../images/menu-beijian_green.png) ;}
+.sfnav4 .aside-menu{ background-image: url(../images/menu-commodityF_green.png) ;} /* 商品管理 */
+.sfnav5 .aside-menu{ background-image: url(../images/menu-syssetS_green.png) ;} /* 服务商权限下的 */
+.sfnav6 .aside-menu{ background-image: url(../images/menu-order2_green.png) ;}   /* 订单管理 */
+.sfnav7 .aside-menu{ background-image: url(../images/menu-operative_green.png) ;}   /* 运营管理 */
+.sfnav8 .aside-menu{ background-image: url(../images/menu-finance_green.png) ;}   /* 财务管理 */
+.sfnav9 .aside-menu{ background-image: url(../images/menu-statistic_green.png) ;}   /* 统计分析 */
+
+/* 表格 */
+.table-sdrk th,
+.table2 th{
+	color: #2A2A2A;
+}
+/* jQgrid */
+.ui-jqgrid label{
+	background-image: url(../images/icons_green.png);
+}
+.ui-jqgrid-htable th.ui-state-default {   
+    color: #2A2A2A;
+}
+.ui-state-highlight, 
+.ui-widget-content .ui-state-highlight, 
+.ui-widget-header .ui-state-highlight  {
+	background: #d0ebd1; 
+}
+
+/* 选项卡 */
+.tabBar a.current{
+	border-bottom: #3a993d 2px solid;
+	color: #3a993d;
+}
+
+/* 弹出框 */
+.popupBox{	
+	background: #4caf50;
+	border: 1px solid #308a35;	
+}
+.popupBox .popupHead{	
+	color: #fff;	
+	background: url(../images/bg-pupuphead_green.png) repeat-x;
+}
+.popupBox .popupHead .closePopup{
+	background-position: -120px -160px;
+}
+.popupContainer{
+	border: 1px solid #308a35;	
+}
+.btnMenubox{
+	border: 1px dotted #4caf50;
+	background-color: #e6f9ed;
+}
+
+.modelHead{
+	color: #2A2A2A;
+	border-bottom: 1px solid #3c9a42;
+}
+.modelHead:before{
+	background: #4caf50;
+}
+/* 弹出框中的选项卡 */
+.tabBarP{
+	border-bottom: 1px solid #3c9a42;
+}
+.tabBarP .current{
+	background-color: #4caf50;
+}
+
+.homepage .boxHeader,
+.homepage .boxHeader2{
+	background: #4caf50;
+}
+.tabBarP2 .tabswitch{ background: #3a993d;}
+.tabBarP2 .tabswitch.current{
+	color: #2A2A2A;
+}
+
+/* 冒泡提示 */
+.tooltipLink{
+	border: 1px solid #13b6a1;
+	background: #daebfc;
+}
+/* 新增角色按钮 */
+.roleWrap .btn-addRole{
+	border: 1px dashed #4caf50;
+	background: #e6f9ed;
+	color: #2a2a2a;
+}
+.roleWrap .roleList_edit .current{
+	background: #3a993d;
+	border-color: #3a993d;
+}
+.sysSetBox .sysLink:hover{ color: #3a993d;}
+.nav-logo{
+	background-color: #4caf50;
+}
+.nav-logo2{
+	background-color: #4caf50;
+}
+.navbar .logo {
+	background-color: #4caf50;
+}
+.logo{
+	background-color: #4caf50;
+}
+.logo:last-of-type{
+	background-color: #4caf50;
+}

@@ -1,0 +1,359 @@
+package com.jojowonet.modules.order.service.excel;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import com.jojowonet.modules.order.utils.TableSplitMapper;
+import ivan.common.utils.SpringContextHolder;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.math.NumberUtils;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.form.Target;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.WebPageFunUtils;
+import com.jojowonet.modules.order.utils.excelExt.handler.ExcelAbstractHandler;
+import com.jojowonet.modules.order.utils.excelExt.utils.ExcelConvertor;
+
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.IdGen;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Component
+public class EOrderExcelImportHandler extends ExcelAbstractHandler{
+
+	public String insertSqlExcelHeader = "customer_name,customer_mobile,customer_telephone,customer_address,appliance_brand,appliance_category,appliance_model,appliance_barcode,appliance_buy_time,appliance_machine_code,customer_telephone2,promise_time,promise_limit,customer_feedback,remarks,service_type,level,warranty_type,service_mode,malfunction_type,malfunction_description,malfunction_cause,malfunction_cause_description,measures,measures_description,employe_name,origin,repair_time,end_time,please_refer_mall";
+	
+	public Map<String, String> checkLabelMap = Maps.newHashMap();
+	
+	/**
+	 * 处理excel文档逻辑
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public Boolean handler(Map<String, Object> rowData, int rowIndex) {
+		Map<String, Object> params = (Map<String, Object>) getParams(); 
+		Map<String, String> excelLabelMap = (Map<String, String>) params.get("excelLabelMap");//数据库中需要处理的excel模板中的Db字段
+		Record templateRd = (Record) params.get("templateRecord");
+		
+		
+		//1.将数据库中定义好的模板的label对应到导入的excel中，并替换相应的key值
+		if(excelLabelMap == null || excelLabelMap.isEmpty()){
+			//第一次的话需要赋值
+			excelLabelMap = wrapExcelLabelMap(templateRd, rowData);
+			params.put("excelLabelMap", excelLabelMap);
+		}
+		if(checkOrderData(rowData,excelLabelMap) && rowIndex > (getStartRow() -1)){
+			return false;
+		}
+		//2.生成SQL语句
+		if(StringUtils.isBlank(getExecuteSql())){
+			setExecuteSql(generateInsertSql());
+		}
+		
+		List<Object[]> sqlParams = getExecuteParams();
+		if(sqlParams == null || sqlParams.size() == 0){
+			sqlParams = Lists.newArrayList();
+			setExecuteParams(sqlParams);
+		}
+		
+		int paramCount = StringUtils.countMatches(getExecuteSql(), "?");
+		String[] sqlHeadArr = insertSqlExcelHeader.split(",");
+		Object[] itemPram = wrapSqlParam(rowData, excelLabelMap, paramCount, sqlHeadArr, params);
+		sqlParams.add(itemPram);
+		increaseSuccessCount(1);
+		return true;
+	}
+
+	public boolean checkOrderData(Map<String, Object> rowData,Map<String, String> excelLabelMap){
+		String name = excelLabelMap.get("customer_name");
+		String mobi = excelLabelMap.get("customer_mobile");
+		String cate = excelLabelMap.get("appliance_category");
+		if((rowData.get(name) == null || StringUtils.isBlank(rowData.get(name).toString()))
+				&& (rowData.get(mobi) == null || StringUtils.isBlank(rowData.get(mobi).toString()))
+				&& (rowData.get(cate) == null || StringUtils.isBlank(rowData.get(cate).toString()))
+				){
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * 生成sql的参数
+	 * @param rowData
+	 * @param excelLabelMap
+	 * @param paramCount 
+	 * @param params 
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	private Object[] wrapSqlParam(Map<String, Object> rowData, Map<String, String> excelLabelMap, int paramCount, String[] sqlHeadArr, Map<String, Object> params) {
+		Object[] param = new Object[paramCount];
+		Object val = null;
+		int sqlHeadArrLen = sqlHeadArr.length; 
+		for(int i = 0; i < sqlHeadArrLen; i++){
+			String labelKey = sqlHeadArr[i];
+			String labelVal = excelLabelMap.get(labelKey);
+			if(StringUtils.isNotBlank(labelVal)){
+				val = rowData.get(labelVal);
+				if(StringUtils.isBlank(String.valueOf(val)) || "null".equalsIgnoreCase(String.valueOf(val))) {
+					val = "";
+				}
+				if("appliance_buy_time".equalsIgnoreCase(labelKey) || "promise_time".equalsIgnoreCase(labelKey)
+						||"repair_time".equalsIgnoreCase(labelKey) || "end_time".equalsIgnoreCase(labelKey)){
+					try {
+						int dotIdx = val.toString().indexOf("."); 
+						if(dotIdx != -1){
+							val = val.toString().substring(0, dotIdx);
+						}
+						if(NumberUtils.isDigits(val.toString())){//可能的数字excel时间
+							Date tmpDate = DateUtils.converExcelDate(String.valueOf(val));
+							val = tmpDate;
+						}else{
+							val = DateUtils.parseDate(val.toString(), datePattern);
+						}
+					} catch (Exception e) {
+						val = null;
+					}
+				}else if("service_mode".equalsIgnoreCase(labelKey)){
+					Map<String, Object> serviceModeMap = (Map<String, Object>) params.get("serviceModeMap");
+					for(Entry<String, Object> ent : serviceModeMap.entrySet()){
+						if(val.toString().indexOf(ent.getKey()) != -1){
+							val = ent.getKey();
+						}
+					}
+				}else if("service_type".equalsIgnoreCase(labelKey)){
+					Object templ =params.get("templateId");
+					if("3".equals(templ) || "4".equals(templ)){
+						val = val.toString().trim();
+					}else {
+						Map<String, Object> serviceTypeMap = (Map<String, Object>) params.get("serviceTypeMap");
+						for(Entry<String, Object> ent : serviceTypeMap.entrySet()){
+							if(val.toString().indexOf(ent.getKey()) != -1){
+								val = ent.getKey();
+							}
+						}
+					}
+					
+				}else if("level".equalsIgnoreCase(labelKey)){
+					if(val.toString().indexOf("紧急") != -1 && val.toString().indexOf("非") == -1 && val.toString().indexOf("不") == -1){
+						val = "1";
+					}else{
+						val = "2";
+					}
+				}else if("warranty_type".equalsIgnoreCase(labelKey)){
+					if(val != null && StringUtils.isNotBlank(val.toString())){
+						String str=val.toString();
+						if(str.contains("保内") || str.contains("保修")){
+							val = "1";
+						}else if(str.contains("保外") || str.contains("自费")){
+							val = "2";
+						}else{
+							val = "";
+						}
+					}else{
+						val = "";
+					}
+				}else if("customer_mobile".equalsIgnoreCase(labelKey) ){
+					String vals = rowData.get(labelVal).toString().trim();
+					if(vals.indexOf(".") != -1){
+						val = vals.replace(".", "");
+					}if (val.toString().length() > 11) {
+						val = val.toString().substring(0,11);
+					}else{
+						val = vals;
+					}
+					
+				}else if("appliance_brand".equalsIgnoreCase(labelKey)){
+					String vals = rowData.get(labelVal).toString().trim();
+					if(vals.indexOf(".") != -1){
+						val = vals.replace(".", "");
+					}else{
+						val = vals;
+					}
+					
+				}
+			}else{
+				if( "repair_time".equalsIgnoreCase(labelKey)){
+					val = params.get("now");
+				}else if( "origin".equalsIgnoreCase(labelKey)){
+					val = getOrigin(params.get("templateId"));
+				}else if("please_refer_mall".equalsIgnoreCase(labelKey)) {
+					String labels = excelLabelMap.get("malfunction_cause");
+					val = rowData.get(labels);
+					if(val != null) {
+						param[14] = param[14] +","+ val;
+					}
+				}else{
+					val = null;
+				}
+				
+				
+			}
+			param[i] = val;
+		}
+		String siteName = params.get("siteName").toString();
+		Target ta1 = new Target();
+		ta1.setContent( siteName+ "导入 ");
+		ta1.setName(siteName);
+		ta1.setType(24);
+		ta1.setTime(DateUtils.getDateTime());
+		String str = WebPageFunUtils.appendProcessDetail(ta1, "");
+		String number = CrmUtils.ImportNumber();
+				//DateUtils.formatDate(new Date(), "yyyyMMddHHmm") + RandomStringUtils.randomNumeric(5);
+		param[sqlHeadArrLen] = number;//number
+		param[sqlHeadArrLen + 1] = params.get("status");//status
+	//	param[sqlHeadArrLen + 2] = getOrigin(params.get("templateId"));//origin
+		param[sqlHeadArrLen + 2] = params.get("siteId");//site_id
+		param[sqlHeadArrLen + 3] = params.get("siteName");//site_name
+//		param[sqlHeadArrLen + 5] = "";//order_type
+		param[sqlHeadArrLen + 4] = params.get("now");//create_time
+//		param[sqlHeadArrLen + 7] = "";//latest_process
+//		param[sqlHeadArrLen + 8] = "";//latest_process_time
+		param[sqlHeadArrLen + 7] = str;//process_detail
+	//	param[sqlHeadArrLen + 6] = params.get("now");//repair_time
+		param[sqlHeadArrLen + 5] = params.get("userId");//create_by
+		param[sqlHeadArrLen + 6] = IdGen.uuid();//id
+		return param;
+	}
+
+	public String getOrigin(Object templateId){
+		String origin = "用户";
+		if("1".equals(templateId)){
+			origin = "苏宁";
+		}else if("2".equals(templateId)){
+			origin = "国美";
+		}
+		return origin;
+	}
+	
+	private Map<String, String> wrapExcelLabelMap(Record templateRd, Map<String, Object> rowData) {
+		Map<String, String> excelLabelMap = Maps.newHashMap();
+		Map<String, Object> map = templateRd.getColumns();
+		for(Entry<String, Object> ent : map.entrySet()){
+			String key = ent.getKey();
+			String label = String.valueOf(ent.getValue());
+			String idx = "";
+			if(StringUtils.isNotBlank(label)){
+				for(Entry<String, Object> inEnt : rowData.entrySet()){
+					String colLabel = ExcelConvertor.excelColIndexToStr(Integer.valueOf(inEnt.getKey()));
+					if(label.equalsIgnoreCase(colLabel)){
+						idx = inEnt.getKey();
+						break;
+					}
+				}
+				if(StringUtils.isNotBlank(idx)){
+					excelLabelMap.put(key, idx);
+				}
+			}
+		}
+		return excelLabelMap;
+	}
+
+	public String generateInsertSql(){
+		//TableSplitMapper tableSplitMapper = new TableSplitMapper();
+		TableSplitMapper tableSplitMapper = SpringContextHolder.getBean(TableSplitMapper.class);
+		StringBuilder sb = new StringBuilder();
+		String siteId = "";
+		try {
+			Map<String, Object> map = (Map<String, Object>) this.getParams();
+			siteId = String.valueOf(map.get("siteId"));
+
+			sb.append(" insert into "+tableSplitMapper.mapOrder(siteId)+" (");
+			sb.append(insertSqlExcelHeader);
+//		sb.append(",number,status,origin,site_id,site_name,order_type,create_time,latest_process,latest_process_time,process_detail,repair_time,create_by,id) values(");
+			sb.append(",number,status,site_id,site_name,create_time,create_by,id,process_detail) values(");
+			sb.append("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,");
+//		sb.append("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,");
+			sb.append("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ");
+			sb.append("?, ?, ?, ?, ?, ?, ?,?");
+			sb.append(")");
+		}catch (Exception e){
+			throw new RuntimeException(" generateSql err! >> " + sb.toString() + " , siteId:" + siteId);
+		}
+		return sb.toString();
+	}
+	
+	/**
+	 * 校验是否为正确的电商模板
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public Boolean checkExcel(Map<String, Object> rowData, int rowIndex) {
+		if(rowIndex > getMaxRows()){
+			setHandlerResult("overLimit");
+			return false;
+		}
+		Map<String, Object> params = (Map<String, Object>) this.getParams();
+		String templateId = params.get("templateId").toString();
+		Record templateRd = (Record) params.get("templateRecord");
+		if(templateRd != null){//在数据库中匹配有电商模板
+			String excelHead = templateRd.getStr("title_name");
+			String[] excelHeadArr ;
+			if("5".equals(templateId)) {
+				excelHeadArr = excelHead.split(";");
+			}else{
+				excelHeadArr = excelHead.split(",");
+			}
+			int startline = Integer.valueOf(String.valueOf(templateRd.get("startline")));
+			if((rowIndex + 1) == (startline -1)){
+				String errMsg = "模板不匹配!";
+				if(rowData.size() != excelHeadArr.length){
+					setHandlerResult(errMsg);
+					//列数不匹配
+					return false;
+				}
+				//判断是否是和数据库中的模板title匹配
+				for(int i = 0; i < excelHeadArr.length; i++){
+					String item = excelHeadArr[i];
+					String idx = (i+1) + "";
+					if(StringUtils.isNotBlank(item) && !item.trim().equalsIgnoreCase(String.valueOf(rowData.get(idx)).trim())){//excel中定义的表格title名称不对应
+						setHandlerResult(errMsg);
+						return false;
+					}
+				}
+			}
+		}
+
+		//判断行记录是否合法
+		if(checkLabelMap == null || checkLabelMap.isEmpty()){
+			checkLabelMap = wrapExcelLabelMap(templateRd, rowData);
+		}
+		String applianceBrandNum = checkLabelMap.get("appliance_brand");
+		String applianceMobileNum = checkLabelMap.get("customer_mobile");
+		Object applianceBrandValue = rowData.get(applianceBrandNum);
+		Object applianceMobileValue = rowData.get(applianceMobileNum);
+
+		if(applianceBrandValue != null && applianceBrandValue.toString().trim().length() > 20){
+			appendErrorDetail("<p>第"+(rowIndex+1)+"行数据："+rowData.get(applianceBrandNum)+"格式错误,超过20位长度"+"</p>");
+			increaseErrorCount(1);
+			setHandlerResult("dataError");
+		}
+		if(applianceMobileValue != null && applianceMobileValue.toString().trim().length() > 20 && !"3".equals(templateId)){
+			appendErrorDetail("<p>第"+(rowIndex+1)+"行数据："+rowData.get(applianceMobileNum)+"格式错误,超过20位长度"+"</p>");
+			increaseErrorCount(1);
+			setHandlerResult("dataError");
+		}
+
+		return true;
+	}
+
+	public String getCheckLabels(String excelHead){
+		/*String[] headArr = excelHead.split(",");
+		for(int i = 0 ; i < headArr.length; i++){
+			if("appliance_brand".){
+
+			}
+		}*/
+		return "";
+	}
+
+	public void checkExists() {
+	}
+
+}

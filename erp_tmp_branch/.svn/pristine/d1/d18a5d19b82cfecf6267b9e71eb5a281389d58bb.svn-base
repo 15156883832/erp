@@ -1,0 +1,52 @@
+package com.jojowonet.modules.fmss.utils;
+
+
+
+
+
+
+public class CrmUtils {
+	//private static CategoryDao categoryDao = SpringContextHolder.getBean(CategoryDao.class);
+
+	public static final String CACHE_CRM_CATEGORY_LIST = "CategoryList";
+	
+	public static final String CACHE_CRM_CATEGORY_KV = "CategoryKV";
+	/*
+	
+	public static List<Category> getCategoryList(){
+		@SuppressWarnings("unchecked")
+		List<Category> categoryList = (List<Category>)CacheUtils.get(CACHE_CRM_CATEGORY_LIST);
+		if (categoryList==null){
+			categoryList = categoryDao.findAllList();
+			CacheUtils.put("crmCache",CACHE_CRM_CATEGORY_LIST, categoryList);
+		}
+		if(CacheUtils.get(CACHE_CRM_CATEGORY_KV)==null){
+			@SuppressWarnings("unchecked")
+			Map<Long, String> kv =  Collections3.extractToMap(categoryList, "id", "name");
+			CacheUtils.put("crmCache",CACHE_CRM_CATEGORY_KV, kv);
+		}
+		return categoryList;
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static String getCategoryName(List<Long> ids){
+		String rs = "";
+		Map<Long, String> kv =(Map<Long, String>) CacheUtils.get("crmCache",CACHE_CRM_CATEGORY_KV);
+	
+		kv =(Map<Long, String>) CacheUtils.get("crmCache",CACHE_CRM_CATEGORY_KV);
+		
+		for (Long id : ids) {
+			if(kv.get(id)!=null){
+				rs += kv.get(id)+",";
+			}
+		}
+		
+		if(StringUtils.isNotBlank(rs)){
+			rs = StringUtils.substringBeforeLast(rs, ",");
+		}
+		return rs;
+	}
+	*/
+	
+	
+}

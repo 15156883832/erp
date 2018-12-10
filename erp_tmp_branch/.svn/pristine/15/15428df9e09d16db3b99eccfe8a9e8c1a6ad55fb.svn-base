@@ -1,0 +1,417 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+	<title>系统公告管理</title>
+	<meta name="decorator" content="base"/>
+	<script type="text/javascript" src="${ctxPlugin }/lib/Highcharts/4.1.7/js/highcharts.js"></script>
+	<script type="text/javascript" src="${ctxPlugin }/lib/Highcharts/4.1.7/js/modules/exporting.js"></script>
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin }/static/h-ui.admin/css/easyui.css" />
+	<script src="${ctxPlugin }/static/h-ui.admin/js/jquery.easyui.min.js" type="text/javascript" charset="utf-8"></script>
+	<style type="text/css">
+		.stockboxCur{
+			background:  #e7eff5;
+			position: relative;
+			border-bottom: 1px solid #e7eff5;
+		}
+		.stockboxCur:before{
+			content: '';
+			position: absolute;
+			left: -1px;
+			top: -1px;
+			right: -1px;
+			height: 3px;
+			background: #0e8ee7;
+		}
+
+	</style>
+</head>
+<body>
+<div class="sfpagebg bk-gray"><div class="sfpage">
+	<div class="page-orderWait">
+		<div class="tabBar cl mb-10">
+			<sfTags:pagePermission authFlag="STATISTIC_STOCKSTAT_STOCKSTORE_TAB" html='<a class="btn-tabBar current" href="${ctx}/statistic/stockStat">备件库存</a>'></sfTags:pagePermission>
+			<sfTags:pagePermission authFlag="STATISTIC_STOCKSTAT_GOODSTORE_TAB" html='<a class="btn-tabBar" href="${ctx}/statistic/goodsStat">商品库存</a>'></sfTags:pagePermission>
+		</div>
+		<div class="mt-10 cl" id="allHeader">
+			<div class="f-l pl-20 pt-15 pb-15 bk-gray stockboxCur bgstyle" onclick="stockComStatistics(this)"  style="width: 28%;border-right: 0;cursor:pointer;">
+				<div class="stockbox stockbox1">
+					<p class="money"><strong id="complanyPrice">￥0 </strong></p>
+					<p class="money-lb">公司库存总资产</p>
+				</div>
+			</div>
+			<div class="f-l pl-20 pt-15 pb-15 bk-gray bgstyle" style="width: 28%;border-right: 0;cursor:pointer;" onclick="stockEmpStatistics(this)">
+				<div class="stockbox stockbox5">
+					<p class="money"><strong id="empPrice">￥0</strong></p>
+					<p class="money-lb">工程师库存总资产</p>
+				</div>
+			</div>
+			<div class="f-l pl-20 pt-15 pb-15 bk-gray bgstyle" style="width: 44%;cursor:pointer;" onclick="stockOldStatistics(this)">
+				<div class="stockbox stockbox6">
+					<p class="money"><strong id="oldPrice">￥0</strong></p>
+					<div class="cl">
+						<p class="money-lb f-l">旧件库存总资产</p>
+						<p class="f-l c-666">（注：旧件状态为“已入库”的旧件才会被纳入统计）</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+	<%--<div class="mt-10 bk-gray pd-15">
+			<div class="stockbox stockbox1">
+				<p class="money"><strong>￥${stockMap.totalAsset }</strong></p>
+				<p class="money-lb">库存总资产</p>
+			</div>
+		</div>--%>
+		<form action=""  id="cx">
+		<div class="cl mt-15">
+			<label class="f-l">备件条码：</label>
+			<input type="text" class="input-text f-l w-140" id="fittingCode" value="${fittingCode }"  name="fittingCode"/>
+			<label class="f-l w-90 text-r">备件名称：</label>
+			<input type="text" class="input-text f-l w-140" id="fittingName" value="${fittingName }"  name="fittingName"/>
+			<p class="f-r">
+				<a href="javascript:search();" class="sfbtn sfbtn-opt" ><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:reset();" class="sfbtn sfbtn-opt"><i class="sficon sficon-reset"></i>重置</a>
+				<sfTags:pagePermission authFlag="STATISTIC_STOCKSTAT_STOCKSTORE_EXPORT_BTN" html='<a  onclick="return exports()" class="sfbtn sfbtn-opt"><i class="sficon sficon-export"></i>导出</a>'></sfTags:pagePermission>
+			</p>
+		</div>
+		</form>
+		<div class="mt-10 text-c tableWrap1">
+			<div class="tableLabel">
+				<table class="table table-bg table-bordered table-sdrk" style="border-bottom: 0;">
+					<thead>
+						<tr class="" id="towHeader">
+							<th style="width: 15%;">备件条码</th>
+							<th style="width: 25%;">备件名称</th>
+							<th style="width: 12%;">库存总量</th>
+							<th style="width: 12%;">入库总量</th>
+							<th style="width: 12%;">出库总量</th>
+							<th style="width: 12%;">返还总量</th>
+							<th style="width: 12%;">使用数量</th>
+						</tr>
+						<tr class="hide" id="lastheader">
+							<th style="width: 10%;">旧件条码</th>
+							<th style="width: 20%;">旧件名称</th>
+							<th style="width: 10%;">旧件型号</th>
+							<th style="width: 10%;">旧件品牌</th>
+							<th style="width: 10%;">登记数量</th>
+							<th style="width: 10%;">旧件单价</th>
+							<th style="width: 10%;">服务工程师</th>
+							<th style="width: 10%;">是否原配</th>
+							<th style="width: 10%;">旧件总价</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+			<div class="tableBody">
+				<table class="table table-border table-bordered" id="bjStock_table">
+					<tbody class="" id="dataResult">
+						<c:forEach var="item" items="${stockMap.list}">
+							<tr>
+								<td style="width: 15%;">${item.columns.code}</td>
+								<td style="width: 25%;" class="text-l">${item.columns.name }</td>
+								<td style="width: 12%;">${item.columns.warning }</td>
+								<td style="width: 12%;">${item.columns.total }</td>
+								<td style="width: 12%;">${item.columns.outTotal }</td>
+								<td style="width: 12%;">${item.columns.fhNum }</td>
+								<td style="width: 12%;">${item.columns.useNum }</td>
+							</tr>
+						</c:forEach>
+					</tbody>
+				</table>	
+			</div>
+			<div class="tableLabel tableFoot">
+				<table class="table table-border table-bordered">
+					<tfoot class="bg-eee">
+						<tr id="heji">
+							<td style="width: 40%;">合计</td>
+							<td style="width: 12%;">${stockMap.total }</td>
+							<td style="width: 12%;">${stockMap.rkTotal }</td>
+							<td style="width: 12%;">${stockMap.ckTotal }</td>
+							<td style="width: 12%;">${stockMap.fhTotal }</td>
+							<td style="width: 12%;">${stockMap.useTotal }</td>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+		</div>
+	
+	</div>
+</div></div>
+
+<div class="popupBox w-320 vipPromptBox">
+	<h2 class="popupHead">
+		提示
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain text-c pt-30 pb-20">
+			<div class="">
+				<i class="iconType iconType2"></i>
+				<strong class="f-16">VIP会员功能</strong>
+			</div>
+			<p class="c-666 lh-26">
+				抱歉，此功能需要<span class="c-bb3906">开通VIP会员</span>后才能使用！
+			</p>
+			<div class="text-c mt-30">
+				<%-- <a  href="#" onclick="jumpToVIP();return false;" class="sfbtn sfbtn-opt3 w-100">开通VIP会员</a>--%>
+				<span class="sfbtn sfbtn-opt3 w-100" onclick="jumpToVIP();">开通VIP会员</span>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript">
+    var whoStatistic="1";
+	$(function(){
+		 $.post("${ctx}/goods/sitePlatformGoods/distinct",function(result){
+				if(result=="showPopup"){
+					$(".vipPromptBox").popup();
+					$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+				}
+			});
+        $.post("${ctx}/statistic/getStocksCounts",function(result){
+			$("#complanyPrice").text("￥"+result.complanyPrice.toFixed("2"));
+			$("#empPrice").text("￥"+result.empPrice.toFixed("2"));
+			$("#oldPrice").text("￥"+result.oldPrice.toFixed("2"));
+        });
+        $(".lastheader").hide();
+        initTableHeight();
+    });
+	
+	window.onresize = function(){
+		initTableHeight();
+	};
+	function initTableHeight(){
+		var maxHeight = $('.sfpagebg').height()-300;
+		$('#bjStock_table tr').last().children('td').css({'border-bottom':'0'});
+		var tableHeight = $('#bjStock_table').height();
+		if( tableHeight >maxHeight){
+			$('.tableBody').css({
+				'height':maxHeight,
+				'overflow-y':'auto',
+				'overflow-x':'hidden',
+				'padding-left':'17px',
+				'position':'relative',
+				'left':'-17px',
+				'width':$('.tableBody').width()+34,
+			});
+			$('#bjStock_table').width($('.tableLabel').width()-1);4
+		}
+	};
+
+	function exports(){
+		var idArr=document.getElementById("bjStock_table").rows.length ;
+		var content="共"+idArr+"条数据，本次允许导出前10000条，确定继续导出吗？";
+		if(idArr>10000){
+			$('body').popup({
+				level:3,
+				title:"导出",
+				content:content,
+				 fnConfirm :function(){
+					 location.href="${ctx}/statistic/exportsStock?"+$("#cx").serialize()+"&whoStatistics="+whoStatistic;
+				 }
+		
+			});
+		}else{
+			location.href="${ctx}/statistic/exportsStock?"+$("#cx").serialize()+"&whoStatistics="+whoStatistic;
+		}
+	
+	};
+	
+	function search(){
+		var fittingCode =  $("#fittingCode").val();
+		var fittingName =  $("#fittingName").val();
+		var year = $('#year option:selected').val();
+		if(whoStatistic=="1"){
+            stockComStatistics();
+        }else if(whoStatistic=="2"){
+            stockEmpStatistics();
+		}else{
+            stockOldStatistics();
+		}
+	}
+	
+	function reset(){
+		$("#fittingCode").val('');
+		$("#fittingName").val('');
+	}
+	
+	function jumpToVIP(){
+		layer.open({
+			type : 2,
+			content:'${ctx}/goods/sitePlatformGoods/jumpVIP',
+			title:false,
+			area: ['100%','100%'],
+			closeBtn:0,
+			shade:0,
+			anim:-1 
+		});
+	}
+
+	function stockComStatistics(eva){
+        $("#allHeader").find(".stockboxCur").removeClass("stockboxCur");
+        $(eva).addClass("stockboxCur");
+
+        whoStatistic="1";
+	    var fittingCode=$("#fittingCode").val();
+	    var fittingName=$("#fittingName").val();
+        $.ajax({
+            type:'POST',
+            url:"${ctx}/statistic/stockComStat",
+            data:{
+                "fittingCode":fittingCode,
+				"fittingName":fittingName
+            },
+            success:function(data){
+                var html='';
+                if(data.list.length>0){
+                    for(var i=0;i<data.list.length;i++){
+                    	var outTotal =  data.list[i].columns.outTotal;
+	                       if(!isBlank(outTotal)){
+	                    	   outTotal = outTotal.toFixed(2);
+	                       }
+                        html+='<tr>';
+                        html+='<td style="width: 15%;">'+data.list[i].columns.code+'</td>';
+                        html+='<td style="width: 25%;" class="text-l">'+data.list[i].columns.name+'</td>';
+                        html+='<td style="width: 12%;">'+(data.list[i].columns.warning).toFixed(2) +'</td>';
+                        html+='<td style="width: 12%;">'+(data.list[i].columns.total).toFixed(2) +'</td>';
+                        html+=' <td style="width: 12%;">'+outTotal +'</td>';
+                        html+='<td style="width: 12%;">'+(data.list[i].columns.fhNum).toFixed(2) +'</td>';
+                        html+='<td style="width: 12%;">'+(data.list[i].columns.useNum).toFixed(2) +'</td>';
+                        html+='</tr>';
+                    }
+                    var htm='';
+                    htm += '<td style="width: 40%;">合计</td>';
+                    htm += '<td style="width: 12%;">'+data.total +'</td>';
+                    htm += '<td style="width: 12%;">'+data.rkTotal+' </td>';
+                    htm += ' <td style="width: 12%;">'+data.ckTotal+' </td>';
+                    htm += '<td style="width: 12%;">'+data.fhTotal+' </td>';
+                    htm += '<td style="width: 12%;">'+data.useTotal+' </td>';
+
+                    $("#towHeader").show();
+                    $("#lastheader").hide();
+                    $("#dataResult").empty().append(html);
+                    $("#heji").empty().append(htm);
+                    $("#heji").show();
+                    initTableHeight();
+                }
+            }
+        })
+	};
+	
+	function isBlank(val) {
+		if(val==null || $.trim(val)=='' || val == undefined) {
+			return true;
+		}
+		return false;
+	} 
+	
+	function stockEmpStatistics(eva){
+	    $("#allHeader").find(".stockboxCur").removeClass("stockboxCur");
+	    $(eva).addClass("stockboxCur");
+        whoStatistic="2";
+        var fittingCode=$("#fittingCode").val();
+        var fittingName=$("#fittingName").val();
+        $.ajax({
+            type:'POST',
+            url:"${ctx}/statistic/stockEmpStat",
+            data:{
+                "fittingCode":fittingCode,
+                "fittingName":fittingName
+            },
+            success:function(data){
+                var html='';
+               
+                if(data.list.length>0) {
+                    for (var i = 0; i < data.list.length; i++) {
+                    	var outTotal =  data.list[i].columns.outTotal;
+	                       if(!isBlank(outTotal)){
+	                    	   outTotal = outTotal.toFixed(2);
+	                       }
+                        html += '<tr>';
+                        html += '<td style="width: 15%;">' + data.list[i].columns.code + '</td>';
+                        html += '<td style="width: 25%;" class="text-l">' + data.list[i].columns.name + '</td>';
+                        html += '<td style="width: 12%;">' + (data.list[i].columns.warning).toFixed(2) + '</td>';
+                        html += '<td style="width: 12%;">' + (data.list[i].columns.total).toFixed(2) + '</td>';
+                        html += '<td style="width: 12%;">' + outTotal + '</td>';
+                        html += '<td style="width: 12%;">' + (data.list[i].columns.fhNum).toFixed(2) + '</td>';
+                        html += '<td style="width: 12%;">' + (data.list[i].columns.useNum).toFixed(2) + '</td>';
+                        html += '</tr>';
+                    }
+                    var htm = '';
+                    htm += '<td style="width: 40%;">合计</td>';
+                    htm += '<td style="width: 12%;">' + data.total + '</td>';
+                    htm += '<td style="width: 12%;">' + data.rkTotal + ' </td>';
+                    htm += ' <td style="width: 12%;">' + data.ckTotal + ' </td>';
+                    htm += '<td style="width: 12%;">' + data.fhTotal + ' </td>';
+                    htm += '<td style="width: 12%;">' + data.useTotal + ' </td>';
+
+                    $("#towHeader").show();
+                    $("#lastheader").hide();
+                    $("#dataResult").empty().append(html);
+                    $("#heji").empty().append(htm);
+                    $("#heji").show();
+                    //initTableHeight();
+                }
+            }
+        })
+	};
+
+    /*$(".tableBody").scroll(function(){
+        var divHeight = $(this).height();
+        var nScrollHeight = $(this)[0].scrollHeight;
+        var nScrollTop = $(this)[0].scrollTop;
+        if(nScrollTop + divHeight >= nScrollHeight) {
+            alert("到达底部了");
+        }
+    });*/
+
+	function stockOldStatistics(eva){
+        $("#allHeader").find(".stockboxCur").removeClass("stockboxCur");
+        $(eva).addClass("stockboxCur");
+
+        whoStatistic="3";
+        var fittingCode=$("#fittingCode").val();
+        var fittingName=$("#fittingName").val();
+        $.ajax({
+            type:'POST',
+            url:"${ctx}/statistic/stockOldStat",
+            data:{
+                "fittingCode":fittingCode,
+                "fittingName":fittingName
+            },
+            success:function(data){
+                var html='';
+                if(data.list.length>0) {
+                    for (var i = 0; i < data.list.length; i++) {
+                        html += '<tr>';
+                        html += '<td style="width: 10%;">' + data.list[i].columns.code + '</td>';
+                        html += '<td style="width: 20%;" class="text-l">' + data.list[i].columns.name + '</td>';
+                        html += '<td style="width: 10%;">' + data.list[i].columns.version + '</td>';
+                        html += '<td style="width: 10%;">' + data.list[i].columns.brand + '</td>';
+                        html += '<td style="width: 10%;">' + data.list[i].columns.num + '</td>';
+                        html += '<td style="width: 10%;">' + data.list[i].columns.unit_price + '</td>';
+                        html += '<td style="width: 10%;">' + data.list[i].columns.employe_name + '</td>';
+                        if(data.list[i].columns.yrpz_flag=="1"){
+                            html += '<td style="width: 10%;">是</td>';
+                        }else if(data.list[i].columns.yrpz_flag=="2"){
+                            html += '<td style="width: 10%;">否</td>';
+						}else{
+                            html += '<td style="width: 10%;"></td>';
+						}
+                        html += '<td style="width: 10%;">' + data.list[i].columns.totalPrice + '</td>';
+                        html += '</tr>';
+                    }
+                    $("#towHeader").hide();
+                    $("#lastheader").show();
+                    $("#dataResult").empty().append(html);
+                    $("#heji").hide();
+                    //initTableHeight();
+                }
+            }
+        })
+	};
+
+</script> 
+</body>
+</html>

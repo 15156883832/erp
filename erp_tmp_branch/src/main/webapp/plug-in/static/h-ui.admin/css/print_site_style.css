@@ -1,0 +1,57 @@
+*{
+    padding: 0;
+    margin: 0;
+}
+th,td{
+    height: 41px;
+    width: 100px;
+    text-align: center;
+    padding-left: 10px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+td{
+    text-align: left;
+}
+h4,p{
+	width: 900px;
+    margin: 0 auto;
+    margin-bottom: 10px;
+}
+h4{
+    text-align: center;
+	
+}
+.fu{
+	height:100%;
+	width:62%;
+	margin:0;
+	line-height:30px;
+}
+p>span:last-of-type{
+	float: right;
+}
+table{
+    width: 900px;
+    margin: 0 auto;
+    border-collapse: collapse;
+table-layout:fixed;
+}
+.fs-16{
+    font-size: 16px;
+    height: 35px;
+}
+#fs-12{
+    font-size: 12px;
+}
+label{
+    margin-left: 50px;
+}
+input[type='checkbox']{
+    margin-right: 5px;
+    vertical-align: middle;
+    margin-bottom: 3px;
+}
+.times{
+	padding-right: 150px;
+}

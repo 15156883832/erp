@@ -1,0 +1,309 @@
+package com.jojowonet.modules.sys.util;
+
+import com.google.common.collect.Lists;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.OrderDao;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.entity.PushMessage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+
+import java.text.SimpleDateFormat;
+import java.util.Collections;
+import java.util.List;
+
+public class OrderDetailsVo {
+    private final TranslationService translationService;
+    private Page<Record> page;
+    private String otype;
+
+    private String otime;
+    
+    private List<Record> infoMans;//信息员
+    
+    public List<Record> getInfoMans() {
+		return infoMans;
+	}
+
+	public void setInfoMans(List<Record> infoMans) {
+		this.infoMans = infoMans;
+	}
+
+	/**
+     * 来电号码对应的用户的已完成工单量。
+     */
+    private Long unfinishedOrderCount;
+    /**
+     * 来电号码对应的用户的未完成工单量。
+     */
+    private Long finishedOrderCount;
+    /**
+     * 回访信息。
+     */
+    private Record callback;
+    /**
+     * 配件信息。
+     */
+    private List<Record> fittings;
+    private Record feedback;
+    /**
+     * 结算信息。
+     */
+    private Record settlement;
+    /**
+     * 用户来电次数。
+     */
+    private Long callTimes;
+    /**
+     * 用于过程信息，过程信息其实就是根据派工信息来的。
+     */
+    private List<Record> dispatchList;
+    /**
+     * 过程反馈。
+     */
+    private String courseFeedback;
+    private String courseFeedbackTime;
+    private List<PushMessage> pushMessages;
+    private List<Record> feedbacks;
+
+    public Page<Record> getPage() {
+        return page;
+    }
+
+    public void setPage(Page<Record> page) {
+        this.page = page;
+    }
+
+    public Long getUnfinishedOrderCount() {
+        return unfinishedOrderCount;
+    }
+
+    public void setUnfinishedOrderCount(Long unfinishedOrderCount) {
+        this.unfinishedOrderCount = unfinishedOrderCount;
+    }
+
+    public Long getFinishedOrderCount() {
+        return finishedOrderCount;
+    }
+
+    public void setFinishedOrderCount(Long finishedOrderCount) {
+        this.finishedOrderCount = finishedOrderCount;
+    }
+
+    public Record getCallback() {
+        return callback;
+    }
+
+    public void setCallback(Record callback) {
+        this.callback = callback;
+    }
+
+    public OrderDetailsVo() {
+        this.translationService = new TranslationService();
+    }
+
+    /**
+     * 回访服务评价。
+     */
+    public String getCallbackAttitudeEval() {
+        return callback == null ? "" : translationService.translateCallbackAttitude(callback.getStr("service_attitude"));
+    }
+
+    /**
+     * 多次上门。
+     */
+    public String getMultipleRepair() {
+        return callback == null ? "" : translationService.translateMultipleRepair(callback.getStr("multiple_repair"));
+    }
+
+    /**
+     * 回访是否达标。
+     */
+    public String getUptoStandard() {
+        return callback == null ? "" : translationService.translateCallbackStandard(callback.getStr("upto_standard"));
+    }
+
+    /**
+     * 交回卡单。
+     */
+    public String getReturnCard() {
+        Record r = getOrderRecord();
+        return r == null ? "" : translationService.translateReturnCard(r.getStr("return_card"));
+    }
+
+    /**
+     * 维修类型。
+     */
+    public String getRepairType() {
+        Record record = getOrderRecord();
+        return record == null ? "" : translationService.translateRepairType(record.getStr("repair_type"));
+    }
+
+    private Record getOrderRecord() {
+        Page<Record> page = getPage();
+        if (page != null && page.getList() != null && page.getList().size() > 0) {
+            return page.getList().get(0);
+        }
+        return null;
+    }
+
+    /**
+     * 保修类型。
+     */
+    public String getServiceType() {
+        Record r = getOrderRecord();
+        return r == null ? "" : translationService.translateServiceType(r.getStr("service_type"));
+    }
+
+    /**
+     * 信息等级。
+     */
+    public String getLevel() {
+        Record r = getOrderRecord();
+        return r == null ? "" : translationService.translateOrderLevel(r.getStr("level"));
+    }
+
+    /**
+     * 工单来源。
+     */
+    public String getOrderOrigin() {
+        Record r = getOrderRecord();
+        return r == null ? "" : translationService.translationOrderOrigin(r.getStr("origin"));
+    }
+
+    /**
+     * 工单状态。
+     */
+    public String getOrderState() {
+        Record r = getOrderRecord();
+        return r == null ? "" : translationService.translateOrderStatus(r.getStr("status"));
+    }
+
+    /**
+     * 回访安全评价。
+     */
+    public String getCallbackSafetyEval() {
+        return callback == null ? "" : translationService.translateCallbackSafety(callback.getStr("safety_evaluation"));
+    }
+
+    /**
+     * 回访结果。
+     */
+    public String getCallbackResult() {
+        return callback == null ? "" : translationService.translateCallbackResult(callback.getStr("result"));
+    }
+
+    public List<Record> getFittings() {
+        return fittings;
+    }
+
+    public void setFittings(List<Record> fittings) {
+        this.fittings = fittings;
+    }
+
+    public Record getFeedback() {
+        return feedback;
+    }
+
+    /**
+     * 维修反馈。
+     */
+    public void setFeedback(Record feedback) {
+        this.feedback = feedback;
+    }
+
+    /**
+     * @return 过程图片
+     */
+    public List<String> getFeedbackImgs() {
+        List<String> imgs = Lists.newArrayList();
+        if (feedback != null) {
+            String img = feedback.getStr("feedback_img");
+            if (StringUtils.isNotEmpty(img)) {
+                String[] imgPaths = img.split(",");
+                Collections.addAll(imgs, imgPaths);
+            }
+        }
+        return imgs;
+    }
+
+    public String getCourseFeedback() {
+        return courseFeedback;
+    }
+
+    public void setCourseFeedback(String courseFeedback) {
+        this.courseFeedback = courseFeedback;
+    }
+
+    public List<Record> getDispatchList() {
+        return dispatchList;
+    }
+
+    public void setDispatchList(List<Record> orderDispatchList) {
+        this.dispatchList = orderDispatchList;
+    }
+
+    public Record getSettlement() {
+        return settlement;
+    }
+
+    public void setSettlement(Record settlement) {
+        this.settlement = settlement;
+    }
+
+    public Order getOrder() {
+        if (getPage() != null && getPage().getList() != null && getPage().getList().size() > 0) {
+            Record record = getPage().getList().get(0);
+            return OrderDao.getrecord(record, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
+        }
+        return null;
+    }
+
+    public Long getCallTimes() {
+        return callTimes;
+    }
+
+    public void setCallTimes(Long callTimes) {
+        this.callTimes = callTimes;
+    }
+
+    public String getCourseFeedbackTime() {
+        return courseFeedbackTime;
+    }
+
+    public void setCourseFeedbackTime(String courseFeedbackTime) {
+        this.courseFeedbackTime = courseFeedbackTime;
+    }
+
+    public List<PushMessage> getPushMessages() {
+        return pushMessages;
+    }
+
+    public void setPushMessages(List<PushMessage> pushMessages) {
+        this.pushMessages = pushMessages;
+    }
+
+    public List<Record> getFeedbacks() {
+        return feedbacks;
+    }
+
+    public void setFeedbacks(List<Record> feedbacks) {
+        this.feedbacks = feedbacks;
+    }
+
+    public String getOtype() {
+        return otype;
+    }
+
+    public void setOtype(String otype) {
+        this.otype = otype;
+    }
+
+    public String getOtime() {
+        return otime;
+    }
+
+    public void setOtime(String otime) {
+        this.otime = otime;
+    }
+}

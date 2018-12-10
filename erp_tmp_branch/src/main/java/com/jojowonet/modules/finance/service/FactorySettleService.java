@@ -1,0 +1,72 @@
+package com.jojowonet.modules.finance.service;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.finance.dao.FactorySettleDao;
+import com.jojowonet.modules.finance.entity.FactorySettle;
+import com.jojowonet.modules.order.service.SitetVenderAccountService;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+
+@Component
+@Transactional(readOnly = true)
+public class FactorySettleService extends BaseService {
+
+	@Autowired
+	private FactorySettleDao factorySettleDao;
+	@Autowired
+	private SitetVenderAccountService siteVenderAccountService;
+
+	public Page<Record> getfactorysettlelist(Page<Record> page, String siteId, Map<String, Object> map) {
+		List<Record> factorysettlelist = factorySettleDao.getfactorysettlelist(page, siteId, map);
+		/*
+		 * for (Record rd : factorysettlelist) { Record
+		 * siteRecord=siteVenderAccountService.getVenderInfoById(rd.getStr("factory_id")
+		 * ); rd.set("factory_id", siteRecord.getStr("name")); }
+		 */
+		long count = factorySettleDao.getcount(siteId, map);
+		page.setList(factorysettlelist);
+		page.setCount(count);
+		return page;
+
+	}
+
+	// 根据id删除结算录入
+	public void deleteFactorySettle(String id) {
+
+		factorySettleDao.deleteFactorySettle(id);
+
+	}
+
+	// 根据id查询结算录入
+	public Record FactorySettleById(String id) {
+		Record factorySettle = factorySettleDao.FactorySettleById(id);
+		return factorySettle;
+	}
+
+	// 保存结算录入
+	public void saveFactorySettle(FactorySettle factorySettle) {
+		factorySettleDao.save(factorySettle);
+	}
+
+	// 根据修改结算录入
+	public void updateFactorySettle(String vendorid, String year, String month, String money, String userName, String remark, String id) {
+		factorySettleDao.updateFactorySettle(vendorid, year, month, money, userName, remark, id);
+	}
+
+	// 查询出所有厂商名字
+	public List<Record> getvendorname() {
+
+		List<Record> vendorinfo = siteVenderAccountService.getVenderInfo();
+
+		return vendorinfo;
+	}
+
+}

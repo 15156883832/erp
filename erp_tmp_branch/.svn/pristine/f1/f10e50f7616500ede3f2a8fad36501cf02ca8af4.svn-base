@@ -1,0 +1,120 @@
+package com.jojowonet.modules.fmss.web.util;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.jojowonet.modules.order.utils.StaticResourceUtils;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
+@Controller
+@RequestMapping(value = "${adminPath}/crm/image")
+public class ImageController {
+
+    @RequestMapping(value = "/uploadFile", method = RequestMethod.POST)
+    public String uploadFile(HttpServletRequest request) {
+        List<MultipartFile> multipartFiles = UploadHelper.getFileSet(request, 1024 * 1024 * 20, null);
+        String path = "D:" + File.separator;
+        for (MultipartFile multipartFile : multipartFiles) {
+            try {
+                String filePath = UploadHelper.uploadFile(multipartFile, path);
+                System.out.println(filePath);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            // 拿到的imgPath就是图片的相对于contextPath的存储路径了
+        }
+        return null;
+    }
+
+/*    @RequestMapping(value = "/uploadImgs", method = RequestMethod.POST)
+    @ResponseBody
+    public Object uploadImages(HttpServletRequest request) {
+        List<MultipartFile> multipartFiles = UploadHelper.getFileSet2(request, "files[]", 1024 * 1024 * 5, new String[]{".png", ".jpg", ".jpeg", ".gif"});
+        String relPath = "/userfiles/images/avatar/" + new SimpleDateFormat("yyyy/MM").format(new Date()) + "/";
+        String path = request.getSession().getServletContext().getRealPath(relPath);
+        List<String> uploadedPath = new ArrayList<>();
+        for (MultipartFile multipartFile : multipartFiles) {
+            try {
+            	String fileName = UploadHelper.uploadFile(multipartFile, path);
+                //同步到公共图片资源路径
+                boolean syncFlag = StaticResourceUtils.syncStaticImage(relPath + fileName, path + "/" + fileName);
+                if(syncFlag){
+                	uploadedPath.add(relPath + fileName);
+                }
+            } catch (Exception e) {
+            	e.printStackTrace();
+            }
+        }
+        Map<String, Object> ret = new HashMap<>();
+        ret.put("path", uploadedPath);
+        return ret;
+    }*/
+    
+    @RequestMapping(value = "uploadImgs", method = RequestMethod.POST)
+    @ResponseBody
+    public Object uploadImages(MultipartFile file,HttpServletRequest request, HttpServletResponse response) {
+        String filename= file.getOriginalFilename();
+        String extName = filename.substring(filename.lastIndexOf(".")).toLowerCase();
+        String[] allowExtName = new String[]{".png", ".jpg", ".jpeg", ".gif"};
+        String relPath = "/userfiles/images/avatar/" + new SimpleDateFormat("yyyy/MM").format(new Date()) + "/";
+        String path = request.getSession().getServletContext().getRealPath(relPath);
+        List<String> uploadedPath = new ArrayList<>();
+        if(allowExtName == null
+                || allowExtName.length == 0
+                || Arrays.asList(allowExtName).contains(extName)){
+        	try {
+        		String fileName = UploadHelper.uploadFile(file, path);
+        		//同步到公共图片资源路径
+        		boolean syncFlag = StaticResourceUtils.syncStaticImage(relPath + fileName, path + "/" + fileName);
+        		if(syncFlag){
+        			uploadedPath.add(relPath + fileName);
+        		}
+        	} catch (Exception e) {
+        		e.printStackTrace();
+        	}
+        }
+        Map<String, Object> ret = new HashMap<>();
+        ret.put("path", uploadedPath);
+        return ret;
+    }
+    
+    /**
+     * 新的图片上传
+    */
+    @RequestMapping(value = "webuploadImgsSite", method = RequestMethod.POST)
+    @ResponseBody
+    public Object webuploadImagesSite(MultipartFile file,HttpServletRequest request, HttpServletResponse response) {
+        String filename= file.getOriginalFilename();
+        String extName = filename.substring(filename.lastIndexOf(".")).toLowerCase();
+        String[] allowExtName = new String[]{".png", ".jpg", ".jpeg", ".gif"};
+        String relPath = "/userfiles/images/order/" + new SimpleDateFormat("yyyy/MM").format(new Date()) + "/";
+        String path = request.getSession().getServletContext().getRealPath(relPath);
+        List<String> uploadedPath = new ArrayList<>();
+        if(allowExtName == null
+                || allowExtName.length == 0
+                || Arrays.asList(allowExtName).contains(extName)){
+        	try {
+        		String fileName = UploadHelper.uploadFile(file, path);
+        		//同步到公共图片资源路径
+        		boolean syncFlag = StaticResourceUtils.syncStaticImage(relPath + fileName, path + "/" + fileName);
+        		if(syncFlag){
+        			uploadedPath.add(relPath + fileName);
+        		}
+        	} catch (Exception e) {
+        		e.printStackTrace();
+        	}
+        }
+        Map<String, Object> ret = new HashMap<>();
+        ret.put("path", uploadedPath);
+        return ret;
+    }
+}

@@ -1,0 +1,79 @@
+package com.jojowonet.modules.order.service;
+
+import com.jojowonet.modules.operate.service.SendedSmsService;
+import com.jojowonet.modules.order.dao.SmsSignDao;
+import com.jojowonet.modules.order.entity.SmsSign;
+import com.jojowonet.modules.sys.util.SfSmsUtils;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.service.BaseService;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+
+import ivan.common.utils.UserUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.Entity;
+import java.util.Date;
+
+/**
+ * 
+ * @author yc
+ * 短信签名service
+ *
+ */
+@Component
+@Transactional(readOnly = true)
+public class SmsSignSetService extends BaseService{
+
+	@Autowired
+	private SmsSignDao smsSignDao;
+
+
+	public Record getSiteSmsSign(String siteId){
+		String sql="SELECT * FROM crm_site WHERE id='"+siteId+"'";
+		return Db.findFirst(sql);
+	}
+
+	public Record getSignInfo(String siteId){
+		return Db.findFirst("select * from crm_site_sms_sign a where a.site_id=? ", siteId);
+	}
+
+	//更新签名
+	public int updateSiteSign(String siteId, String smsSign) {
+		Record re = Db.findFirst("select * from crm_site_sms_sign a where a.site_id=?", siteId);
+		if(re==null){
+			User user = UserUtils.getUser();
+			SmsSign sign = new SmsSign();
+			sign.setName(smsSign);
+			sign.setCreateBy(user.getId());
+			sign.setCreateTime(new Date());
+			sign.setCreateType(user.getUserType());
+			String smsId = SfSmsUtils.addSign("【" + smsSign + "】", "思方科技");
+			sign.setNumber(smsId);
+			sign.setSiteId(siteId);
+			sign.setReviewsmsStatus("0");//0待审核1审核通过2审核未通过
+			smsSignDao.save(sign);
+			return 1;
+		}else{
+			SmsSign sign = smsSignDao.get(re.getStr("id"));
+			String smsId = re.getStr("number");
+			sign.setReviewsmsStatus("0");
+			sign.setName(smsSign);
+			smsSignDao.save(sign);
+			SfSmsUtils.modifySign(smsId, "【" + smsSign + "】", "思方科技");
+			return 1;
+		}
+
+
+	}
+	//修改手机号
+	public int updateMobile(String siteId, String smsPhone) {
+		String sql="UPDATE crm_site SET sms_phone=? WHERE id='"+siteId+"'";
+		return Db.update(sql, smsPhone);
+	}
+
+
+}

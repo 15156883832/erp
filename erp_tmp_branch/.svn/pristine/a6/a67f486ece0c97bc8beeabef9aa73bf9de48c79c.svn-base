@@ -1,0 +1,82 @@
+/**
+ */
+package com.jojowonet.modules.order.dao;
+
+import java.util.List;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.IdGen;
+
+import org.hibernate.Query;
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.order.entity.SiteCommonSetting;
+
+/**
+ * 类型信息DAO接口
+ * @author Ivan
+ * @version 2017-10-25
+ */
+@Repository
+public class SiteCommonSettingDao extends BaseDao<SiteCommonSetting> {
+	
+
+	public List<Record> getCommenSetting(Page<Record> page, String siteId,String type){
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT * FROM crm_site_common_setting s WHERE s.site_id=? ");
+		sf.append(getSettingCondition(type));
+		sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		
+		return Db.find(sf.toString(),siteId);
+	
+	}
+
+	public SiteCommonSetting getSettingByType(String type, String siteId) {
+		Query query = getSession().createQuery("from SiteCommonSetting where type=:type and siteId=:sid");
+		query.setParameter("type", type);
+		query.setParameter("sid", siteId);
+		return (SiteCommonSetting) query.uniqueResult();
+	}
+	
+	public String getSettingCondition(String type){
+		StringBuffer sf = new StringBuffer();
+		if(type != null){
+			sf.append(" and s.type = '"+type+"' ");
+		}
+		return sf.toString();
+	}
+	public long getListcount(String siteId,String type){
+		StringBuffer sf = new StringBuffer();
+	   sf.append(" select count(*) as count from crm_site_common_setting s  where s.site_id=? ");
+		sf.append(getSettingCondition(type));
+		return Db.queryLong(sf.toString(),siteId);
+	}
+	
+	public void updatesetting(String id) {
+		// TODO Auto-generated method stub
+		String sql ="UPDATE crm_site_common_setting SET set_value = '1' WHERE id = '"+id+"'";
+		Db.update(sql);
+	}
+	public void updatesettings(String id){
+		String sql ="UPDATE crm_site_common_setting SET set_value = '0' WHERE id = '"+id+"'";
+		Db.update(sql);
+	}
+	//3.设置工程师APP结算显示方式（set_value对应值是：1报修时间2完工时间3结算归属时间）
+	public void updateSetvalue(String id,String value){
+		String sql ="UPDATE crm_site_common_setting SET set_value = '"+value+"' WHERE id = '"+id+"'";
+		Db.update(sql);
+	}
+	public Record getCommensetting(String siteId,String type){
+		String sql = "SELECT * FROM crm_site_common_setting a WHERE a.site_id='"+siteId+"' AND a.type='"+type+"'";
+		return Db.findFirst(sql);
+	}
+	
+	public void saveCommensetting(SiteCommonSetting com){
+		String sql = "INSERT INTO crm_site_common_setting (id, site_id, type, set_value)VALUES(?, ?, ?, ?) ";
+		Db.update(sql,IdGen.uuid(),com.getSiteId(),com.getType(),com.getSetValue());
+	}
+}

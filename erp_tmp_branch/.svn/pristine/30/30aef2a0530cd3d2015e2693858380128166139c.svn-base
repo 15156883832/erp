@@ -1,0 +1,4 @@
+package com.jojowonet.modules.order.adapters;
+
+public class CrmOrderDispatchBkVo {
+}

@@ -1,0 +1,462 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+<head>
+
+<meta name="decorator" content="base" />
+<!--
+	<link rel="stylesheet" type="text/css" href="styles.css">
+	-->
+<script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css" />
+<script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+<style type="text/css">
+.has-switch {
+	min-width: 70px;
+}
+
+.has-switch span, .has-switch label {
+	padding-top: 0;
+	padding-bottom: 0;
+	line-height: 22px;
+	height: 22px;
+}
+
+tdBackcolor {
+	background-color: #ffeedd;
+}
+</style>
+</head>
+
+<body>
+	<div class="sfpagebg bk-gray">
+		<div class="sfpage table-header-settable">
+			<div class="page-orderWait" style="padding-bottom: 0">
+				<div class="tabBar cl mb-10">
+					<sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_ORDERREVENUEDETAIL_TAB" html='<a class="btn-tabBar current" href="${ctx}/finance/revenue/order">工单收支明细</a>'></sfTags:pagePermission>
+					<sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_ORDERREVENUEDETAIL_SEEDETAIL_TAB" html='<a class="btn-tabBar " href="${ctx}/finance/revenue/toEmployeDetail">工程师结算明细</a>'></sfTags:pagePermission>
+
+					<p class="f-r btnWrap">
+						<a href="javascript:search();" class="sfbtn sfbtn-opt">
+							<i class="sficon sficon-search"></i>
+							查询
+						</a>
+						<a href="javascript:reset();" class="sfbtn sfbtn-opt resetSearchBtn" id="reset">
+							<i class="sficon sficon-reset"></i>
+							重置
+						</a>
+					</p>
+				</div>
+				<div class='mb-10'>
+				<sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_ORDERREVENUEDETAILS_TAB" html='<a class="mr-15 " href="${ctx}/finance/revenue/order">工单收支明细</a>'></sfTags:pagePermission>
+					<span class='line_'></span>
+					<sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_GOODSREVENUEDETAIL_TAB" html='<a class="ml-15 active__" href="${ctx}/finance/revenue/orderJSCount">工单结算统计</a>'></sfTags:pagePermission>
+				
+				</div>
+				<form id="searchForm">
+					<input type="hidden" name="page" id="pageNo" value="1">
+					<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+					<div class="bk-gray pt-10 pb-5">
+						<input type="hidden" name="siteId" id="siteId" value="${siteId }">
+						<table class="table table-search">
+							<tr>
+								<td colspan="10">
+									<label class="ml-15">报修时间：</label>
+									<input type="text"  onfocus="WdatePicker({onpicking: cDayFuncmin1,maxDate:'#F{$dp.$D(\'repairTimeMax\')||\'%y-%M-%d\'}'})" id="repairTimeMin" name="repairTimeMin"
+										value="${map.repairTimeMin }" class="input-text Wdate w-120" style="width: 120px" readonly>
+									至
+									<input type="text"  onfocus="WdatePicker({onpicking: cDayFuncmax1,minDate:'#F{$dp.$D(\'repairTimeMin\')}',maxDate:'%y-%M-%d'})" id="repairTimeMax" name="repairTimeMax"
+										value="${map.repairTimeMax }" class="input-text Wdate w-120" style="width: 120px" readonly>
+									<label class="ml-30" style="margin-left:60px;">
+										<select class="select select-box f-l" style="width:100px;" name="dtType" id="dtType" value="${map.dtType }">
+											<option value="2" <c:if test="${map.dtType == '2' }">selected="selected"</c:if>>结算归属时间</option>
+											<option value="1" <c:if test="${map.dtType == '1' }">selected="selected"</c:if>>完工时间</option>
+										</select>：
+									</label>
+									<input type="text"  onfocus="WdatePicker({onpicking: cDayFuncmin,maxDate:'#F{$dp.$D(\'endTimeMax\')||\'%y-%M-%d\'}'})" id="endTimeMin" name="endTimeMin"
+										value="${map.endTimeMin }" class="input-text Wdate w-120" style="width: 120px">
+									至
+									<input type="text"  onfocus="WdatePicker({onpicking: cDayFuncmax,minDate:'#F{$dp.$D(\'endTimeMin\')}',maxDate:'%y-%M-%d'})" id="endTimeMax" name="endTimeMax"
+										value="${map.endTimeMax }" class="input-text Wdate w-120" style="width: 120px">
+	
+								</td> 
+							</tr>
+
+						</table>
+					</div>
+				</form>
+				<div class="pt-10 pb-5 cl">
+					<%-- <div class="f-r">
+						<sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_ORDERREVENUEDETAIL_EXPORT_BTN"
+							html='<a onclick="return exports()"class="sfbtn sfbtn-opt2" target="_blank"><i class="sficon sficon-export"></i>导出</a>'></sfTags:pagePermission>
+					</div> --%>
+				</div>
+				<div>
+					<table id="table-waitdispatch" class="table table-bg table-border table-bordered">
+						<thead>
+							<tr class="text-c">
+								<th >工单类型</th>
+								<th >工单数量</th>
+								<th >服务费</th>
+								<th >辅材费</th>
+								<th >延保费</th>
+								<th >交款总额</th>
+								<th >回访总额</th>
+								<th >实收总额</th>
+								<th >厂家结算</th>
+								<th >结算支出</th>
+								<th >当日支付</th>
+								<th >辅材成本</th>
+								<th >利润</th>
+							</tr>
+						</thead>
+						<tbody id="allList">
+						</tbody>
+					</table>
+					<!-- pagination -->
+					<div class="cl pt-10">
+						<div class="f-r"></div>
+					</div>
+					<!-- pagination -->
+				</div>
+
+			</div>
+
+		</div>
+	</div>
+
+	<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+	<script type="text/javascript">
+		$(function() {
+			$('#endTimeMin').bind('blur', function() {
+				dealRepairTime();
+			})
+			$('#endTimeMax').bind('blur', function() {
+				dealRepairTime();
+			})
+			$.tabfold("#moresearch", ".moreCondition", 1, "click");
+			$('#employeName').select2();
+			//2.监听父层按钮的动作
+			$('#pngfix-nav-btn', parent.document).click(function() {
+				//3.给定一个时间点
+				setTimeout(function() {
+					//4.再次执行全屏
+					layer.restore(full_idx);
+				}, 200);
+			});
+			search();
+			$(".selection").css("width", "140px");
+		});
+
+		function isBlank(val) {
+			if (val == null || $.trim(val) == '' || val == undefined) {
+				return true;
+			}
+			return false;
+		}
+
+		function dealRepairTime() {
+			var endTimeMin = $("#endTimeMin").val();
+			var endTimeMax = $("#endTimeMax").val();
+			if (isBlank(endTimeMin)) {
+				layer.msg("完工时间查询起始时间不能为空！");
+				return false;
+			}
+			if (isBlank(endTimeMax)) {
+				layer.msg("完工时间查询结束时间不能为空！");
+				return false;
+			}
+			if (endTimeMin.substring(0, 4) != endTimeMax.substring(0, 4)) {
+				layer.msg("完工时间查询不能跨年！");
+				return false;
+			}
+			var dt = new Date(endTimeMax + " 00:00:00").getTime() - new Date(endTimeMin + " 00:00:00").getTime();
+			var days = dt / (1000 * 60 * 60 * 24) + 1;
+			if (parseFloat(days) > parseFloat(62)) {//两个月
+				layer.msg("一次最多只能查询两个月的数据");
+				return false;
+			}
+			return true;
+
+		}
+
+		function cDayFuncmin(dp) {
+			var date = dp.cal.getNewDateStr();
+			dealRepairTime(date, "min");
+		}
+
+		function cDayFuncmax(dp) {
+			var date = dp.cal.getNewDateStr();
+			dealRepairTime1(date, "max");
+		}
+
+		function cDayFuncmin1(dp) {
+			var date = dp.cal.getNewDateStr();
+			dealRepairTime1(date, "min");
+		}
+
+		function cDayFuncmax1(dp) {
+			var date = dp.cal.getNewDateStr();
+			dealRepairTime1(date, "max");
+		}
+
+		function dealRepairTime1() {
+			var repairTimeMin = $("#repairTimeMin").val();
+			var repairTimeMax = $("#repairTimeMax").val();
+			if (isBlank(repairTimeMin)) {
+				layer.msg("报修时间查询起始时间不能为空！");
+				return false;
+			}
+			if (isBlank(repairTimeMax)) {
+				layer.msg("报修时间查询结束时间不能为空！");
+				return false;
+			}
+			if (repairTimeMin.substring(0, 4) != repairTimeMax.substring(0, 4)) {
+				layer.msg("报修时间查询不能跨年！");
+				return false;
+			}
+			return true;
+
+		}
+
+		function search() {
+			if (!dealRepairTime1()) {
+				return;
+			}
+			if (!dealRepairTime()) {
+				return;
+			}
+			;
+			$.ajax({
+				type : "post",
+				url : "${ctx}/finance/revenue/getOrderJSCountList",
+				data : $("#searchForm").serialize(),
+				success : function(data) {
+					var html = '';
+					var m1 = 0;
+					var m2 = 0;
+					var m3 = 0;
+					var m4 = 0;
+					var m5 = 0;
+					var m6 = 0;
+					var m7 = 0;
+					var m8 = 0;
+					var m9 = 0;
+					var m10 = 0;
+					var m11 = 0;
+					var m12 = 0;
+					$("#allList").empty();
+					if (data.rdsYjs.length > 0) {//已结算
+						for (var i = 0; i < data.rdsYjs.length; i++) {
+							var dt = data.rdsYjs[i].columns;
+							m1 = parseFloat(dt.orderCounts) + parseFloat(m1);
+							m2 = (parseFloat(dealMoneyNull(dt.serve_cost_emp)) + parseFloat(m2)).toFixed(2);
+							m3 = (parseFloat(dealMoneyNull(dt.auxiliary_cost_emp)) + parseFloat(m3)).toFixed(2);
+							m4 = (parseFloat(dealMoneyNull(dt.warranty_cost_emp)) + parseFloat(m4)).toFixed(2);
+							m5 = (parseFloat(dealMoneyNull(dt.costs_emp)) + parseFloat(m5)).toFixed(2);
+							m6 = (parseFloat(dealMoneyNull(dt.callback_cost_emp)) + parseFloat(m6)).toFixed(2);
+							m7 = (parseFloat(dealMoneyNull(dt.confirm_cost_emp)) + parseFloat(m7)).toFixed(2);
+							m8 = (parseFloat(dealMoneyNull(dt.factory_money_emp)) + parseFloat(m8)).toFixed(2);
+							m9 = (parseFloat(dealMoneyNull(dt.sum_money_emp)) + parseFloat(m9)).toFixed(2);
+							m10 = (parseFloat(dealMoneyNull(dt.payment_amount_emp)) + parseFloat(m10)).toFixed(2);
+							m11 = (parseFloat(dealMoneyNull(dt.fitting_costs_emp)) + parseFloat(m11)).toFixed(2);
+							m12 = (parseFloat(dealMoneyNull(dt.profits_emp)) + parseFloat(m12)).toFixed(2);
+
+							html += '<tr class="text-c">' + '<td class="text-c"  >' + '<div class="" style="text-align:center" >已结算</div>' + '</td>' + 
+									+ '<td class="text-c orderCounts" ><div class="orderCounts" style="text-align:center" >' + dt.orderCounts + '</div></td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dt.orderCounts + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.serve_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.auxiliary_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.warranty_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.costs_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.callback_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.confirm_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.factory_money_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.sum_money_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.payment_amount_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.fitting_costs_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.profits_emp) + '</div>' + '</td>' + '</tr>';
+						}
+					}else{
+						html += returnStr();
+					}
+					if (data.rdsWjs.length > 0) {//未结算
+						for (var i = 0; i < data.rdsWjs.length; i++) {
+							var dt = data.rdsWjs[i].columns;
+							m1 = parseFloat(dt.orderCounts) + parseFloat(m1);
+							m2 = (parseFloat(dealMoneyNull(dt.serve_cost_emp)) + parseFloat(m2)).toFixed(2);
+							m3 = (parseFloat(dealMoneyNull(dt.auxiliary_cost_emp)) + parseFloat(m3)).toFixed(2);
+							m4 = (parseFloat(dealMoneyNull(dt.warranty_cost_emp)) + parseFloat(m4)).toFixed(2);
+							m5 = (parseFloat(dealMoneyNull(dt.costs_emp)) + parseFloat(m5)).toFixed(2);
+							m6 = (parseFloat(dealMoneyNull(dt.callback_cost_emp)) + parseFloat(m6)).toFixed(2);
+							m7 = (parseFloat(dealMoneyNull(dt.confirm_cost_emp)) + parseFloat(m7)).toFixed(2);
+							m8 = (parseFloat(dealMoneyNull(dt.factory_money_emp)) + parseFloat(m8)).toFixed(2);
+							m9 = (parseFloat(dealMoneyNull(dt.sum_money_emp)) + parseFloat(m9)).toFixed(2);
+							m10 = (parseFloat(dealMoneyNull(dt.payment_amount_emp)) + parseFloat(m10)).toFixed(2);
+							m11 = (parseFloat(dealMoneyNull(dt.fitting_costs_emp)) + parseFloat(m11)).toFixed(2);
+							m12 = (parseFloat(dealMoneyNull(dt.profits_emp)) + parseFloat(m12)).toFixed(2);
+							html += '<tr class="text-c">' + '<td class="text-c"  >' + '<div class="" style="text-align:center" >未结算</div>' + '</td>' + 
+									+ '<td class="text-c" >' + '<div class=" orderCounts" style="text-align:center" >' + dt.orderCounts + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dt.orderCounts + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.serve_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.auxiliary_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.warranty_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.costs_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.callback_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.confirm_cost_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.factory_money_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.sum_money_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.payment_amount_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.fitting_costs_emp) + '</div>' + '</td>' + '<td class="text-c" >'
+									+ '<div class="" style="text-align:center" >' + dealMnyFixedTwo(dt.profits_emp) + '</div>' + '</td>' + '</tr>';
+						}
+					}else{
+						html += returnStr();
+					}
+
+					html += '<tr class="text-c" >' + '<td class="text-c" style="background-color: #e7eff5;"  >' + '<div class="" style="text-align:center" >合计</div>'
+							+ '</td>' + '<td class="text-c tdBackcolor" style="background-color: #ffeedd;" >' + '<div class="" style="text-align:center" >'
+							+ m1
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor"  style="background-color: #ffeedd;">'
+							+ '<div class="" style="text-align:center" >'
+							+ m2
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+							+ '<div class="" style="text-align:center" >'
+							+ m3
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+							+ '<div class="" style="text-align:center" >'
+							+ m4
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+							+ '<div class="" style="text-align:center" >'
+							+ m5
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+							+ '<div class="" style="text-align:center" >'
+							+ m6
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+							+ '<div class="" style="text-align:center" >'
+							+ m7
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;" >'
+							+ '<div class="" style="text-align:center" >'
+							+ m8
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;" >'
+							+ '<div class="" style="text-align:center" >'
+							+ m9
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;" >'
+							+ '<div class="" style="text-align:center" >'
+							+ m10
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+							+ '<div class="" style="text-align:center" >'
+							+ m11
+							+ '</div>'
+							+ '</td>'
+							+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+							+ '<div class="" style="text-align:center" >'
+							+ m12
+							+ '</div>' + '</td>' + '</tr>';
+					$("#allList").empty().append(html);
+				}
+			})
+		}
+		
+		function dealMnyFixedTwo(val){
+			if(!isBlank(val)){
+				val = (parseFloat(val)).toFixed(2);
+			}
+			return val;
+		}
+		
+		function returnStr(){
+			return '<tr class="text-c" >' + '<td class="text-c" style="background-color: #e7eff5;"  >' + '<div class="" style="text-align:center" >合计</div>'
+			+ '</td>' + '<td class="text-c tdBackcolor" style="background-color: #ffeedd;" >' + '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor"  style="background-color: #ffeedd;">'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;" >'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;" >'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;" >'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+			+ '<div class="" style="text-align:center" >0</div>'
+			+ '</td>'
+			+ '<td class="text-c tdBackcolor" style="background-color: #ffeedd;">'
+			+ '<div class="" style="text-align:center" >0</div>' + '</td>' + '</tr>';
+		}
+
+		function dealMoneyNull(val) {
+			if (isBlank(val)) {
+				return 0;
+			}
+			return val;
+		}
+
+		function reset() {
+			$("#orderType").val('');
+			$("#employeName").val('');
+		}
+
+		//导出
+		function exports() {
+			var idArr = $("#allList").find("tr").length;
+			var content = "共" + idArr + "条数据，本次允许导出前10000条，确定继续导出吗？";
+			if (idArr > 10000) {
+				$('body').popup({
+					level : 3,
+					title : "导出",
+					content : content,
+					fnConfirm : function() {
+						location.href = "${ctx}/finance/revenue/exportJSCount?maps=" + $("#searchForm").serialize();
+					}
+
+				});
+			} else {
+				location.href = "${ctx}/finance/revenue/exportJSCount?maps=" + $("#searchForm").serialize();
+			}
+
+		}
+		
+		
+	</script>
+</body>
+</html>

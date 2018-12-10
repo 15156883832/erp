@@ -1,0 +1,140 @@
+/**
+ */
+package com.jojowonet.modules.order.service;
+
+import java.util.List;
+import java.util.Map;
+
+import com.jojowonet.modules.order.utils.Result;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+
+import org.hibernate.SQLQuery;
+import org.hibernate.Session;
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.entity.SiteCommonSetting;
+import com.jojowonet.modules.order.dao.SiteCommonSettingDao;
+
+/**
+ * 类型信息Service
+ * @author Ivan
+ * @version 2017-10-25
+ */
+@Component
+@Transactional(readOnly = true)
+public class SiteCommonSettingService extends BaseService {
+
+	@Autowired
+	private SiteCommonSettingDao commenSettingDao;
+	
+	public SiteCommonSetting get(String id) {
+		return commenSettingDao.get(id);
+	}
+
+	public Page<Record> getCommenSetting(Page<Record> page, String siteId,String type){
+        List<Record> list =commenSettingDao.getCommenSetting(page,siteId,type);
+        long count = commenSettingDao.getListcount(siteId,type);
+        page.setCount(count);
+        page.setList(list);
+		return page;
+	}
+
+	@Transactional(readOnly = false)
+	public void updatesetting(String id) {
+		commenSettingDao.updatesetting(id);
+	}
+
+
+	@Transactional(readOnly = false)
+	public void updatesettings(String id) {
+		commenSettingDao.updatesettings(id);
+	}
+	
+	@Transactional(readOnly = false)
+	public void updateSetvalue(String id,String value){
+		commenSettingDao.updateSetvalue(id, value);
+	}
+	@Transactional(readOnly = true)
+	public void save(SiteCommonSetting com) {
+		commenSettingDao.saveCommensetting(com);
+	}
+
+	public Record getCommensetting(String siteId,String type){
+		return commenSettingDao.getCommensetting(siteId,type);
+	}
+	
+	@Transactional
+	public String dealCommenSetSave(String id,String id1,String setValue,String showFlag,String siteId){
+		if(StringUtils.isBlank(id)){
+			SiteCommonSetting com = new SiteCommonSetting();
+			com.setSiteId(siteId);
+			com.setSetValue(setValue);
+			com.setType("3");
+			commenSettingDao.save(com);
+		}else{
+			SQLQuery sql = commenSettingDao.getSession().createSQLQuery("UPDATE crm_site_common_setting a SET a.set_value = '"+setValue+"' WHERE a.id = '"+id+"'");
+			sql.executeUpdate();
+		}
+		//结算明细
+		if(StringUtils.isBlank(id1)){
+			SiteCommonSetting com = new SiteCommonSetting();
+			com.setSiteId(siteId);
+			com.setSetValue(showFlag);
+			com.setType("1");
+			commenSettingDao.save(com);
+		}else{
+			SQLQuery sql1 = commenSettingDao.getSession().createSQLQuery("UPDATE crm_site_common_setting a SET a.set_value = '"+showFlag+"' WHERE a.id = '"+id1+"'");
+			sql1.executeUpdate();
+		}
+		
+		return "ok";
+	}
+
+	private void saveGsTimeSettings(Map<String, Object> paras, String siteId) {
+		String val = (String) paras.get("gsTime");
+		SiteCommonSetting setting = commenSettingDao.getSettingByType("15");
+		if (setting == null) {
+			setting = new SiteCommonSetting();
+			setting.setSiteId(siteId);
+			setting.setSetValue(val);
+			setting.setType("15");
+		} else {
+			setting.setSetValue(val);
+		}
+		commenSettingDao.save(setting);
+	}
+
+	@Transactional(rollbackFor = Exception.class)
+	public String SaveCommenConditons(String id, String values, String siteId, Map<String, Object> paras){
+		//结算条件
+		if(StringUtils.isBlank(id)){
+			SiteCommonSetting com = new SiteCommonSetting();
+			com.setSiteId(siteId);
+			com.setSetValue(values);
+			com.setType("5");
+			commenSettingDao.save(com);
+		}else{
+			SQLQuery sql1 = commenSettingDao.getSession().createSQLQuery("UPDATE crm_site_common_setting a SET a.set_value = '"+values+"' WHERE a.id = '"+id+"'");
+			sql1.executeUpdate();
+		}
+		saveGsTimeSettings(paras, siteId);
+		return "ok";
+	}
+
+	@Transactional
+	public void saveAppSettle(List<SiteCommonSetting> list){
+		try {
+			commenSettingDao.save(list);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+}

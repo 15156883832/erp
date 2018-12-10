@@ -1,0 +1,597 @@
+/**
+ */
+package com.jojowonet.modules.order.web;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.db.DbKey;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.web.BaseController;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.entity.Printdesign;
+import com.jojowonet.modules.order.service.OrderService;
+import com.jojowonet.modules.order.service.PrintService;
+import com.jojowonet.modules.order.service.PrintdesignService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+
+/**
+ * 打印信息Controller
+ * @author Ivan
+ * @version 2017-11-06
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/order/printdesign")
+public class PrintdesignController extends BaseController {
+
+	@Autowired
+	private PrintdesignService printdesignService;
+	@Autowired
+	private OrderService orderService;
+	@Autowired
+	private PrintService printService;
+	@Autowired
+	private SiteService siteService;
+
+	@RequestMapping(value = {"list", ""})
+	public String list(Printdesign printdesign, HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Record rd = printdesignService.getPrintde(siteId);
+		model.addAttribute("rds", rd);
+		return "modules/" + "order/printdesignList";
+	}
+
+
+	@ResponseBody
+	@RequestMapping(value = "save")
+	public void save(Printdesign printdesign, HttpServletRequest request ,HttpServletResponse response) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		String prinId = request.getParameter("prinId");
+		printdesign.setSiteId(siteId);
+		if(StringUtils.isNotBlank(prinId)){
+			printdesign.setId(Integer.valueOf(prinId));
+			printdesignService.update(printdesign);
+		}else{
+			printdesignService.save(printdesign);
+		}
+	}
+	
+/*		//获取设置好的模板信息
+		@ResponseBody
+		@RequestMapping(value = "getprintdesign")
+		public Record getprintdesign(HttpServletRequest request ,HttpServletResponse response) {
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Record rds = printdesignService.getPrintde(siteId);
+			return rds;
+		}*/
+		
+	//查询是否设置自定义打印模板
+	@ResponseBody
+	@RequestMapping(value = "getOrderPrin")
+	public String getOrderPrin(HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		//获取设置好的模板信息
+		Record rds = printdesignService.getPrintdeState(siteId);
+		if(rds != null){
+			return "ok";
+		}
+		return "no";
+	}
+	
+
+	//批量打印时调用
+    @ResponseBody
+    @RequestMapping(value = "getOrderPrints")
+    public List<Map<String,Object>> getOrderPrints(HttpServletRequest request, HttpServletResponse response) {
+        //批量打印
+    	List<Map<String,Object>> lists = Lists.newArrayList();
+        Map<String, Object> params = getParams(request);
+	    Object orderObjs = params.get("orderId");
+
+		if(orderObjs != null){
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			String orderIds = String.valueOf(orderObjs);
+			String[] orderArr = orderIds.split(",");
+			String number="";
+			List<Order> listorder = orderService.getByIds(orderArr);
+	    	for(Order or:listorder){
+	    		Map<String,Object> map = getStranges(or,siteId);
+	    		lists.add(map);
+	    		number+=or.getNumber()+",";
+	    	}
+	    	/*工单打印次数*/
+			try {
+				Db.update("update crm_order a set a.print_times=a.print_times+1 where a.number in ("+ StringUtil.joinInSql(number.split(","))+") and a.site_id=? ",CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+			}catch (Exception e){
+				e.printStackTrace();
+			}
+		}
+
+
+    	return lists;
+    }
+	
+	
+		//打印时调用
+	    @ResponseBody
+	    @RequestMapping(value = "getOrderKeyName")
+	    public Map<String,Object> getOrderKeyName(HttpServletRequest request, HttpServletResponse response, Model model) {
+	        String orderId = request.getParameter("orderId");
+		    Order order = null;
+		    User user = UserUtils.getUser();
+		    String siteId = CrmUtils.getCurrentSiteId(user);
+		    if (StringUtils.isNotBlank(orderId)) {
+	    		  order = orderService.get(orderId);
+	    	  }
+		    if(order == null) {
+		    	 Record rd = orderService.findOrderById(orderId, siteId);
+		    	 if(rd != null) {
+		    		 order = orderService.getrecord(rd);
+		    	 }
+		    }
+		    Map<String,Object> stranges = getStranges(order,siteId);
+	        return stranges;
+	    }
+	
+	    private Map<String,Object> getStranges(Order order,String siteId){
+	    	  Map<String,Object> stranges = Maps.newHashMap();
+	    	   //查询额外的信息
+	  	 
+		    //获取设置好的模板信息
+		    Record rds = printdesignService.getPrintdeState(siteId);
+	    	String content = null;
+	    	String imgurl = "";
+	    	if(rds == null){
+	    		stranges.put("imgurl", imgurl);
+	    		stranges.put("content", content);
+	    		return stranges;
+	    	}
+	      	content= rds.getStr("content");
+	    	imgurl = rds.getStr("imgurl");
+	    	String siteName = siteService.get(siteId).getName();
+			stranges.put("siteName", siteName);
+	    	stranges.put("imgurl", imgurl);
+	    	stranges.put("content", content);
+	        Record rd = printService.getOrderMsg(order.getId());
+	    	stranges.put("number",order.getNumber());
+	        stranges.put("customer_name",order.getCustomerName());
+	        stranges.put("customer_mobile",order.getCustomerMobile());
+	        stranges.put("customer_telephone",order.getCustomerTelephone());
+	        stranges.put("customer_telephone2",order.getCustomerTelephone2());
+	        stranges.put("customer_address",order.getCustomerAddress());
+
+			stranges.put("province", order.getProvince());
+			stranges.put("city", order.getCity());
+			stranges.put("area", order.getArea());
+
+	        stranges.put("appliance_brand",order.getApplianceBrand());
+	        stranges.put("appliance_category",order.getApplianceCategory());
+	        stranges.put("appliance_num",order.getApplianceNum());
+	        stranges.put("appliance_model",order.getApplianceModel());
+	        stranges.put("appliance_barcode",order.getApplianceBarcode());
+	        stranges.put("appliance_machine_code",order.getApplianceMachineCode());
+	        stranges.put("service_type",order.getServiceType());
+	        String mode = "";
+	        if("1".equals(order.getServiceMode())){
+	        	mode = "上门";
+	        }else if("2".equals(order.getServiceMode())){
+	        	mode ="拉修";
+	        }
+	        stranges.put("service_mode",mode);
+	        
+	        stranges.put("promise_limit",order.getPromiseLimit());
+	        stranges.put("please_refer_mall",order.getPleaseReferMall());
+	        String wtype = "";
+	        if("1".equals(order.getWarrantyType())){
+	        	wtype="保内";
+	        }else if("2".equals(order.getWarrantyType())){
+	        	wtype="保外";
+	        }
+	        stranges.put("warranty_type",wtype);
+	        
+	        stranges.put("origin",order.getOrigin());
+	        String level = "";
+	        if("1".equals(order.getLevel())){
+	        	level ="紧急";
+	        }else if("2".equals(order.getLevel())){
+	        	level ="一般";
+	        }
+	        stranges.put("level",level);
+	        
+	        stranges.put("customer_feedback",order.getCustomerFeedback());
+	        stranges.put("remarks",order.getRemarks());
+	        stranges.put("serve_cost",order.getServeCost());
+	        stranges.put("auxiliary_cost",order.getAuxiliaryCost());
+	        stranges.put("warranty_cost",order.getWarrantyCost());
+	        stranges.put("confirm_cost",order.getConfirmCost());
+	     //   stranges.put("customerSign","");
+	        stranges.put("site_name",StringUtils.isNotBlank(siteName) ? siteName : order.getSiteName());
+	        Date promise_time = order.getPromiseTime();
+	        if(promise_time != null){
+	        	stranges.put("promise_time",DateUtils.formatDate(promise_time, "yyyy-MM-dd"));
+	        }else{
+	        	stranges.put("promise_time","");
+	        }
+	        Date repair_time = order.getRepairTime();
+	        if(repair_time != null){
+	        	stranges.put("repair_time",DateUtils.formatDate(repair_time, "yyyy-MM-dd HH:mm:ss"));
+	        }else{
+	        	stranges.put("repair_time","");
+	        }
+	        Date appliance_buy_time = order.getApplianceBuyTime();
+	        if(appliance_buy_time != null){
+	        	stranges.put("appliance_buy_time",DateUtils.formatDate(appliance_buy_time, "yyyy-MM-dd"));
+	        }else{
+	        	stranges.put("appliance_buy_time","");
+	        }
+	        Date end_time = order.getEndTime();
+	        if(end_time != null){
+	        	stranges.put("end_time",DateUtils.formatDate(end_time, "yyyy-MM-dd HH:mm:ss"));
+	        }else{
+	        	stranges.put("end_time","");
+	        }
+	        Date disTime = order.getDispatchTime();
+	        if(disTime != null){
+	        	stranges.put("dispatch_time",DateUtils.formatDate(disTime, "yyyy-MM-dd HH:mm:ss"));
+	        }else{
+	        	stranges.put("dispatch_time","");
+	        }
+	      //  stranges.put("serviceRemarks","1");
+	      //  stranges.put("serviceAttitude","1");
+	        stranges.put("smsPhone",rd.getStr("sms_phone"));
+	        stranges.put("employe_name",order.getEmployeName());
+	        stranges.put("printTime",DateUtils.formatDate(new Date(), "yyyy-MM-dd HH:mm:ss"));
+	    	  
+	    	return stranges;
+	    }
+	    
+	    
+	//制作模板时调用
+    @ResponseBody
+    @RequestMapping(value = "getKeyName")
+    public Map<String,Object> getKeyName(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Map<String,Object> stranges = Maps.newHashMap();
+        //获取设置好的模板信息
+        User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		String siteName = siteService.get(siteId).getName();
+    	Record rds = printdesignService.getPrintde(siteId);
+    	String imgurl = null;
+    	String content = null;
+    	if(rds != null){
+    		imgurl = rds.getStr("imgurl");
+    		content= rds.getStr("content");
+    	}
+    	stranges.put("siteName", siteName);
+    	stranges.put("content", content);
+     	stranges.put("imgurl", imgurl);
+        stranges.put("number","%工单编号%");
+        stranges.put("customer_name","%用户姓名%");
+        stranges.put("customer_mobile","%联系方式%");
+        stranges.put("customer_telephone","%联系方式二%");
+        stranges.put("customer_telephone2","%联系方式三%");
+        stranges.put("customer_address","%详细地址%");
+        stranges.put("repair_time","%报修时间%");
+        stranges.put("appliance_brand","%品牌%");
+        stranges.put("appliance_category","%品类%");
+        stranges.put("appliance_num","%家电数量%");
+        stranges.put("appliance_buy_time","%购买时间%");
+        stranges.put("dispatch_time","%派工时间%");
+        stranges.put("appliance_model","%家电型号%");
+        stranges.put("appliance_barcode","%内机条码");
+        stranges.put("appliance_machine_code","%外机条码%");
+        stranges.put("customer_feedback","%服务描述%");
+        stranges.put("end_time","%完工时间%");
+        stranges.put("site_name","%服务商%");
+        stranges.put("smsPhone","%监督电话%");
+        stranges.put("employe_name","%服务工程师%");
+        stranges.put("service_type","%服务类型%");
+        stranges.put("service_mode","%服务方式%");
+        stranges.put("promise_time","%预约时间%");
+        stranges.put("promise_limit","%时间要求%");
+        stranges.put("warranty_type","%保修类型%");
+        stranges.put("origin","%信息来源%");
+        stranges.put("level","%重要程度%");
+        stranges.put("remarks","%备注%");
+        stranges.put("serve_cost","%服务费%");
+        stranges.put("auxiliary_cost","%材料费%");
+        stranges.put("warranty_cost","%延保费%");
+        stranges.put("confirm_cost","%合计金额%");
+      //  stranges.put("serviceRemarks","%服务备注%");
+        stranges.put("please_refer_mall","%购机商城%");
+       // stranges.put("customerSign","%用户签字%");
+        stranges.put("printTime","%打印时间%");
+        return stranges;
+    }
+    
+  //打印时调用
+    @ResponseBody
+    @RequestMapping(value = "getOrderKeyName400")
+	public Map<String, Object> getOrderKeyName400(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String orderId = request.getParameter("orderId");
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		//获取设置好的模板信息
+		Record rds = printdesignService.getPrintdeState(siteId);
+		Map<String, Object> stranges = Maps.newHashMap();
+
+		String content = null;
+		String imgurl = "";
+		if (rds == null) {
+			stranges.put("imgurl", imgurl);
+			stranges.put("content", content);
+			return stranges;
+		}
+		content = rds.getStr("content");
+		imgurl = rds.getStr("imgurl");
+		String siteName = siteService.get(siteId).getName();
+		stranges.put("siteName", siteName);
+		stranges.put("imgurl", imgurl);
+		stranges.put("content", content);
+		if (StringUtils.isNotBlank(orderId)) {
+			Site site = siteService.get(siteId);
+			//查询额外的信息
+			StringBuilder sb = new StringBuilder("");
+			sb.append(" SELECT * FROM crm_order_400 ");
+			sb.append(" WHERE id = '" + orderId + "' ");
+			sb.append(" ORDER BY create_time DESC  LIMIT 1 ");
+			Record rdw = Db.use(DbKey.DB_ORDER_400).findFirst(sb.toString());
+
+			stranges.put("number", rdw.getStr("number"));
+			stranges.put("customer_name", rdw.getStr("customer_name"));
+			stranges.put("customer_mobile", rdw.getStr("customer_mobile"));
+			stranges.put("customer_telephone", rdw.getStr("customer_telephone"));
+			stranges.put("customer_telephone2", rdw.getStr("customer_telephone2"));
+			stranges.put("customer_address", rdw.getStr("customer_address"));
+
+			stranges.put("appliance_brand", rdw.getStr("appliance_brand"));
+			stranges.put("appliance_category", rdw.getStr("appliance_category"));
+			stranges.put("appliance_num", rdw.getStr("appliance_num"));
+			stranges.put("appliance_model", rdw.getStr("appliance_model"));
+			stranges.put("appliance_barcode", rdw.getStr("appliance_barcode"));
+			stranges.put("appliance_machine_code", rdw.getStr("appliance_machine_code"));
+			stranges.put("service_type", rdw.getStr("service_type"));
+			String mode = rdw.getStr("c_service_mode");
+			stranges.put("service_mode", mode);
+
+			stranges.put("promise_limit", rdw.getStr("promise_limit"));
+			String wtype = "";
+			if ("1".equals(rdw.getStr("warranty_type"))) {
+				wtype = "保内";
+			} else if ("2".equals(rdw.getStr("warranty_type"))) {
+				wtype = "保外";
+			}
+			stranges.put("warranty_type", wtype);
+
+			stranges.put("origin", rdw.getStr("origin"));
+			String level = "";
+			if ("1".equals(rdw.getStr("level"))) {
+				level = "紧急";
+			} else if ("2".equals(rdw.getStr("level"))) {
+				level = "一般";
+			}
+			stranges.put("level", level);
+
+			stranges.put("customer_feedback", rdw.getStr("customer_feedback"));
+			stranges.put("remarks", rdw.getStr("remarks"));
+			stranges.put("serve_cost", "");
+			stranges.put("auxiliary_cost", "");
+			stranges.put("warranty_cost", "");
+			stranges.put("confirm_cost", "");
+	        stranges.put("site_name",StringUtils.isNotBlank(siteName) ? siteName : rdw.getStr("site_name"));
+			Date promise_time = rdw.getDate("promise_time");
+			if (promise_time != null) {
+				stranges.put("promise_time", DateUtils.formatDate(promise_time, "yyyy-MM-dd"));
+			} else {
+				stranges.put("promise_time", "");
+			}
+			Date repair_time = rdw.getDate("repair_time");
+			if (repair_time != null) {
+				stranges.put("repair_time", DateUtils.formatDate(repair_time, "yyyy-MM-dd HH:mm:ss"));
+			} else {
+				stranges.put("repair_time", "");
+			}
+			Date appliance_buy_time = rdw.getDate("appliance_buy_time");
+			if (appliance_buy_time != null) {
+				stranges.put("appliance_buy_time", DateUtils.formatDate(appliance_buy_time, "yyyy-MM-dd"));
+			} else {
+				stranges.put("appliance_buy_time", "");
+			}
+			Date end_time = rdw.getDate("end_time");
+			if (end_time != null) {
+				stranges.put("end_time", DateUtils.formatDate(end_time, "yyyy-MM-dd HH:mm:ss"));
+			} else {
+				stranges.put("end_time", "");
+			}
+			Date disTime = rdw.getDate("dispatch_time");
+			if (disTime != null) {
+				stranges.put("dispatch_time", DateUtils.formatDate(disTime, "yyyy-MM-dd HH:mm:ss"));
+			} else {
+				stranges.put("dispatch_time", "");
+			}
+			stranges.put("smsPhone", site.getTelephone());
+
+			String employename = "";
+			if (StringUtils.isNotBlank(rdw.getStr("employe1"))) {
+				employename = rdw.getStr("employe1");
+			}
+			if (StringUtils.isNotBlank(rdw.getStr("employe2"))) {
+				employename = "," + rdw.getStr("employe2");
+			}
+			if (StringUtils.isNotBlank(rdw.getStr("employe3"))) {
+				employename = "," + rdw.getStr("employe3");
+			}
+			stranges.put("employe_name", employename);
+			stranges.put("printTime", DateUtils.formatDate(new Date(), "yyyy-MM-dd HH:mm:ss"));
+
+			try {
+				Db.use(DbKey.DB_ORDER_400).update("update crm_order_400 a set a.print_times=a.print_times+1 where a.number=? and a.site_id=? ",rdw.getStr("number"),siteId);
+			}catch (Exception e){
+				e.printStackTrace();
+			}
+		}
+		return stranges;
+	}
+
+	/**
+	 * 打印400历史工单数据
+	 * @param request
+	 * @param response
+	 * @param model
+	 * @return
+	 */
+    @ResponseBody
+    @RequestMapping(value = "getOldOrderKeyName400")
+	public Map<String, Object> getOldOrderKeyName400(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String orderId = request.getParameter("orderId");
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		//获取设置好的模板信息
+		Record rds = printdesignService.getPrintdeState(siteId);
+		Map<String, Object> stranges = Maps.newHashMap();
+
+		String content = null;
+		String imgurl = "";
+		if (rds == null) {
+			stranges.put("imgurl", imgurl);
+			stranges.put("content", content);
+			return stranges;
+		}
+		content = rds.getStr("content");
+		imgurl = rds.getStr("imgurl");
+		String siteName = siteService.get(siteId).getName();
+		stranges.put("siteName", siteName);
+		stranges.put("imgurl", imgurl);
+		stranges.put("content", content);
+		if (StringUtils.isNotBlank(orderId)) {
+			Site site = siteService.get(siteId);
+			//查询额外的信息
+			StringBuilder sb = new StringBuilder("");
+			sb.append(" SELECT * FROM crm_order_400_2017 ");
+			sb.append(" WHERE id = '" + orderId + "' ");
+			sb.append(" ORDER BY create_time DESC  LIMIT 1 ");
+			Record rdw = Db.use(DbKey.DB_ORDER_400).findFirst(sb.toString());
+
+			stranges.put("number", rdw.getStr("number"));
+			stranges.put("customer_name", rdw.getStr("customer_name"));
+			stranges.put("customer_mobile", rdw.getStr("customer_mobile"));
+			stranges.put("customer_telephone", rdw.getStr("customer_telephone"));
+			stranges.put("customer_telephone2", rdw.getStr("customer_telephone2"));
+			stranges.put("customer_address", rdw.getStr("customer_address"));
+
+			stranges.put("appliance_brand", rdw.getStr("appliance_brand"));
+			stranges.put("appliance_category", rdw.getStr("appliance_category"));
+			stranges.put("appliance_num", rdw.getStr("appliance_num"));
+			stranges.put("appliance_model", rdw.getStr("appliance_model"));
+			stranges.put("appliance_barcode", rdw.getStr("appliance_barcode"));
+			stranges.put("appliance_machine_code", rdw.getStr("appliance_machine_code"));
+			stranges.put("service_type", rdw.getStr("service_type"));
+			String mode = rdw.getStr("c_service_mode");
+			stranges.put("service_mode", mode);
+
+			stranges.put("promise_limit", rdw.getStr("promise_limit"));
+			String wtype = "";
+			if ("1".equals(rdw.getStr("warranty_type"))) {
+				wtype = "保内";
+			} else if ("2".equals(rdw.getStr("warranty_type"))) {
+				wtype = "保外";
+			}
+			stranges.put("warranty_type", wtype);
+
+			stranges.put("origin", rdw.getStr("origin"));
+			String level = "";
+			if ("1".equals(rdw.getStr("level"))) {
+				level = "紧急";
+			} else if ("2".equals(rdw.getStr("level"))) {
+				level = "一般";
+			}
+			stranges.put("level", level);
+
+			stranges.put("customer_feedback", rdw.getStr("customer_feedback"));
+			stranges.put("remarks", rdw.getStr("remarks"));
+			stranges.put("serve_cost", "");
+			stranges.put("auxiliary_cost", "");
+			stranges.put("warranty_cost", "");
+			stranges.put("confirm_cost", "");
+			stranges.put("site_name",StringUtils.isNotBlank(siteName) ? siteName : rdw.getStr("site_name"));
+			Date promise_time = rdw.getDate("promise_time");
+			if (promise_time != null) {
+				stranges.put("promise_time", DateUtils.formatDate(promise_time, "yyyy-MM-dd"));
+			} else {
+				stranges.put("promise_time", "");
+			}
+			Date repair_time = rdw.getDate("repair_time");
+			if (repair_time != null) {
+				stranges.put("repair_time", DateUtils.formatDate(repair_time, "yyyy-MM-dd HH:mm:ss"));
+			} else {
+				stranges.put("repair_time", "");
+			}
+			Date appliance_buy_time = rdw.getDate("appliance_buy_time");
+			if (appliance_buy_time != null) {
+				stranges.put("appliance_buy_time", DateUtils.formatDate(appliance_buy_time, "yyyy-MM-dd"));
+			} else {
+				stranges.put("appliance_buy_time", "");
+			}
+			Date end_time = rdw.getDate("end_time");
+			if (end_time != null) {
+				stranges.put("end_time", DateUtils.formatDate(end_time, "yyyy-MM-dd HH:mm:ss"));
+			} else {
+				stranges.put("end_time", "");
+			}
+			Date disTime = rdw.getDate("dispatch_time");
+			if (disTime != null) {
+				stranges.put("dispatch_time", DateUtils.formatDate(disTime, "yyyy-MM-dd HH:mm:ss"));
+			} else {
+				stranges.put("dispatch_time", "");
+			}
+			stranges.put("smsPhone", site.getTelephone());
+
+			String employename = "";
+			if (StringUtils.isNotBlank(rdw.getStr("employe1"))) {
+				employename = rdw.getStr("employe1");
+			}
+			if (StringUtils.isNotBlank(rdw.getStr("employe2"))) {
+				employename = "," + rdw.getStr("employe2");
+			}
+			if (StringUtils.isNotBlank(rdw.getStr("employe3"))) {
+				employename = "," + rdw.getStr("employe3");
+			}
+			stranges.put("employe_name", employename);
+			stranges.put("printTime", DateUtils.formatDate(new Date(), "yyyy-MM-dd HH:mm:ss"));
+
+			try {
+				Db.use(DbKey.DB_ORDER_400).update("update crm_order_400_2017 a set a.print_times=a.print_times+1 where a.number=? and a.site_id=? ",rdw.getStr("number"),siteId);
+			}catch (Exception e){
+				e.printStackTrace();
+			}
+		}
+		return stranges;
+	}
+
+}

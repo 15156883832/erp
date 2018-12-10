@@ -1,0 +1,62 @@
+package com.jojowonet.modules.order.service;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.EmployeDao;
+import com.jojowonet.modules.operate.dao.NonServicemanDao;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.order.dao.AnnouncementSiteReadDao;
+import com.jojowonet.modules.order.dao.OrderDao;
+import com.jojowonet.modules.order.dao.OrderDispatchDao;
+import com.jojowonet.modules.order.dao.OrderFeedbackDao;
+import com.jojowonet.modules.sys.util.InvalidOrderPusher;
+import ivan.common.service.BaseService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
+
+@Component
+@Transactional(readOnly = false)
+public class OrderDispatch2017Service extends BaseService {
+
+    @Autowired
+    private OrderDispatchDao orderDispatchDao;
+
+    @Autowired
+    private OrderDao orderDao;
+    @Autowired
+    private NonServicemanDao nonDao;
+    @Autowired
+    private EmployeDao empDao;
+    @Autowired
+    private OrderFeedbackDao ofkDao;
+    @Autowired
+    private PushMessageService pushMessageService;
+    @Autowired
+    private AnnouncementSiteReadDao announcementSiteReadDao;
+    @Autowired
+    private InvalidOrderPusher invalidOrderPusher;
+
+	/*@Autowired
+	private SiteService siteService;*/
+
+    @Autowired
+    private NonServicemanService nonService;
+
+    /*
+     * 点击下一单
+     */
+    public Record getNextOrderId(Map<String,Object> map, String time, String siteId, String orderId, String parentNumber){
+        logger.error("getNextOrderId should not called", new Exception());
+        return null;
+    }
+    /*
+     * 点击上一单
+     */
+    public Record getPreviousOrderId(Map<String,Object> map,String time,String siteId,String orderId,String parentNumber){
+        logger.error("getPreviousOrderId should not called", new Exception());
+        return null;
+    }
+
+}

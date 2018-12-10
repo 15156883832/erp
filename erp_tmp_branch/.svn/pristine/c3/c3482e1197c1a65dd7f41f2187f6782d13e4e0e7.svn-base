@@ -1,0 +1,55 @@
+package com.jojowonet.modules.order.utils;
+
+import com.jojowonet.modules.order.utils.caches.SiteOrderMapCache;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+/**
+ * 分表公共类。
+ */
+@Component
+public class TableSplitMapper {
+
+    @Autowired
+    SiteOrderMapCache cache;
+
+    public String mapTable(String table, String siteId) {
+        if (StringUtil.isBlank(table)) {
+            throw new IllegalArgumentException("table required");
+        }
+        if (StringUtil.isBlank(siteId)) {
+            throw new IllegalArgumentException("siteId required");
+        }
+
+        return cache.get(siteId + ":" + table);
+    }
+
+    public String mapOrder(String siteId) {
+        return mapTable("crm_order", siteId);
+    }
+
+    public String mapOrderDispatch(String siteId) {
+        return mapTable("crm_order_dispatch", siteId);
+    }
+
+    public String mapOrderDispatchEmployeRel(String siteId) {
+        return mapTable("crm_order_dispatch_employe_rel", siteId);
+    }
+
+    public String mapOrderSettlement(String siteId) {
+        return mapTable("crm_order_settlement", siteId);
+    }
+
+    public String mapOrderSettlementDetail(String siteId) {
+        return mapTable("crm_order_settlement_detail", siteId);
+    }
+
+    public String mapOrderFeedback(String siteId) {
+        return mapTable("crm_order_feedback", siteId);
+    }
+
+    public String mapOrderCallback(String siteId) {
+        return mapTable("crm_order_callback", siteId);
+    }
+
+}

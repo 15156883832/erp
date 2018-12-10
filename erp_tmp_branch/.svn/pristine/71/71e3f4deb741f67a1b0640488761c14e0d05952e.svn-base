@@ -1,0 +1,237 @@
+package com.jojowonet.modules.finance.service;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.finance.dao.RevenueDao;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.order.utils.TableMigrationMapper;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+@Component
+@Transactional(readOnly = true)
+public class RevenueService extends BaseService {
+
+	@Autowired
+	private RevenueDao revenueDao;
+	@Autowired
+	TableMigrationMapper tableMapper;
+
+	public Page<Record> findOrder(Page<Record> page, Map<String, Object> map) {
+		return findOrder(page, map, "");
+	}
+
+	public Page<Record> findOrder(Page<Record> page, Map<String, Object> map, String migration) {
+		Result rt = revenueDao.checkYears(map);
+		List<Record> rds = new ArrayList<>();
+		Long count = 0L;
+		if("200".equals(rt.getCode())){
+			migration = rt.getData().toString();
+			rds = revenueDao.getOrderRevenueList(page, map, migration);
+			count = revenueDao.countOrderRevenue(map, migration);
+		}
+
+		for (Record rd : rds) {
+			String sd="";
+			String s="";
+			String s2="";
+			String money="";
+			List<Record> settledetaillist=revenueDao.getsettledetaillist(rd.getStr("id"), migration);
+			List<Record> settlementlist=revenueDao.getsettlementlist(rd.getStr("id"), migration);
+			for (Record mrd : settlementlist) {
+				s+=mrd.getStr("service_measures")+":";
+				if(StringUtils.isNotBlank(mrd.getStr("settlement_detail"))){
+					sd=mrd.getStr("settlement_detail").replace("###", ":");
+					s+=sd;
+				}
+			}
+			for (Record srd : settledetaillist) {
+				if(srd.getBigDecimal("sum_money")!=null){
+					money=srd.getBigDecimal("sum_money").toString();
+				}else{
+					money="0.00";
+				}
+				if("2".equals(srd.getStr("type"))){
+					s+=srd.getStr("service_measures")+":"+money+";";
+				}
+
+				if ("2".equals(srd.getStr("type"))) {
+					if (StringUtils.isNotBlank(srd.getStr("remarks"))) {
+						s2 += srd.getStr("service_measures") + ":" + srd.getStr("remarks") + ";";
+					} else {
+						s2 += "";
+					}
+				}
+
+			}
+			if (settledetaillist.size() == 0) {
+				/*没有结算*/
+				rd.set("settl",0);
+			} else if (settledetaillist.size() > 0) {
+				/*已结算*/
+				rd.set("settl",1);
+			}else{
+				rd.set("settl",0);
+			}
+			rd.set("settlement_detail", s);
+			String remarks = rd.getStr("remarks");
+			if (remarks == null) {
+				remarks = "";
+			}
+			if (rd.getStr("sm") != null) {
+				rd.set("remarks", rd.getStr("sm") + ":" + remarks + ";" + s2);
+			} else {
+				rd.set("remarks", s2);
+			}
+		}
+
+		page.setList(rds);
+		page.setCount(count);
+		return page;
+	}
+
+	public Page<Record> findGoods(Page<Record> page, Map<String, Object> map,String siteId) {
+		List<Record> rds = revenueDao.getGoodsRevenueList(page, map, siteId);
+		if(rds.size() >0) {
+			for(Record rd : rds) {
+				String orderId = rd.getStr("id");
+				rd.set("good_name", revenueDao.getOrderGoodsDetail(orderId, siteId));
+			}
+		}
+		Long count = revenueDao.countGoodsRevenue(map,siteId);
+		page.setList(rds);
+		page.setCount(count);
+		return page;
+	}
+	
+	public Record getSumMoney(Map<String, Object> map){
+		return revenueDao.getSumMoney(map);
+	}
+	
+	public Record queryById(String placingName){
+		String sql = " SELECT a.*  FROM crm_goods_siteself_order a  WHERE a.placing_name=? AND a.status!='0' ";
+		return Db.findFirst(sql,placingName);
+	}
+	
+	public Page<Record> employeDetail(Page<Record> page, Map<String, Object> map,String siteId){
+		return employeDetail(page, map, siteId, "");
+	}
+
+	public Page<Record> employeDetail(Page<Record> page, Map<String, Object> map,String siteId, String migration){
+		Result rt = revenueDao.checkYears(map);
+		List<Record> list = new ArrayList<>();
+		Long count = Long.valueOf(0);
+		if("200".equals(rt.getCode())){
+			migration = rt.getData().toString();
+			list = revenueDao.getEmployeDetail(page,map,siteId,migration);
+			count = revenueDao.getEmployeDetailcount(map,siteId,migration);
+		}
+		page.setCount(count);
+		page.setList(list);
+		return page;
+	}
+
+	public Page<Record> employeGoodsDetail(Page<Record> page, Map<String, Object> map,String siteId){
+		List<Record> list = revenueDao.getEmployeGoodsDetail(page,map,siteId);
+		Long count = revenueDao.getEmployeGoodsDetailcount(map,siteId);
+		page.setCount(count);
+		page.setList(list);
+		return page;
+	}
+	
+//	public List<Record> empList(String siteId){
+//		return empList(siteId);
+//	}
+
+	public List<Record> empList(String siteId, Map<String, Object> map1,String migration){
+		Result rt = revenueDao.checkYears(map1);
+		List<Record> list;
+		/*if("200".equals(rt.getCode())){
+			migration = rt.getData().toString();*/
+			StringBuilder sb=new StringBuilder();
+			sb.append(" select distinct(a.employe_name) from crm_order_settlement_detail a ");
+			sb.append(" inner join crm_order c on c.id=a.order_id ");
+			sb.append(" where a.site_id=? and c.status !='8' ");
+			sb.append(" union ");
+			sb.append(" select distinct(a.employe_name) from crm_order_settlement_detail_2017 a ");
+			sb.append(" inner join crm_order_2017 c on c.id=a.order_id ");
+			sb.append(" where a.site_id=? and c.status !='8' ");
+			list = Db.find(sb.toString(), siteId, siteId);
+	//	}
+		return  list;
+	}
+
+	public List<Record> empGoodsList(String siteId){
+		return  Db.find("SELECT DISTINCT(a.salesman) FROM crm_goods_siteself_order_deduct_detail a LEFT JOIN crm_non_serviceman e ON a.salesman_id=e.user_id WHERE a.site_id=? AND e.status='0' AND a.saleman_type='3' UNION ALL SELECT DISTINCT(a.salesman) FROM crm_goods_siteself_order_deduct_detail a LEFT JOIN crm_employe e ON a.salesman_id=e.user_id WHERE a.site_id=? AND e.status='0' AND a.saleman_type='4'",siteId,siteId);
+	}
+	
+	public Page<Record> empCountPage(String siteId,Page<Record> page,Map<String, Object> map1){
+		String migration;
+		Result rt = revenueDao.checkYears(map1);
+		List<Record> list = new ArrayList<>();
+		Long count = 0L;
+		if("200".equals(rt.getCode())){
+			migration = rt.getData().toString();
+			list = employeCount(page,map1,siteId,migration);
+			count = revenueDao.getEmplistCount(map1, siteId,migration);
+		}
+		page.setCount(count);
+		page.setList(list);
+		return page;
+	}
+	//商品汇总
+	public Page<Record> empGoodsCountPage(String siteId,Page<Record> page,Map<String, Object> map1){
+		List<Record> list = revenueDao.employeGoodsCount(page,map1,siteId);
+		Long count = revenueDao.getEmplistGoodsCount(map1, siteId);
+		page.setCount(count);
+		page.setList(list);
+		return page;
+	}
+	
+	
+	
+	public List<Record> employeCount(Page<Record> page,Map<String, Object> map1,String siteId,String migration){
+		return revenueDao.getSumMoneyAndEmpName(page,map1,siteId,migration);
+	}
+	
+	public String getParamValue(Map<String, Object> map, String param) {
+        Object value = map.get(param);
+        return value == null ? null : (map.get(param).toString());
+    }
+    
+	public String getTrimmedParamValue(Map<String, Object> map, String param) {
+        return StringUtils.trim(getParamValue(map, param));
+    }
+
+	//审核不通过
+	public int reviewFailed(String id,String reviewRemark) {
+		return revenueDao.reviewFailed(id,reviewRemark);
+	}
+
+	//审核不通过
+	public int reviewFailed2017(String id,String reviewRemark) {
+		return revenueDao.reviewFailed2017(id,reviewRemark);
+	}
+     //审核通过
+	public int reviewPass(String id,String reviewRemark) {
+		return revenueDao.reviewPass(id,reviewRemark);
+		
+	}
+
+	//审核通过
+	public int reviewPass2017(String id,String reviewRemark) {
+		return revenueDao.reviewPass2017(id,reviewRemark);
+
+	}
+
+
+	
+}

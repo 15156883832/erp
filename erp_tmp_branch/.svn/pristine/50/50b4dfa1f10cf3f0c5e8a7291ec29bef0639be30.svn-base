@@ -1,0 +1,970 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="renderer" content="webkit|ie-comp|ie-stand">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui/css/H-ui.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/style.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/sfskin_blue.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select2.min.css" />
+<script type="text/javascript" src="${ctxPlugin}/lib/select2.full.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/Validform/5.3.2/Validform.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/jquery.rotate.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/imgShow.js"></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+
+<title>弹屏</title>
+<meta name="decorator" content="base" />
+<style>
+.sfbtn-gray {
+	    color: #fff;
+	    background: #bebebe;
+    }
+.dropdown-clear-all {
+	line-height: 22px
+}
+
+.dropdown-display {
+	font-size: 12px
+}
+
+.dropdown-selected {
+	margin-top: 4px
+}
+</style>
+</head>
+<body>
+	<div class="tppage">
+		<form id="searchForm" action="${ctx}${url}" method="post">
+			<input type="hidden" id="pageNo" name="pageNo" value="${page.pageNo }">
+			<input type="hidden" id="pageSize" name="pageSize" value="${page.pageSize }">
+			<input type="hidden" id="pageCount" name="pageCount" value="${count }">
+			<input type="hidden" name="" value="${order.id }">
+			<input type="hidden" id="siteId" name="" value="${siteId}">
+			<input type="hidden" id="siteMsgNums" name="" value="">
+			<!-- 剩余可发送短信数 -->
+			<input type="hidden" id="sign" name="" value="">
+			<!-- 签名 -->
+			<input type="hidden" id="status" name="" value="${order.status }">
+			<!-- 工单状态 -->
+			<input type="hidden" id="serialNo" name="" value="${serialNo}">
+			<input type="hidden" id="tel" name="" value="${tel}">
+		</form>
+		<div class="title">
+			<div class="cl">
+				<div class="f-l">
+					<i class="sficon-ring"></i>
+					共有
+					<span class="num">${callTimes}</span>
+					次来电，
+					<span class="num">${unfinished+finished}</span>
+					条工单信息（未完成
+					<span class="num">${unfinished}</span>
+					条， 已完成
+					<span class="num">${finished}</span>
+					条）
+				</div>
+				<div class="f-r">
+					信息员：
+					<select class="select w-100 mr-5 bg-fff" name="updateName" id="noman">
+						<option value="">请选择</option>
+						<c:forEach var="man" items="${infoMans }">
+							<option value="${man.columns.id }">${man.columns.name }</option>
+						</c:forEach>
+					</select>
+				</div>
+			</div>
+			<div class="pt-10 f-12 cl">
+				<div class="f-l">
+					<a href="${ctx}/main/redirect/telephoneNotifyOrder?tel=${tel}&serialNo=${serialNo}&pageNo=${prevPageNo}&pageSize=1" class="btn-page mr-5">上一条</a>
+
+					当前
+					<a class="num">${page.pageNo}</a>
+					/
+					<a class="num">${page.count}</a>
+					条
+
+					<a href="${ctx}/main/redirect/telephoneNotifyOrder?tel=${tel}&serialNo=${serialNo}&pageNo=${nextPageNo}&pageSize=1" class="btn-page mr-20">下一条</a>
+
+					第
+					<input type="text" id="forwardPageNo" style="text-align: center;" value="${page.pageNo}" class="input-page" />
+					条
+
+					<a href="javascript:gotoPage();" class="btn-page">跳转</a>
+				</div>
+				<div class="f-r">
+					<a href="javascript:;" id="zhuam" onclick="Turntosend('${order.customerLnglat}')" class="sfbtn sfbtn-opt mr-5 sbtn">转派</a>
+					<a href="javascript:;" id="btnSend" onclick="msgInform2('${order.id}')" class="sfbtn sfbtn-opt mr-5 sbtn">短信催单</a>
+					<a href="javascript:;" onclick="newOrder('${order.id}','${otime}')" class="sfbtn sfbtn-opt mr-5">新建工单</a>
+				</div>
+			</div>
+		</div>
+
+		<div class="tabBarP">
+			<a href="javascript:;" class="tabswitch current w-80 lh-26">基本信息</a>
+		</div>
+		<div class="cl mb-10 mt-10">
+			<label class="f-l">工单编号：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" unselectable="on" value="${order.number }" />
+			<label class="lb w-100 text-r f-l">服务类型：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.serviceType}" />
+			<label class="lb w-100 text-r f-l">服务方式：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.serviceMode}" />
+			<label class="lb w-100 text-r f-l">信息来源：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.origin }" />
+		</div>
+		<div class="cl mt-10">
+			<label class="f-l">用户姓名：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.customerName }" />
+			<label class="lb w-100 text-r f-l">联系方式1：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.customerMobile }" />
+			<label class="lb w-100 text-r f-l">联系方式2：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.customerTelephone }" />
+			<label class="lb w-100 text-r f-l">联系方式3：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.customerTelephone2 }" />
+		</div>
+		<div class="cl mt-10">
+			<label class="f-l">详细地址：</label>
+			<input type="text" class="input-text w-90 readonly f-l mr-10" readonly="readonly" value="${empty order.province ? site.province:order.province}" />
+			<input type="text" class="input-text w-90 readonly f-l mr-10" readonly="readonly" value="${empty order.city ? site.city:order.city}" />
+			<input type="text" class="input-text w-90 readonly f-l mr-10" readonly="readonly" value="${empty order.area ? site.area:order.area}" />
+			<input type="text" class="input-text w-320 readonly f-l" readonly="readonly" value="${order.customerAddress }" />
+			<label class="f-l w-100">工单状态：</label>
+			<c:if test="${order.status eq '0'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="待网点接收" />
+			</c:if>
+			<c:if test="${order.status eq '1'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="待派工" />
+			</c:if>
+			<c:if test="${order.status eq '2'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="服务中" />
+			</c:if>
+			<c:if test="${order.status eq '3'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="待回访" />
+			</c:if>
+			<c:if test="${order.status eq '4'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="已回访待结算" />
+			</c:if>
+			<c:if test="${order.status eq '5'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="已完成" />
+			</c:if>
+			<c:if test="${order.status eq '6'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="取消工单" />
+			</c:if>
+			<c:if test="${order.status eq '7'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="暂不派工" />
+			</c:if>
+			<c:if test="${order.status eq '8'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="无效工单" />
+			</c:if>
+			<c:if test="${order.status > '8' || order.status < '0'}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="这是一个没有状态的工单" />
+			</c:if>
+		</div>
+		<div class="cl mt-10">
+			<label class="f-l">家电品牌：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.applianceBrand}" />
+			<label class="lb w-100 text-r f-l">家电品类：</label>
+			<input type="text" class="input-text w-140 readonly f-l" id="applianceCategory" readonly="readonly" value="${order.applianceCategory }" />
+			<label class="lb w-100 text-r f-l">预约日期：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="<fmt:formatDate value='${order.promiseTime }' pattern='yyyy-MM-dd'/>" />
+			<label class="lb w-100 text-r f-l">时间要求：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.promiseLimit }" />
+		</div>
+		<div class="cl mt-10">
+			<label class="f-l">服务描述：</label>
+			<textarea type="text" class="textarea w-380 h-50 readonly f-l" readonly="readonly">${order.customerFeedback}</textarea>
+			<label class="lb w-100 text-r f-l">备注：</label>
+			<textarea type="text" class="textarea h-50 w-380 readonly f-l" readonly="readonly">${order.remarks}</textarea>
+		</div>
+		<div class="cl mt-10">
+			<label class="f-l">产品型号：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.applianceModel}" />
+			<label class="lb w-100 text-r f-l">内机条码：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.applianceBarcode}" />
+			<label class="lb w-100 text-r f-l">外机条码：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.applianceMachineCode}" />
+			<label class="lb w-100 text-r f-l">购买日期：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="<fmt:formatDate value='${order.applianceBuyTime }' pattern='yyyy-MM-dd'/>" />
+		</div>
+		<div class="cl mt-10">
+			<label class="f-l">保修类型：</label>
+			<c:if test="${order.warrantyType == 1}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="保内" />
+			</c:if>
+			<c:if test="${order.warrantyType == 2}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="保外" />
+			</c:if>
+			<c:if test="${order.warrantyType != 1 && order.warrantyType != 2}">
+				<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="" />
+			</c:if>
+			<label class="lb w-100 text-r f-l">重要程度：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.level eq '1'?'紧急':'一般' }" />
+			<label class="lb w-100 text-r f-l">报修时间：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="<fmt:formatDate value='${order.repairTime }' pattern='yyyy-MM-dd HH:mm:ss'/>" />
+			<label class="lb w-100 text-r f-l">登记人：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.messengerName}" />
+		</div>
+		<div class="tabBarP mt-15">
+			<a href="javascript:;" class="tabswitch current w-80 lh-26">服务反馈</a>
+		</div>
+		<div class="cl mt-10">
+			<label class="f-l w-80 text-r">服务工程师：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.employeName}" />
+			<label class="lb w-100 text-r f-l">服务状态：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${dispStatus}" />
+			<label class="lb w-100 text-r f-l">故障类别：</label>
+			<input type="text" class="input-text w-140 readonly f-l" readonly="readonly" value="${order.malfunctionType}" />
+		</div>
+		<div class="cl mt-10">
+			<label class="f-l w-80 text-r">&#12288;收费总额：</label>
+			<div class="priceWrap w-140 readonly f-l">
+				<input type="text" class="input-text readonly" readonly="readonly" value="${order.auxiliaryCost+order.serveCost+order.warrantyCost}" />
+				<span class="unit">元</span>
+			</div>
+			<label class="lb w-100 text-r f-l">辅材收费：</label>
+			<div class="priceWrap w-140 readonly f-l">
+				<input type="text" class="input-text readonly" readonly="readonly" value="${order.auxiliaryCost}" />
+				<span class="unit">元</span>
+			</div>
+			<label class="lb w-100 text-r f-l">服务收费：</label>
+			<div class="priceWrap w-140 readonly f-l">
+				<input type="text" class="input-text readonly" readonly="readonly" value="${order.serveCost}" />
+				<span class="unit">元</span>
+			</div>
+			<label class="lb w-100 text-r f-l">延保收费：</label>
+			<div class="priceWrap w-140 readonly f-l">
+				<input type="text" class="input-text readonly" readonly="readonly" value="${order.warrantyCost}" />
+				<span class="unit">元</span>
+			</div>
+		</div>
+		<div class="pos-r pl-80 mt-10 ">
+			<label class="w-80 pos text-r">&#12288;反馈内容：</label>
+			<div class="readonly pl-10 pr-10 pt-5 pb-5 hm-80">
+				<c:forEach var="fbItems" items="${feedbackInfo.feedbackResults}">
+					<p class="processItem">
+						<span class="time">${fbItems.feedbackTime} </span>
+						<span>${fbItems.feedbackName }：${fbItems.feedbackResults }</span>
+					</p>
+				</c:forEach>
+			</div>
+		</div>
+		<div class="pos-r pl-80 mt-10 hm-80" id="Imgprocess2">
+			<label class="w-80 pos text-r">过程图片：</label>
+			<c:forEach var="fbImgItems" items="${feedbackInfo.feedbackImgs}">
+				<c:if test="${not empty fbImgItems.fbImgPath }">
+					<c:forEach var="fbImgItem" items="${fbImgItems.fbImgPath}">
+						<div class="f-l mr-10">
+							<div class="imgWrap">
+								<img src="${commonStaticImgPath}${fbImgItem}">
+								<p class="lh-20">${fbImgItems.fbImgTime}</p>
+							</div>
+						</div>
+					</c:forEach>
+				</c:if>
+			</c:forEach>
+
+			<!-- <div class="f-l mr-10">
+				<div class="imgWrap">
+					<img src="static/h-ui.admin/images/img1.png"></img>
+					<p class="lh-20">04-26 10:12 </p>
+				</div>
+			</div>
+			<div class="f-l mr-10">
+				<div class="imgWrap">
+					<img src="static/h-ui.admin/images/bg_login.jpg"></img>
+					<p class="lh-20">04-26 10:12 </p>
+				</div>
+			</div>
+			<div class="f-l mr-10">
+				<div class="imgWrap">
+					<img src="static/h-ui.admin/images/testimg1.png"></img>
+					<p class="lh-20">04-26 10:12 </p>
+				</div>
+			</div> -->
+
+		</div>
+	</div>
+
+
+	<!-- 转派工单 -->
+	<div class="popupBox dispatch turnDispatch">
+		<h2 class="popupHead">
+			转派
+			<a href="javascript:;" class="sficon closePopup"></a>
+		</h2>
+		<div class="popupContainer">
+			<div class="popupMain cl">
+				<div class="f-l serversWrap">
+					<div class="searchbox">
+						<input type="text" placeholder="请输入工程师姓名" class="input-text" id="filterName" />
+						<a href="javascript:;" class="btn-search">
+							<i class="Hui-iconfont Hui-iconfont-search2 f-16"></i>
+						</a>
+					</div>
+					<div class="lh-26 cl">
+						<p class="f-l">
+							<span class="c-005aab">当前工程师：</span>
+							<span id="empName">${order.employeName }</span>
+						</p>
+					</div>
+
+
+					<div class="mt-5 serverlistWrap">
+						<div class="tableWrap">
+							<table class="table table-bg table-border table-serverlist">
+								<thead>
+									<th class="w-90" style="border-left: none;">工程师姓名</th>
+									<th class="w-100">未完成工单</th>
+									<th class="w-100">今日已完成</th>
+									<th class="w-80">选择</th>
+								</thead>
+
+								<tbody id="zhijiepaidan">
+
+								</tbody>
+							</table>
+						</div>
+						<div class="serversName">
+							<div class="txtwrap1 pos-r">
+								<label class="lb lb1">转派原因：</label>
+								<textarea class="textarea" id="transferReasons"></textarea>
+							</div>
+							<div class="txtwrap2 pos-r">
+								<label class="lb lb2 mt-3">
+									<em class="c-fe0101">派工至</em>
+									：
+								</label>
+								<p class="lh-30" id="nameWrap"></p>
+								<input type="button" class="w-70 sfbtn sfbtn-opt" value="确认派工" onclick="dispa()" />
+								<input type="hidden" name="employeId" id="employeId">
+								<input type="hidden" name="orderId" id="orderId" value="${order.id }">
+								<input type="hidden" name="disorderId" id="disorderId" value="${disOrder.columns.id }">
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="f-r mapWrap" id="dispatch_map_container"></div>
+			</div>
+		</div>
+	</div>
+	<!-- 短信催单 -->
+	<div class="popupBox msgText msgText2">
+		<h2 class="popupHead">
+			发送短信
+			<a href="javascript:;" class="sficon closePopup"></a>
+		</h2>
+		<div class="popupContainer">
+			<div class="popupMain pd-20" id="msgWrap2">
+				<div class="tabBarP mb-10 ">
+					<a href="javascript:;" class="tabswitch current">模板发送</a>
+					<a href="javascript:;" class="tabswitch ">编辑发送</a>
+				</div>
+				<div class="tabCon">
+					<div class="pos-r pl-70 pr-80">
+						<span class="lb w-70 text-c">发送内容：</span>
+						<div class="bk-gray pd-10">
+							单号
+							<input type="text" class="msg-input" value="${order.number} ${order.applianceBrand } ${order.applianceCategory}）" onkeyup="inputWidth(this)" />
+							， 用户
+							<input type="text" class="msg-input" value="${order.customerName }（${order.customerMobile}）" onkeyup="inputWidth(this)" />
+							催单！ 地址：
+							<input type="text" class="msg-input" value="${order.customerAddress}" onkeyup="inputWidth(this)" />
+						</div>
+						<input href="javascript:sendMsgDXCD('1');" class="sfbtn sfbtn-green w-70 btn-sendmsg btmark  " value="发送" />
+					</div>
+				</div>
+				<div class="tabCon">
+					<div class="pr-80 pos-r">
+						<div class="bk-gray">
+							<textarea id="content2" class="textarea radius" placeholder="请输入短信内容" style="border-width: 0; height: 60px;"></textarea>
+							<div class="h-26">
+								<p class="f-r">
+									【<input type="text" id="signs" maxlength="8" value="${serviceName }" style="text-align:center;width:120px;" class="msg-input" />】
+								</p>
+							</div>
+						</div>
+						<a href="javascript:sendMsgDXCD('2');" class="sfbtn sfbtn-green w-70 btn-sendmsg  ">发送</a>
+					</div>
+				</div>
+				<div class="pb-10 mt-20">
+					<span class="f-l lh-26">服务工程师：</span>
+					<span class=" dropdown-sin-2" style="width: 477px;">
+						<select class="select ml-5 f-l " style="width: 477px;" multiple="true" id="selectEmployes">
+							<c:forEach items="${mapempMo }" var="el">
+								<option value="${el.value }" selected="selected">${el.key }</option>
+							</c:forEach>
+
+						</select>
+					</span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="popupBox msgText msgTextQuren">
+		<h2 class="popupHead">
+			短信确认
+			<a href="javascript:;" class="sficon closePopup"></a>
+		</h2>
+		<div class="popupContainer">
+			<div class="popupMain pd-20">
+				<div class="lh-26">
+					<div>
+						您确定给
+						<span id="peoples" style="color: #999;" class="f-14"></span>
+						发送
+					</div>
+					<div style="min-height: 100px; text-indent: 2em; color: #999;" id="sendContent"></div>
+				</div>
+				<div class="text-c mt-25 " id="clickSend"></div>
+			</div>
+		</div>
+	</div>
+	<script type="text/javascript" src="${ctxPlugin}/lib/jquery/1.9.1/jquery.min.js"></script>
+	<script type="text/javascript" src="${ctxPlugin}/lib/Validform/5.3.2/Validform.min.js"></script>
+	<script type="text/javascript" src="${ctxPlugin}/lib/layer/2.1/layer.js"></script>
+	<script type="text/javascript" src="${ctxPlugin}/static/h-ui/js/H-ui.js"></script>
+	<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/H-ui.admin.js"></script>
+	<script type="text/javascript" src="${ctxPlugin}/lib/My97DatePicker/WdatePicker.js"></script>
+	<script src="${ctxPlugin}/static/h-ui.admin/js/popUp.js" type="text/javascript" charset="utf-8"></script>
+	<script type="text/javascript" src="http://webapi.amap.com/maps?v=1.3&key=727b25e7366ab5015225754e8ee00fef"></script>
+	<script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.js"></script>
+	<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+	<script type="text/javascript">
+		AMap.service('AMap.Geocoder', function() {//回调函数
+			//实例化Geocoder
+			geocoder = new AMap.Geocoder();
+		});
+		var dispatchMap, dispatchMarker, employeMarker;
+		var marker;
+		var mark;
+		var orderMsgId;
+		$(function() {
+			$('.dropdown-sin-2').dropdown({
+				input : '<input type="text" maxLength="20" placeholder="请输入搜索">',
+			});
+			var sta = $("#status").val();
+			var orderTime = $
+			{
+				otime
+			}
+			;
+			/*判断是否是2017的工单（2017的工单不允许转派、发送短信）*/
+			if (orderTime == '0') {
+				if (sta == '2') {
+					$("#btnSend").removeClass("sfbtn-disabled");
+				} else {
+					$("#btnSend").addClass('sfbtn-disabled');
+					$('#btnSend').removeAttr('onclick')
+				}
+
+				if (sta != '1' && sta != '2' && sta != '7') {
+					$("#zhuam").addClass('sfbtn-disabled');
+					$('#zhuam').removeAttr('onclick')
+				}
+
+			} else if (orderTime == '1') {
+				$("#zhuam").addClass('sfbtn-disabled');
+				$('#zhuam').removeAttr('onclick')
+
+				$("#btnSend").addClass('sfbtn-disabled');
+				$('#btnSend').removeAttr('onclick')
+			}
+
+			var siteId = $("#siteId").val();
+			$.post("${ctx}/main/redirect/callBackRemainMsgNum", {
+				siteId : siteId
+			}, function(result) {
+				//$("#sign").val(result.columns.sms_sign);//签名
+				$("#siteMsgNums").val(result.columns.sms_available_amount);//服务商剩余可发送短信总数
+			});
+
+			//转派查询
+			$('#filterName').keyup(function() {
+				$('#zhijiepaidan tr').hide().filter(":contains('" + ($(this).val()) + "')").show();
+				if (isBlank($(this).val())) {
+					$('#zhijiepaidan tr').show();
+				}
+			}).keyup();//DOM加载完时，绑定事件完成之后立即触发  
+		});
+
+		function gotoPage() {
+			var pageNo = $("#forwardPageNo").val();
+			var totalPage = parseInt($("#pageCount").val());
+			if (pageNo.trim()) {
+				pageNo = parseInt(pageNo.trim());
+				if (pageNo <= 0) {
+					pageNo = 1;
+				} else if (pageNo > totalPage) {
+					pageNo = totalPage;
+				}
+				window.location = "${ctx}/main/redirect/telephoneNotifyOrder?tel=${tel}&serialNo=${serialNo}&pageNo=" + pageNo + "&pageSize=1&ot=${details.otype}";
+			}
+		}
+		function newOrder(id, otime) {
+			var noId = $("#noman").val();
+			var serialNo = $("#serialNo").val();
+			var tel = $("#tel").val();
+			window.location.href = "${ctx}/main/redirect/newBuildOrder?id=" + id + "&noId=" + noId + "&seriNo=" + serialNo + "&tel=" + tel + "&otime=" + otime;
+		}
+
+		//短信催单弹窗
+		function msgInform2(orderId) {
+			var noId = $("#noman").val();
+			if (isBlank(noId)) {
+				layer.msg("请选择信息员");
+				return;
+			}
+			orderMsgId = $("#orderId").val();
+			resetData();
+			$('.msgText2').popup();
+			$('.msgText2').css({
+				'z-index' : '199'
+			});
+			$.Huitab("#msgWrap2 .tabBarP .tabswitch", "#msgWrap2 .tabCon", "current", "click", "0");
+			$('.msg-input').each(function() {
+				inputWidth(this);
+			});
+			if(isBlank('${serviceName}')){
+				layer.msg("短信签名提交审核通过后，才可使用模板发送短信！");
+			}
+		}
+		
+		function resetData(){
+			if(isBlank('${serviceName}')){
+				$(".btmark").attr("disabled",true);
+				$(".btmark").removeClass("sfbtn-green").addClass("sfbtn-gray");
+			}
+		}
+
+		function inputWidth(obj) {
+			var textValue = obj.value, textLength = textValue.length, charCode = -1;
+			var charLen = textValue.replace(/[^\x00-\xff]/g, "**").length;
+			var minWidth = charLen * 7 > 10 ? charLen * 7 : 10;
+			minWidth = minWidth > 448 ? 448 : minWidth;
+			$(obj).css({
+				'width' : minWidth + 'px'
+			});
+		}
+
+		//发送短信
+		function sendMsgDXCD(type) {
+			var siteId = $("#siteId").val();
+			var noId = $("#noman").val();
+			var siteMsgNums = $("#siteMsgNums").val();//服务商已购还有短信数
+			var sign = $("#signs").val();
+			if (type == '1') {
+				sign='${serviceName }';
+			}
+			var customerMobile = $("#customerMobile").val();//用户联系方式
+			var empMobiles = "${empMobile}".split(",");
+
+			var customerMobile = $("#customerMobile").val();//用户联系方式
+			var empMobiles = $('#selectEmployes').val();
+			var empName = "";
+			$('#selectEmployes').find("option:selected").each(function() {
+				if (!isBlank($(this).text())) {
+					if (isBlank(empName)) {
+						empName = $(this).text();
+					} else {
+						empName = empName + "," + $(this).text();
+					}
+				}
+			});
+			if (isBlank(empMobiles)) {
+				layer.msg("请选择服务工程师！");
+				return 
+				
+
+			}
+
+			var contentRecord = "";
+			var forMark = "1";
+			for (var i = 0; i < empMobiles.length; i++) {
+				var empMobile = empMobiles[i];
+				if ($.trim(empMobile).length == 11 && $.trim(empMobile).substring(0, 1) == "1") {
+				} else {
+					layer.msg("工程师的手机号码信息有误，请确认后重新发送！");
+					forMark = "2";
+					return;
+				}
+			}
+			if (forMark == '2') {
+				return;
+			}
+			if ($.trim(sign) == "" || sign == null) {
+				layer.msg("短信签名不能为空");
+				return;
+			}
+			if (sign.length > 8) {
+				layer.msg("短信签名过长，最多为8个汉字！请在系统设置-短信签名中设置！");
+				return;
+			}
+
+			//自定义模板
+			if (type == '1') {//固定模板
+				afe = true;
+				var danhao = "${order.number}";
+				var pailei = "${order.applianceBrand}" + "${order.applianceCategory}";
+				var useP = "${order.customerName}";
+				var mobile = "${order.customerMobile}";
+				var addreU = "${fns:ej(order.customerAddress)}";
+				
+				$.ajax({
+					type : "POST",
+					url : "${ctx }/order/getTag",
+					data : {
+						tag : '11'
+					},
+					async : false,
+					success : function(result) {
+						contentRecord = result[0].columns.content;
+					},
+					complete : function() {
+						afe = false;
+					}
+				});
+				// 查询出"@"的所有位置
+				var path_1 = contentRecord.indexOf("@");// 第一个位置
+				var path_2 = path_1 + contentRecord.substring(path_1 + 1).indexOf("@") + 1;// 第二个位置
+				var path_3 = path_2 + contentRecord.substring(path_2 + 1).indexOf("@") + 1;// 第三个位置
+				var path_4 = path_3 + contentRecord.substring(path_3 + 1).indexOf("@") + 1;// 第四个位置
+				var content = contentRecord.substring(0, path_1) + danhao + "(" + pailei + ")" + contentRecord.substring(path_1 + 1, path_2) + useP + "(" + mobile + ")"
+						+ contentRecord.substring(path_2 + 1, path_3) + addreU + contentRecord.substring(path_3 + 1);
+			} else if (type == '2') {//自定义模板
+				var content = $.trim($("#content2").val());
+				if (content == "") {
+					layer.msg("自定义发送短信内容不能为空");
+					$("#content2").focus();
+					return;
+				}
+			}
+			afe = true;
+			$.ajax({//check短信为几条，并对比看服务商已购买短信够不够发送
+				type : "POST",
+				url : "${ctx }/order/msgNumbers",
+				data : {
+					content : content,
+					sign : sign
+				},
+				async : false,
+				success : function(result) {
+					if (parseInt(result) > parseInt(siteMsgNums)) {//发送短信数大于购买数
+						layer.msg("剩余可发送短信条数不足，请先购买后在发送！");
+						return;
+					} else {
+						if (type == '1') {//模板
+							$("#peoples").html(empName);
+							$("#sendContent").text("“" + content + "”？");
+							$("#clickSend").empty().append(
+									'<a href="javascript:;" class="sfbtn sfbtn-opt3 w-70  " onclick="sendMsgEmpModel(\'' + sign + '\',\'' + content + '\',\'' + orderMsgId
+											+ '\',\'' + empMobiles + '\')" >确定</a>&nbsp;&nbsp;'
+											+ '<a href="javascript:;" class="sfbtn sfbtn-opt w-70" id="cancelQuren" onclick="cancelQueren()">取消</a>');
+							$(".msgTextQuren").popup({level : 4,
+								closeSelfOnly : false});
+							$('.msgTextQuren').css({
+								'z-index' : '600'
+							});
+						} else if (type == '2') {//自定义
+							definedContentCd = content;
+							//	$("#peoples").html('${order.employeName}');
+							$("#peoples").html(empName);
+							$("#sendContent").text("“" + content + "”？");
+							$("#clickSend").empty().append(
+									'<a href="javascript:;" class="sfbtn sfbtn-opt3 w-70  " onclick="sendMsgEmp(\'' + sign + '\',\'' + empMobiles + '\',\'' + orderMsgId
+											+ '\')" >确定</a>&nbsp;&nbsp;' + '<a href="javascript:;" class="sfbtn sfbtn-opt w-70" id="cancelQuren" onclick="cancelQueren()">取消</a>');
+							$(".msgTextQuren").popup({
+								level : 4,
+								closeSelfOnly : true
+							});
+							$('.msgTextQuren').css({
+								'z-index' : '600'
+							});
+						}
+					}
+				},
+				complete : function() {
+					afe = false;
+				}
+
+			})
+		}
+
+		var empModels = false;
+		function sendMsgEmpModel(sign, content, orderMsgId, empMobiles) {
+			if (empModels) {
+				return;
+			}
+			empModels = true;
+			$.ajax({
+				type : "POST",
+				url : "${ctx }/order/fwzSendmsgModel",
+				async : false,
+				data : {
+					temId : '8',
+					sign : sign,
+					content : content,
+					extno : '11',//
+					orderId : orderMsgId,
+					customerMobile : empMobiles
+				},
+				success : function(result) {
+					if (result == "ok") {
+						layer.msg("发送成功!");
+						$.closeDiv($(".msgText2"));
+						window.location.reload();
+					} else if (result == "noMessage") {
+						layer.msg("剩余可发送短信条数不足，请先购买后在发送！");
+						return;
+					} else {
+						layer.msg("发送失败，请稍后重试!");
+					}
+				},
+				complete : function() {
+					empModels = false;
+				}
+			})
+		}
+
+		var empNoModels = false;
+		function sendMsgEmp(sign, empMobiles, orderMsgId) {
+			if (empNoModels) {
+				return;
+			}
+			empNoModels = true;
+			$.ajax({
+				type : "POST",
+				url : "${ctx }/order/fwzSendmsg",
+				async : false,
+				data : {
+					content : definedContentCd,
+					sign : sign,
+					orderMsgMobile : empMobiles,//工程师号码
+					orderMsgId : orderMsgId
+				},
+				success : function(result) {
+					if (result == "ok") {
+						layer.msg("发送成功!");
+						$.closeDiv($(".msgText2"));
+						window.location.reload();
+					} else if (result == "noMessage") {
+						layer.msg("剩余可发送短信条数不足，请先购买后在发送！");
+						return;
+					} else {
+						layer.msg("发送失败，请稍后重试!");
+					}
+				},
+				complete : function() {
+					empNoModels = false;
+				}
+			})
+		}
+
+		function Turntosend(lat) {
+			var noId = $("#noman").val();
+			if (isBlank(noId)) {
+				layer.msg("请选择信息员");
+				return;
+			}
+			var orderid = "${order.id}";
+			$.ajax({
+				url : "${ctx}/main/redirect/count2",
+				data : {
+					orderId : orderid
+				},// 备注信息 wxz 暂时取消，服务中的工单、待回访、待结算的工单中备件信息分为：使用的配件和申请的配件
+				dataType : 'json',
+				success : function(result) {
+					if (parseInt(result) > 0) {
+						layer.msg("工单已经申请备件，不可转派！");
+					} else {
+						$('.turnDispatch').popup();
+						$('.turnDispatch').css({
+							'z-index' : '199'
+						});
+						employe(lat);
+						initDispatchMap(lat);
+					}
+				}
+			})
+		}
+		function initDispatchMap(la) {
+			if (!dispatchMap) {
+				dispatchMap = new AMap.Map('dispatch_map_container', {
+					zoom : 12
+				});
+
+				dispatchMarker = new AMap.Marker({
+					map : dispatchMap,
+					draggable : true
+				});
+
+				if (!isBlank(la)) {
+					var lnglats = la.split(",");
+					var position = new AMap.LngLat(lnglats[0], lnglats[1]);
+					dispatchMap.setZoomAndCenter(12, position);
+					dispatchMarker.setPosition(position);
+				}
+				employeMarker = new AMap.Marker({});
+			}
+			employeMarker.setMap(null);
+		}
+
+		function employe(lnglat) {
+			//	var lnglat = $("#lnglat").val();
+			var category = $('#applianceCategory').val();
+			var seriNo = $('#serialNo').val();
+			$.ajax({
+				type : "POST",
+				url : "${ctx}/main/redirect/dispatchList",
+				data : {
+					lnglat : lnglat,
+					category : category,
+					seriNo : seriNo
+				},
+				success : function(data) {
+					var content = $("#zhijiepaidan");
+					content.empty();
+					var sites = data;
+					var appendHtml = '';
+					for (var i = 0; i < sites.length; i++) {
+						var item = sites[i].columns;
+						appendHtml += '<tr>' + '<td style="border-left: none;">' + item.name + '</td>' + '<td>' + item.wwg + '</td>' + '<td>' + item.jrywg + '</td>'
+								+ '<td><label class="label-cbox3" for="'+item.id+'"><input type="checkbox" name="serverSelected" id="'+item.id+'"></label></td>' + '</tr>';
+					}
+					if (isBlank(appendHtml)) {
+						layer.msg("无维修的工程师");
+					}
+					content.html(appendHtml);
+
+					$("#zhijiepaidan tr").each(function(index) {
+						$(this).data("emp", sites[index].columns);
+					});
+					$("#zhijiepaidan tr").on('click', function(ev) {
+						var name = ev.target.tagName.toLowerCase();
+						if (name == 'label')
+							return;
+						var flag = $(this).hasClass('checked');
+						if (flag) {
+							$(this).removeClass('checked');
+						} else {
+							$(this).attr("class", "checked");
+							$.trim($(this).children('td').eq(0).html())
+						}
+						$("#nameWrap").empty();
+						var name = "";
+						var id = "";
+						$("#zhijiepaidan tr").each(function(index) {
+							var flag = $(this).hasClass('checked');
+							if (flag) {
+								if (isBlank(name)) {
+									name = $.trim($(this).children('td').eq(0).html());
+								} else {
+									name = name + " " + $.trim($(this).children('td').eq(0).html());
+								}
+								if (isBlank(id)) {
+									id = $.trim($(this).children('td').eq(3).children('label').attr('for'));
+								} else {
+									id = id + "," + $(this).children('td').eq(3).children('label').attr('for');
+								}
+							}
+						});
+						$("#nameWrap").append("<span>" + name + "</span>");
+						$("#employeId").val(id);
+
+					});
+				}
+			});
+		}
+		//确认派工按钮
+		var confirmPai = false;
+		function dispa() {
+			if (confirmPai) {
+				return;
+			}
+			var empId = $("#employeId").val();
+			var orderId = $("#orderId").val();
+			var disorderId = $("#disorderId").val();
+			var transferReasons = $.trim($("#transferReasons").val());
+			var noId = $("#noman").val();
+			if (isBlank(empId)) {
+				layer.msg("请选择服务工程师");
+			} else if (isBlank(transferReasons)) {
+				layer.msg("请输入转派原因");
+			} else {
+				var name = $.trim($("#nameWrap").children('span').html());
+				$('body').popup({
+					level : '3',
+					type : 2, // 提示是否进行某种操作
+					content : '确认派工至' + name + '吗？',
+					fnConfirm : function() {
+						if (confirmPai) {
+							return;
+						}
+						confirmPai = true;
+						$.ajax({
+							type : "POST",
+							url : "${ctx}/main/redirect/RedispatchCallBack",
+							data : {
+								orderId : orderId,
+								empId : empId,
+								disorderId : disorderId,
+								transferReasons : transferReasons,
+								noId : noId
+							},
+							success : function(data) {
+								if (data) {
+									layer.msg('已派工!');
+									$.closeDiv($("body"));
+									setTimeout(function() {
+										window.location.reload(true)
+									}, 500)
+									setTimeout(function() {
+										window.parent.location.reload(true);
+										$.closeDiv($(".turnDispatch"));
+										$.closeDiv($(".orderdetailVb"));
+									}, 500);
+								} else {
+									layer.msg('派工失败!');
+								}
+							},
+							complete : function() {
+								confirmPai = false;
+							}
+						});
+					},
+					fnCancel : function() {
+					}
+				});
+				$('.promptBox').css({
+					'z-index' : '399'
+				});
+			}
+		}
+
+		function isBlank(val) {
+			if (val == null || val == '' || val == undefined) {
+				return true;
+			}
+			return false;
+		}
+		
+		function guanbi(){
+		    $.closeDiv($(".massTextNote"));
+		}
+
+		function closePopup(){
+		    $.closeDiv($(".massTextNote"));
+		}
+		
+		function cancelQueren(){
+			$.closeDiv($(".msgTextQuren"),true);
+		}
+	</script>
+</body>
+</html>

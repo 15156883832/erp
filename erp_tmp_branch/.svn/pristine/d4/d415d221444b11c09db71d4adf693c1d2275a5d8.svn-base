@@ -1,0 +1,579 @@
+package com.jojowonet.modules.fitting.web;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.entity.Fitting;
+import com.jojowonet.modules.fitting.entity.FittingUsedRecord;
+import com.jojowonet.modules.fitting.service.FittingApplyService;
+import com.jojowonet.modules.fitting.service.FittingService;
+import com.jojowonet.modules.fitting.service.FittingUsedRecordService;
+import com.jojowonet.modules.fitting.service.SiteFittingKeepService;
+import com.jojowonet.modules.operate.service.EmployeService;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.UnitService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.util.HxRefusedPusher;
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.*;
+
+/**
+ * 备件Controller
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/fitting")
+public class FittingController extends BaseController {
+
+    @Autowired
+    private SiteFittingKeepService siteFittingKeepService;
+    @Autowired
+    private FittingService fittingService;
+    @Autowired
+    private EmployeService employeService;
+
+    @Autowired
+    private UnitService unitService;
+
+    @Autowired
+    private NonServicemanService nonService;
+    
+    @Autowired
+    private SiteService siteService;//site表（有关联user_id）
+    
+    @Autowired
+    private FittingApplyService fittingApplyService;
+
+    @Autowired
+    private HxRefusedPusher hxRefusedPusher;
+    @Autowired
+    private FittingUsedRecordService fittingUsedRecordService;
+
+    @RequestMapping(value = {"list", ""})
+    public String list(Fitting fitting, HttpServletRequest request, HttpServletResponse response, Model model) {
+        return "modules/" + "fitting/fittingList";
+    }
+
+    /**
+     * 配件待核销列表。
+     */
+    @RequestMapping(value = {"preVerificationList"})
+    public String verificationList(Fitting fitting, HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId,request.getServletPath());
+        model.addAttribute("headerData", stf);
+        model.addAttribute("siteId",siteId);
+        model.addAttribute("emps", employeService.getListEmp(null, siteId));
+        return "modules/" + "fitting/fittingHx";
+    }
+
+    /**
+     * 配件核销历史记录。
+     */
+    @RequestMapping(value = {"verificationHistoryList"})
+    public String VerificationHistoryList(Fitting fitting, HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId,request.getServletPath());
+        model.addAttribute("headerData", stf);
+        model.addAttribute("siteId",siteId);
+        model.addAttribute("emps", employeService.getListEmp(null, siteId));
+        return "modules/" + "fitting/fittingHxHistory";
+    }
+    /**
+     * 配件收支明细
+     */
+    @RequestMapping(value = {"balanceOfPayments"})
+    public String balanceOfPayments(HttpServletRequest request, HttpServletResponse response, Model model) {
+    	String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+    	SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId,request.getServletPath());
+    	model.addAttribute("headerData", stf);
+    	model.addAttribute("siteId",siteId);
+    	model.addAttribute("emps", employeService.getListEmp(null, siteId));
+    	return "modules/" + "fitting/balanceOfPayments";
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "balanceOfPaymentsData")
+    public String balanceOfPaymentsData(HttpServletRequest request, HttpServletResponse response, Model model) {
+    	String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+    	Map<String, Object> map = request.getParameterMap();
+    	Page<Record> page = new Page<>(request, response);
+    	fittingService.getbalanceOfPaymentsList(page, siteId, map);
+    	return renderJson(new JqGridPage<>(page));
+    }
+    /**
+     * 配件收支汇总
+     */
+    @RequestMapping(value = {"fittingRetailvolume"})
+    public String fittingRetailvolume(HttpServletRequest request, HttpServletResponse response, Model model) {
+    	String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+    	SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId,request.getServletPath());
+    	model.addAttribute("headerData", stf);
+    	model.addAttribute("siteId",siteId);
+    	model.addAttribute("emps", employeService.getListEmp(null, siteId));
+    	return "modules/" + "fitting/fittingRetailvolumeAll";
+    }
+    
+    @ResponseBody
+    @RequestMapping(value = "fittingRetailvolumeData")
+    public String fittingRetailvolumeData(HttpServletRequest request, HttpServletResponse response, Model model) {
+    	String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+    	Map<String, Object> map = request.getParameterMap();
+    	Page<Record> page = new Page<>(request, response);
+    	fittingService.getfittingRetailvolumeList(page, siteId, map);
+    	return renderJson(new JqGridPage<>(page));
+    }
+    
+    @ResponseBody
+    @RequestMapping(value = "preVerificationListData")
+    public String preVerificationListData(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Map<String, Object> map = request.getParameterMap();
+        Page<Record> page = new Page<>(request, response);
+        fittingService.getPreVerificationList(page, siteId, map);
+        return renderJson(new JqGridPage<>(page));
+    }
+
+    @ModelAttribute
+    public Fitting get(@RequestParam(required = false) String id) {
+        if (StringUtils.isNotBlank(id)) {
+            return fittingService.get(id);
+        } else {
+            return new Fitting();
+        }
+
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "verificationHistoryListData")
+    public String VerificationHistoryListData(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Map<String, Object> map = request.getParameterMap();
+        Page<Record> page = new Page<>(request, response);
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        fittingService.getVerificationHistoryList(page, siteId, map);
+        return renderJson(new JqGridPage<>(page));
+    }
+
+    @RequestMapping(value = "verificationMarkerCount")
+    @ResponseBody
+    public Object getVerificationTabMarkerCount() {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        long preVerificationCount = fittingService.getPreVerificationCount(siteId);
+        long verificationHistoryCount = fittingService.getVerificationHistoryCount(siteId);
+        Map<String, Long> ret = new HashMap<>();
+        ret.put("t1", preVerificationCount);
+        ret.put("t2", verificationHistoryCount);
+        return ret;
+    }
+
+    @RequestMapping("verification")
+    @ResponseBody
+    public Object getVerificationDetail(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String id = request.getParameter("id");
+        return fittingService.getVerificationDetail(id);
+    }
+
+    @RequestMapping("verifyRefused")
+    @ResponseBody
+    public Object verifyRefused(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String id = request.getParameter("id");
+        FittingUsedRecord record = fittingUsedRecordService.get(id);
+        fittingUsedRecordService.refuseHx(id);
+        hxRefusedPusher.notifyHxRefused(record, UserUtils.getUser());
+        return "ok";
+    }
+
+    @RequestMapping("verify")
+    @ResponseBody
+    public Object verify(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String id = request.getParameter("id");
+        String flag = request.getParameter("flag");
+        String money = request.getParameter("money");
+        String hxType = request.getParameter("hxType");
+        User user = UserUtils.getUser();
+        return fittingService.verify(user, id, money, flag, hxType);
+    }
+    
+    @RequestMapping("batchVerification")
+    @ResponseBody
+    public Object batchVerification(HttpServletRequest request, HttpServletResponse response) {
+    	String ids = request.getParameter("ids");
+    	
+    	return fittingService.batchVerification(ids);
+    }
+
+    /**
+     * 核销配件时，保存收款信息。
+     */
+    @RequestMapping("saveCollection")
+    @ResponseBody
+    public Object saveCollection(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String id = request.getParameter("id");
+        String flag = request.getParameter("flag");
+        String money = request.getParameter("money");
+        String hxType = request.getParameter("hxType");
+        return fittingService.saveCollection(id, money, flag,hxType);
+    }
+
+    /**
+     * 核销配件时，入库操作。
+     */
+    @RequestMapping("stockOldFitting")
+    @ResponseBody
+    public Object stockOldFitting(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String id = request.getParameter("id");
+        return fittingService.stockOldFitting(id);
+    }
+
+    //新增备件库存及出入库明细
+    @RequestMapping(value = "addFitting", method = RequestMethod.POST)
+    @ResponseBody
+    public Object addFitting(HttpServletRequest request, HttpServletResponse response, Fitting fitting, Model model) {
+       return fittingService.addFitting(fitting);
+    }
+
+    //新增备件库存及出入库明细
+    @RequestMapping(value = "modifyFitting", method = RequestMethod.POST)
+    @ResponseBody
+    public Object modifyFitting(HttpServletRequest request, HttpServletResponse response, Fitting fitting, Model model) {
+       return fittingService.modifyFitting(fitting);
+    }
+
+    // 验证备件是否已存在
+    //@ResponseBody
+    @RequestMapping(value = "getfitting")
+    public void getFitting(HttpServletRequest request, HttpServletResponse response) {
+        User user = UserUtils.getUser();
+        PrintWriter write;
+        try {
+            write = response.getWriter();
+            String code = request.getParameter("code");
+            Record re = fittingService.getFittingCode(code, CrmUtils.getCurrentSiteId(user));
+            // 将lists转换成json
+            JSONObject obj = new JSONObject();
+            obj.accumulate("co", re != null ? "1" : "2");
+            obj.accumulate("record", re);
+            write.print(obj);
+        } catch (IOException e) {
+            //
+        }
+    }
+    
+	@ResponseBody
+    @RequestMapping(value="twoStatusCount")
+    public List<Map<String,Object>> twoStatusCount(){
+    	String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+    	ArrayList list = new ArrayList<>();
+    	Map<String,Object> map1 = new HashMap();
+    	map1.put("sh", fittingApplyService.getFittingApplyCount1(siteId));
+    	Map<String,Object> map2 = new HashMap();
+    	map2.put("ck", fittingApplyService.getFittingApplyCount2(siteId));
+        Map<String,Object> map3 = new HashMap();
+    	map3.put("zt", fittingApplyService.getFittingApplyCount3(siteId));
+    	list.add(map1);
+    	list.add(map2);
+    	list.add(map3);
+    	return list;
+    }
+	
+	private String name(User user){
+		String name = "";//确认人
+        if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+            name = siteService.getUserSite(user.getId()).getName();
+        } else {
+            name = nonService.getNonServiceman(user).getName();
+        }
+		return name;
+	}
+	
+	@RequestMapping(value = "importFitting")
+	@ResponseBody
+	public JSONObject importFitting(MultipartFile file, HttpServletRequest request, HttpServletResponse response){
+		User user = UserUtils.getUser();
+		Map<String, String> params = Maps.newHashMap();
+		Map<String, Object> retMap = Maps.newHashMap();
+		String siteId= CrmUtils.getCurrentSiteId(user);
+		params.put("extName", StringUtil.getFileExtName(file.getOriginalFilename()));
+		params.put("createBy", user.getId());
+		params.put("siteId", siteId);
+		params.put("siteName", name(user));
+		params.put("createTime", DateUtils.formatDate(new Date(), "yyyy-MM-dd HH:mm:ss"));
+		Map<String ,String> units = unitService.getAllUnit();
+		params.putAll(units);
+		try {
+			retMap = fittingService.importFitting(params, file.getInputStream());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return JSONObject.fromObject(retMap);
+	}
+	
+	@RequestMapping(value = "checkUnfinishedFittingExcel")
+	@ResponseBody
+	public JSONObject checkUnfinishedFittingExcel(MultipartFile file, HttpServletRequest request, HttpServletResponse response){
+		Map<String, String> params = Maps.newHashMap();
+		Map<String, Object> retMap = Maps.newHashMap();
+		params.put("extName", StringUtil.getFileExtName(file.getOriginalFilename()));
+		try {
+			retMap = fittingService.checkUnfinishedFitting(params, file.getInputStream());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return JSONObject.fromObject(retMap);
+	}
+
+    @RequestMapping(value = "export")
+    public String exportFile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+        try {
+            String formPath = request.getParameter("formPath");
+            String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+            SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+            String title = stf.getExcelTitle();
+            Map<String, Object> params = request.getParameterMap();
+            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+            JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+           // jarray.remove(0);
+
+            Page<Record> page=null;
+            Page<Record> page1 = new Page<>(request, response);
+            page1.setPageNo(1);
+            page1.setPageSize(10000);
+            List<Record> list=null;
+
+
+            if ("核销历史记录".equals(title)) {
+                Page<Record> pages = fittingService.getVerificationHistoryList(page1, siteId, params);
+                list=pages.getList();
+                for (Record fit : list) {
+                    if("1".equals(fit.getStr("type"))){
+                        if("0".equals(fit.getStr("collection_flag"))){//0未收款
+                            fit.set("type", "工单使用");
+                        }else if("1".equals(fit.getStr("collection_flag"))){//1已收款
+                            fit.set("type", "工单零售");
+                        }else{
+                            fit.set("type", "工单使用");
+                        }
+                    }else if("2".equals(fit.getStr("type"))){
+                        fit.set("type", "备件归还");
+                    }else if("3".equals(fit.getStr("type"))){
+                        fit.set("type", "工程师零售");
+                    }else if("4".equals(fit.getStr("type"))){
+                        fit.set("type", "网点零售");
+                    }else{
+                        fit.set("type", "");
+                    }
+
+                    if("0".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已登记");
+                    }else if("1".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已入库");
+                    }
+                    else if("3".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已返厂");
+                    }else if("4".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已报废");
+                    }else{
+                        fit.set("old_status", "");
+                    }
+
+                    if("1".equals(fit.get("warranty_type"))){
+                        fit.set("warranty_type","保内");
+                    }else if("2".equals(fit.get("warranty_type"))){
+                        fit.set("warranty_type","保外");
+                    }else{
+                        fit.set("warranty_type","");
+                    }
+                    if("1".equals(fit.get("status"))) {
+                        fit.set("status", "待核销");
+                    } else if ("2".equals(fit.get("status"))) {
+                        fit.set("status", "已核销");
+                    } else if("3".equals(fit.get("status"))) {
+                        fit.set("status", "已拒绝");
+                    }
+                }
+            } else if("待核销".equals(title)){
+                jarray.remove(0);
+                Page<Record> pages = fittingService.getPreVerificationList(page1, siteId, params);
+                list=pages.getList();
+                for (Record fit : list) {
+                    if("1".equals(fit.getStr("type"))){
+                        if("0".equals(fit.getStr("collection_flag"))){//0未收款
+                            fit.set("type", "工单使用");
+                        }else if("1".equals(fit.getStr("collection_flag"))){//1已收款
+                            fit.set("type", "工单零售");
+                        }else{
+                            fit.set("type", "工单使用");
+                        }
+                    }else if("2".equals(fit.getStr("type"))){
+                        fit.set("type", "备件归还");
+                    }else if("3".equals(fit.getStr("type"))){
+                        fit.set("type", "工程师零售");
+                    }else if("4".equals(fit.getStr("type"))){
+                        fit.set("type", "网点零售");
+                    }else{
+                        fit.set("type", "");
+                    }
+
+                    if("0".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已登记");
+                    }else if("1".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已入库");
+                    }else if("2".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已删除");
+                    } else if("3".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已返厂");
+                    }else if("4".equals(fit.getStr("old_status"))){
+                        fit.set("old_status", "已报废");
+                    }else{
+                        fit.set("old_status", "");
+                    }
+
+                    if("1".equals(fit.get("warranty_type"))){
+                        fit.set("warranty_type","保内");
+                    }else if("2".equals(fit.get("warranty_type"))){
+                        fit.set("warranty_type","保外");
+                    }else{
+                        fit.set("warranty_type","");
+                    }
+                    if("1".equals(fit.get("status"))) {
+                        fit.set("status", "待核销");
+                    } else if ("2".equals(fit.get("status"))) {
+                        fit.set("status", "已核销");
+                    } else if("3".equals(fit.get("status"))) {
+                        fit.set("status", "已拒绝");
+                    }
+                }
+            }else{
+
+            }
+
+            new ExportJqExcel(title, jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            addMessage(redirectAttributes, "导出用户失败！失败信息：" + e.getMessage());
+        }
+        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+    }
+    
+    @RequestMapping(value = "exportBalan")
+    public String exportBalan(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+    	try {
+    		String formPath = request.getParameter("formPath");
+    		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+    		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+    		String title = stf.getExcelTitle();
+    		Map<String, Object> params = request.getParameterMap();
+    		String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+    		JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+    		// jarray.remove(0);
+    		
+    		Page<Record> page1 = new Page<>(request, response);
+    		page1.setPageNo(1);
+    		page1.setPageSize(10000);
+    		List<Record> list=null;
+    		
+    			Page<Record> pages = fittingService.getbalanceOfPaymentsList(page1, siteId, params);
+    			list=pages.getList();
+    			for (Record fit : list) {
+    				if("1".equals(fit.getStr("type"))){
+    					if("0".equals(fit.getStr("collection_flag"))){//0未收款
+    						fit.set("type", "工单使用");
+    					}else if("1".equals(fit.getStr("collection_flag"))){//1已收款
+    						fit.set("type", "工单零售");
+    					}else{
+    						fit.set("type", "工单使用");
+    					}
+    				}else if("2".equals(fit.getStr("type"))){
+    					fit.set("type", "备件归还");
+    				}else if("3".equals(fit.getStr("type"))){
+    					fit.set("type", "工程师零售");
+    				}else if("4".equals(fit.getStr("type"))){
+    					fit.set("type", "网点零售");
+    				}else{
+    					fit.set("type", "");
+    				}
+    		
+    				
+    				if("1".equals(fit.get("warranty_type"))){
+    					fit.set("warranty_type","保内");
+    				}else if("2".equals(fit.get("warranty_type"))){
+    					fit.set("warranty_type","保外");
+    				}else{
+    					fit.set("warranty_type","");
+    				}
+    		
+    				if("1".equals(fit.getStr("collection_flag"))){
+    					fit.set("profit1", fit.getBigDecimal("collection_money").subtract(fit.getBigDecimal("site_price")));
+    					fit.set("profit2", fit.getBigDecimal("collection_money").subtract(fit.getBigDecimal("employe_price")));
+    				}
+    				
+    	
+    			}
+    	
+    		
+    		new ExportJqExcel(title, jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+    		return null;
+    	} catch (Exception e) {
+    		e.printStackTrace();
+    		addMessage(redirectAttributes, "导出收支明细失败！失败信息：" + e.getMessage());
+    	}
+    	return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+    }
+    
+    
+    @RequestMapping(value = "exportSummary")
+    public String exportSummary(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+    	try {
+    		String formPath = request.getParameter("formPath");
+    		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+    		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+    		String title = stf.getExcelTitle();
+    		Map<String, Object> params = request.getParameterMap();
+    		String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+    		JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+    		// jarray.remove(0);
+    		
+    		Page<Record> page1 = new Page<>(request, response);
+    		page1.setPageNo(1);
+    		page1.setPageSize(10000);
+    		List<Record> list=null;
+    		
+    		Page<Record> pages = fittingService.getfittingRetailvolumeList(page1, siteId, params);
+    		list=pages.getList();
+    		
+    		new ExportJqExcel(title, jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+    		return null;
+    	} catch (Exception e) {
+    		e.printStackTrace();
+    		addMessage(redirectAttributes, "导出收支汇总失败！失败信息：" + e.getMessage());
+    	}
+    	return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+    }
+
+
+
+}

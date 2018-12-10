@@ -1,0 +1,232 @@
+package com.jojowonet.modules.order.dao;
+
+import java.util.List;
+import java.util.Map;
+
+import ivan.common.entity.mysql.common.Role;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.entity.AreaManager;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+
+/**
+ * 区域管理人员DAO接口
+ * @author yc
+ * @version 2017-08-08
+ */
+
+@Repository
+public class AreaManagerDao extends BaseDao<AreaManager>{
+	
+	//区域管理人员的列表查询
+	public List<Record> getAreaManagerList(Page<Record> page,Map<String,Object> map){
+		StringBuffer sf=new StringBuffer();
+		sf.append("SELECT a.* , COUNT(b.id) AS siteCount");
+		sf.append(" FROM crm_area_manager AS a LEFT JOIN crm_site AS b ON a.id=b.area_manager_id AND b.due_time IS NOT NULL WHERE a.id IS NOT NULL  ");
+		sf.append(getCondition(map));
+		//sf.append(page.getSqlOrderBy());
+		sf.append(" GROUP BY a.id ORDER BY a.area ");
+		sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		return Db.find(sf.toString());
+	}
+	
+	public long getListCount(Map<String,Object> map){
+		StringBuffer sf=new StringBuffer();
+		sf.append("SELECT COUNT(DISTINCT a.id)    ");
+		sf.append("FROM crm_area_manager AS a LEFT JOIN crm_site AS b ON a.id=b.area_manager_id AND b.due_time IS NOT NULL WHERE a.id IS NOT NULL  ");
+		sf.append(getCondition(map));
+		sf.append(" ORDER BY a.area ");
+		return Db.queryLong(sf.toString());
+	}
+	
+	
+	public String getCondition(Map<String,Object> map){
+		StringBuffer sf = new StringBuffer();
+		if(StringUtil.checkParamsValid(map.get("area"))){
+			sf.append(" and a.area like '%"+(map.get("area"))+"%' ");
+		}
+		
+		if (StringUtil.checkParamsValid(map.get("name"))){
+			sf.append(" and a.name like '%"+(map.get("name"))+"%' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("phone"))){
+			sf.append(" and a.phone like '%"+(map.get("phone"))+"%' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("level"))){
+			if(map.get("level").toString().equals("1")){
+				sf.append(" and a.superior_district IS NULL");
+			}else if(map.get("level").toString().equals("2")){
+				sf.append(" and a.superior_district IS NOT NULL");
+			}else {
+				sf.append("");
+			}
+		}
+		return sf.toString();
+	}
+	
+	
+
+//在添加和修改时当为二级区管时获取上级区管的列表
+	public List<Record> changedistrict() {
+		return Db.find("select * from crm_area_manager where superior_district is null");
+	}
+
+	//查询条件中获取所有区域列表
+	public List<Record> getarealist() {
+	   return Db.find("SELECT DISTINCT(`area`) FROM crm_area_manager ");
+		
+	}
+	//关联服务上的列表
+	public List<Record> getsiteList(Page<Record> page,String id){
+		StringBuffer sf=new StringBuffer();
+		sf.append("SELECT a.area,b.telephone as phone,b.create_time,b.name, b.contacts,b.address,c.login_name");
+		sf.append(" FROM crm_site AS b LEFT JOIN crm_area_manager AS a ON  b.area_manager_id=a.id AND b.due_time IS NOT NULL LEFT JOIN sys_user AS c ON  c.id=b.user_id");
+		sf.append(" WHERE a.id=?");
+		//sf.append(page.getSqlOrderBy());
+		sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		return Db.find(sf.toString(),id);
+	}
+	
+	public long getsiteListCount(String id){
+		StringBuffer sf=new StringBuffer();
+		sf.append("SELECT count(*)");
+		sf.append(" FROM crm_site AS b LEFT JOIN crm_area_manager AS a ON  b.area_manager_id=a.id AND b.due_time IS NOT NULL LEFT JOIN sys_user AS c ON  c.id=a.user_id");
+		sf.append(" WHERE a.id=?");
+		return Db.queryLong(sf.toString(),id);
+	}
+
+	//启用和停用区域人员的方法
+	public Integer updatestatus(String id, String status) {
+		String sql="";
+		if(status.equals("0")){
+			sql="UPDATE crm_area_manager SET status='1' WHERE id=?";
+			return Db.update(sql, id);
+		
+		}else{
+			sql="UPDATE crm_area_manager SET status='0' WHERE id=?";
+			return Db.update(sql, id);
+		}
+		
+	}
+	//查询姓名是否重复
+	public int queryName(String name, String id) {
+		int i=0;
+		String sql1="";		
+          if(StringUtil.isNotBlank(id)){
+        	  sql1="select * from crm_area_manager where name=? and id!=?";
+        	  i=Db.find(sql1, name,id).size();
+          }else{
+        	  sql1="select * from crm_area_manager where name=? ";
+        	  i=Db.find(sql1, name).size(); 
+          }
+          return i;
+	}
+//添加或修改时查询分享码有没有重复分为以下几步1：查询在crm_area_manager表中的分享码有没有重复，
+//                                                                       2：查询在crm_site表中的分享码有没有重复
+	public int querycode(String code,String id) {
+		int i=0;
+		String sql1="";
+		String sql2="";
+		
+          if(StringUtil.isNotBlank(id)){
+        	  sql1="select * from crm_area_manager where code=? and id!=?";
+        	List<Record> list=Db.find(sql1, code,id);
+        	  if(list.size()<1){
+        		  sql2="select * from crm_site where share_code=?";
+        		  List<Record> list2=Db.find(sql2, code);
+        		  i=list2.size();
+        	  }else{
+        		  i=Db.find(sql1, code,id).size();
+        	  }
+          }else{
+        	  sql1="select * from crm_area_manager where code=? ";
+        	  List<Record> list=Db.find(sql1, code);
+        	  if(list.size()<1){
+        		  sql2="select * from crm_site where share_code=?";
+        		  i=Db.find(sql2, code).size();
+        	  }else{
+        		  i=Db.find(sql1, code).size();
+        	  }
+        	  
+          }
+          return i;
+	
+	}
+
+	//在添加或者修改时查询电话号码有没有重复分为以下几步1;查询在crm_area_manager表中是否有重复 2：查询在sys_user表中除服务工程师外的人员是否与其重复
+	public int queryphone(String phone, String id) {
+		int i=0;
+		String sql1="";
+		String sql2="";
+	
+          if(StringUtil.isNotBlank(id)){
+        	  String sql3="select * from crm_area_manager where id=?";
+        	  String userId=Db.findFirst(sql3,id).getStr("user_id");
+        	  sql1="select * from crm_area_manager where phone=? and id!=?";
+        	  List<Record> list=Db.find(sql1, phone,id);
+        	  if(list.size()<1){
+        		  sql2="select * from sys_user where mobile=? and id!=? and user_type!='4'";
+        		  i=Db.find(sql2, phone,userId).size();
+        	  }else{
+        		  i=Db.find(sql1, phone,id).size();
+        	  }
+          }else{
+        	  sql1="select * from crm_area_manager where phone=? ";
+        	  List<Record> list=Db.find(sql1, phone);
+        	  if(list.size()<1){
+        		  sql2="select * from sys_user where mobile=? and user_type!='4'";
+        		  i=Db.find(sql2, phone).size();
+        	  }else{
+        		  i=Db.find(sql1,phone).size();
+        	  }
+        	  
+          }
+          return i;
+	}
+//添加时候在sys-user_role表中插入关系
+	public void assignUserToRole(Role role, String id) {
+		String sql="insert into sys_user_role values(?,?)";
+		Db.update(sql, id,role.getId());
+		
+	}
+
+	//通过id查询区域管理人员信息
+	public Record getAreaManagerById(String id) {
+		String sql="select * from crm_area_manager where id=?";
+		Record rd=Db.findFirst(sql,id);
+		return rd;
+	}
+
+	public void updateSupName(String name,String oldname) {
+		String sql="update crm_area_manager set superior_district=? where superior_district=?";
+		Db.update(sql,name,oldname);
+		
+	}
+
+
+
+	public void updateUser(String userId, String status) {
+		if("0".equals(status)){
+			String sql1="update sys_user set status='1' where id=?";
+			Db.update(sql1,userId);
+		}else{
+			String sql2="update sys_user set status='0' where id=?";
+			Db.update(sql2,userId);
+		}
+		
+	}
+
+
+
+
+
+
+
+}

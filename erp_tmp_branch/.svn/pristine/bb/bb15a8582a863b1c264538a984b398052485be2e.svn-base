@@ -1,0 +1,16 @@
+package com.jojowonet.modules.sys.config;
+
+import ivan.common.utils.SpringContextHolder;
+
+public class SFCacheServiceHelper {
+
+    private static volatile SFCacheService service;
+
+    public static SFCacheService getSFCacheService() {
+        if (service == null) {
+            service = SpringContextHolder.getBean(SFCacheService.class);
+        }
+        return service;
+    }
+
+}

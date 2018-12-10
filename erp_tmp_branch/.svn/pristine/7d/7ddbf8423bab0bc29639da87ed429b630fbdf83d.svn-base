@@ -1,0 +1,69 @@
+package com.jojowonet.modules.order.form.vo;
+
+import com.jojowonet.modules.order.entity.CrmOrder2017;
+import com.jojowonet.modules.order.entity.OrderSettlement2017;
+import com.jojowonet.modules.order.entity.OrderSettlementDetail2017;
+import com.jojowonet.modules.order.form.AddedSettlementItem;
+
+import java.util.List;
+
+public class OrderSettlement2017Vo {
+    private List<EntryItem<String, String>> jiesuanItems;
+    private List<AddedSettlementItem> addedJisuan;
+    private OrderSettlement2017 orderSettlement;
+    private List<OrderSettlementDetail2017> dispEmpSettlementDetail;
+    private List<OrderSettlementDetail2017> addedEmpSettlementDetail;
+    private CrmOrder2017 order;
+
+    public List<AddedSettlementItem> getAddedJisuan() {
+        return addedJisuan;
+    }
+
+    public void setAddedJisuan(List<AddedSettlementItem> addedJisuan) {
+        this.addedJisuan = addedJisuan;
+    }
+
+    public CrmOrder2017 getOrder() {
+        return order;
+    }
+
+    public void setOrder(CrmOrder2017 order) {
+        this.order = order;
+    }
+
+    public OrderSettlement2017 getOrderSettlement() {
+        return orderSettlement;
+    }
+
+    public void setOrderSettlement(OrderSettlement2017 orderSettlement) {
+        this.orderSettlement = orderSettlement;
+    }
+
+    public List<OrderSettlementDetail2017> getDispEmpSettlementDetail() {
+        return dispEmpSettlementDetail;
+    }
+
+    public void setDispEmpSettlementDetail(List<OrderSettlementDetail2017> dispEmpSettlementDetail) {
+        this.dispEmpSettlementDetail = dispEmpSettlementDetail;
+    }
+
+    public List<OrderSettlementDetail2017> getAddedEmpSettlementDetail() {
+        return addedEmpSettlementDetail;
+    }
+
+    public void setAddedEmpSettlementDetail(List<OrderSettlementDetail2017> addedEmpSettlementDetail) {
+        this.addedEmpSettlementDetail = addedEmpSettlementDetail;
+    }
+
+    public double getOrderMoney() {
+        return order.getWarrantyCost() + order.getAuxiliaryCost() + order.getServeCost();
+    }
+
+    public List<EntryItem<String, String>> getJiesuanItems() {
+        return jiesuanItems;
+    }
+
+    public void setJiesuanItems(List<EntryItem<String, String>> jiesuanItems) {
+        this.jiesuanItems = jiesuanItems;
+    }
+}

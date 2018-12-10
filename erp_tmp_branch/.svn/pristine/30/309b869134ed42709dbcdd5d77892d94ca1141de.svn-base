@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>wangEditor 菜单和编辑器区域分离</title>
+    <style type="text/css">
+        .toolbar {
+            border: 1px solid #ccc;
+        }
+        .text {
+            border: 1px solid #ccc;
+            height: 600px;
+        }
+        .w-e-text-container{
+            height:600px;
+        }
+    </style>
+</head>
+<body>
+   <div id="div1">
+    <p>欢迎使用富文本编辑器</p>
+    </div>
+<a href="javascript:getHtml();">GetHtml</a>
+<script type="text/javascript" src="wangEditor.js"></script>
+<script type="text/javascript">
+    var E = window.wangEditor
+    var editor = new E('#div1')
+
+    // 下面两个配置，使用其中一个即可显示“上传图片”的tab。但是两者不要同时使用！！！
+    editor.customConfig.uploadImgShowBase64 = true   // 使用 base64 保存图片
+    // editor.customConfig.uploadImgServer = '/upload'  // 上传图片到服务器
+
+    editor.create();
+
+    function getHtml(){
+        console.log(editor.txt.html());
+    }
+</script>
+
+</body>
+</html>

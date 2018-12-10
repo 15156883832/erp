@@ -1,0 +1,93 @@
+package com.jojowonet.modules.order.service;
+
+import java.util.List;
+
+import ivan.common.persistence.Page;
+import ivan.common.persistence.Parameter;
+import ivan.common.service.BaseService;
+
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.ServiceTypeDao;
+
+import com.jojowonet.modules.order.entity.ServiceType;
+
+@Component
+@Transactional(readOnly = true)
+public class ServiceTypeService extends BaseService{
+	
+	@Autowired
+	private ServiceTypeDao serviceTypeDao;
+	
+	public ServiceType get(Integer id) {
+		return serviceTypeDao.get(id);
+	}
+	
+   public Page<ServiceType> find(Page<ServiceType> page, ServiceType serviceType) {
+		DetachedCriteria dc = serviceTypeDao.createDetachedCriteria();
+		if (serviceType.getId()!=null){
+			dc.add(Restrictions.like("name", "%"+serviceType.getId()+"%"));
+		}
+		dc.add(Restrictions.eq("status", "0"));
+		//dc.add(Restrictions.eq("delFlag", "0"));
+		dc.addOrder(Order.asc("sort"));
+		
+		return serviceTypeDao.find(page, dc);
+	}
+	
+	@Transactional(readOnly = false)
+	public void save(ServiceType serviceType) {
+		//orderOriginDao.clear();
+
+
+		serviceTypeDao.save(serviceType);
+		
+			
+	}
+	
+	@Transactional(readOnly = false)
+	public void delete(Integer id) {
+	
+		serviceTypeDao.deleteByIds(id);
+	}
+	
+	public List<Record> filterServiceType() {
+		return serviceTypeDao.filterServiceType(null);
+	}
+	
+	public boolean queryNumByName(String name){
+		List list = serviceTypeDao.createSqlQuery("select * from crm_service_type"
+				+ " where  name = :p1 and status='0' ",new Parameter(name)).list();
+		if (list.size()>0)
+			return true;
+		return false;
+	}
+
+	public Record getServiceTypeById(Integer id) {
+     Record rd=serviceTypeDao.getServiceTypeById(id);
+		return rd;
+	}
+
+
+
+	public void updates(String name, String sort, Integer id) {
+		serviceTypeDao.updates(name,sort,id);
+		
+	}
+
+	public boolean queryNumByNames(String names,Integer id){
+		List list = serviceTypeDao.createSqlQuery("select * from crm_service_type"
+				+ " where name = :p1 and id!=:p2 and status='0' ",new Parameter(names,id)).list();
+		if (list.size()>0)
+			return false;
+		return true;
+	}
+
+
+}

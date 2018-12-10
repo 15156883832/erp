@@ -1,0 +1,577 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<title>我的商品-公司库存</title>
+<meta name="decorator" content="base" />
+<meta charset="utf-8" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/Hui-iconfont/1.0.8/iconfont.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/skin/default/skin.css" id="skin" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/style.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/sfskin_blue.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/styleGoods.css" />
+<script type="text/javascript" src="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/laypage/1.2/laypage.js"></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/jquery.rotate.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.js" ></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/> 
+<style type="text/css">
+ 	.webuploader-pick{
+		background:none;
+		color:#22a0e6;
+		width:90px;
+		padding:0;
+		height:20px;
+	}
+	.webuploader-pick img{
+		width:90px;
+		height:20px;
+		position:absolute;
+		left:0;
+		top:0;
+	}
+	.SelectBG{
+		background-color:#ffe6e2;
+	}
+	.dropdown-clear-all{
+	line-height: 22px
+}
+	.ceshistyle_label{
+		padding-right:10px;
+		position:relative;
+	}
+	.ceshistyle_label:before{
+		content:'：';
+		position:absolute;
+		right:0;
+		top:0;
+		width:10px;
+		text-align:center;
+		line-height:26px;
+	}
+	
+	.dropdown-option[disabled] {
+	    color: #000000;
+	    background-color: #fff;
+	    cursor: default;
+	    text-decoration: none;
+	    font-weight:bold;
+	    background-color:#ddd
+	}
+	
+</style>
+<title>公司库存</title>
+</head>
+<body class="">
+	<!-- 零售 -->
+<div class="popupBox lingshou " style="display: block">
+    <h2 class="popupHead">
+        零售
+        <a href="javascript:closeLsDiv();" class="sficon closePopup"></a>
+    </h2>
+    <div class="popupContainer">
+        <div class="pcontent">
+            <div class="popupMain pl-15 pt-15 pb-15">
+                <div class="sale_ mb-20">
+                    <div><span><em class="mark">*</em>销售人员：</span>
+                    	<span class="f-l w-380 dropdown-sin-2 readonly" style="width:330px;" >
+	                    	<select class="select-box w-120 readonly"  id="xiaoName"  multiple="multiple" name="xiaoName"  style="width:140px">
+							 	<option  disabled class="check">网点人员</option>
+							 	<c:if test="${rd1 ne null }">
+									<c:forEach items="${rd1 }" var="rd1">
+										<option value="${rd1.columns.uId }">${rd1.columns.name }</option>
+									</c:forEach>
+								</c:if> 
+								<option disabled class="check">服务工程师</option>
+								<c:if test="${rd2 ne null }">
+									<c:forEach items="${rd2 }" var="rd2">
+										<option value="${rd2.columns.uId }">${rd2.columns.name }</option>
+									</c:forEach>
+								</c:if> 
+							 </select>
+						 </span>
+                    </div>
+                    <div class="f-r"><span><em class="mark">*</em>下单时间：</span>
+ 	                     <input type="text" onfocus="WdatePicker({dateFmt:'yyyy-MM-dd HH:mm:ss ',maxDate:'%y-%M-%d %H:%m:%s'})" style="width:330px;"  id="placingOrderTime" name="placingOrderTime"  class="input-text Wdate w-140" >
+                    </div>
+                </div>
+                <div class="bg-e8f2fa pt-25 pr-15 pb-20 mb-20 laceBorder">
+                    <div class="cl mb-10">
+                        <label class="f-l w-90"><em class="mark">*</em>用户姓名：</label>
+                        <input type="text" class="input-text w-140 f-l bg-fff" maxlength="10" name="userName"
+                               id="lsCustomerName"/>
+                        <label class="f-l w-100"><em class="mark">*</em>联系方式：</label>
+                        <input type="text" class="input-text w-140 f-l bg-fff" maxlength="20" name="mobile"
+                               id="lsCustomerMobile"/>
+                        <label class="f-l w-90">详细地址：</label>
+                        <input type="text" class="input-text w-330 f-l bg-fff" name="address" id="lsCustomerAddress"/>
+                    </div>
+                </div>
+                <div class="mb-15 price_jiao">
+                    <table class="table table-bg table-border table-bordered table-sdrk text-c"
+                           style="table-layout: auto;">
+                        <thead>
+                        <tr>
+                            <th class="w-300">商品</th>
+                            <th class="w-100">库存</th>
+                            <th class="w-130">零售价</th>
+                            <th class="w-100">销售数量</th>
+                            <th class="w-110">成交价</th>
+                            <th class="w-100">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="dataList">
+	                        <c:forEach items="${defaultList }" var="dt" varStatus="idx">
+	                        	<tr>
+		                            <td>${dt.columns.name }<input class="selectedId" value="${dt.columns.id }" hidden="hidden" /></td>
+		                            <td> <span class="stocksmark">${dt.columns.stocks }</span>${empty dt.columns.unit ? '个' : dt.columns.unit  }</td>
+		                            <td>
+		                            	<c:choose> 
+										    <c:when test="${dt.columns.rebate_flag==1 }">    <!--如果 有折扣价--> 
+										    	<select class="select selecthas">
+										    		<option value="${dt.columns.customer_price }">${dt.columns.customer_price }</option>
+										    		<option value="${dt.columns.rebate_price }">${dt.columns.rebate_price }</option>
+										    	</select>
+										    </c:when>      
+										    <c:otherwise>  <!--否则 -->  
+										      	${dt.columns.customer_price }
+										    </c:otherwise> 
+									    </c:choose>
+		                            </td>
+		                            <td class="gModel">
+		                                <span class="reduce">-</span><span class="saleNum_">1</span><span class="plus_">+</span>
+		                            </td>
+		                            <td class="gCategory">
+		                                <div class="priceWrap f-l">
+		                                    <input type="text" class="input-text oneFinalPrice" value="${dt.columns.customer_price }" />
+		                                    <span class="unit">元</span>
+		                                </div>
+		                            </td>
+		                            <td class="gUnit">
+		                            	<c:choose> 
+										    <c:when test="${idx.last && idx.index==0 }">    <!--如果 --> 
+										    	<img src="${ctxPlugin}/static/h-ui.admin/images/addItem.png" class="addmark" alt="" width="25">
+										    </c:when>      
+										    <c:otherwise>  <!--否则 -->  
+										      	<img src="${ctxPlugin}/static/h-ui.admin/images/delete_.png" class="reducemark" alt="" width="25" class="mr-20">
+				                                <c:if test="${idx.last }">
+				                                	<img src="${ctxPlugin}/static/h-ui.admin/images/addItem.png" class="addmark" alt="" width="25">
+				                                </c:if>
+										    </c:otherwise> 
+									    </c:choose>
+		                            </td>
+		                        </tr>
+	                        </c:forEach>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="cl mb-10 fourPrice">
+                    <label class="f-l w-80">成交总额：</label>
+                    <div class="priceWrap f-l w-140 readonly">
+                        <input type="text" class="input-text readonly" id="orderRealAmount" readonly="readonly"/>
+                        <span class="unit" id="lsdanwei">元</span>
+                    </div>
+                    <label class="f-l w-100"><em class="mark">*</em>实收金额：</label>
+                    <div class="priceWrap f-l w-140">
+                        <input type="text" class="input-text" id="orderConfirmAmount"/>
+                        <span class="unit">元</span>
+                    </div>
+                    <label class="f-l w-100"><em class="mark">*</em>提成金额：</label>
+                    <div class="priceWrap f-l w-140 readonly">
+                        <input type="text" class="input-text   readonly" id="orderSalesCommissions" readonly="readonly"/>
+                        <span class="unit">元</span>
+                    </div>
+                    <label class="f-l w-80">当日支付：</label>
+                    <div class="priceWrap f-l w-140 readonly">
+                        <input type="text" class="input-text readonly" id="orderPaidCommissions" readonly="readonly" />
+                        <span class="unit">元</span>
+                    </div>
+                </div>
+                <div class="pt-15 pb-5 cl mb-15 ">
+                    <label class="f-l" style="width:7%">提成明细：</label>
+                    <div class="f-l" style="width: 93%">
+                        <table class="bg-e8f2fa table-bg table-border table-bordered table-sdrk text-c mingxi">
+                            <tbody>
+                            <tr>
+                                <td rowspan="2"></td>
+                                <td colspan="2">小李</td>
+                            </tr>
+                            <tr>
+                                <td>提成</td>
+                                <td>当日支付</td>
+                            </tr>
+                            <tr>
+                                <td class="w-100">漏电保护插座</td>
+                                <td class="w-100">
+                                    <div class="priceWrap">
+                                        <input type="text" class="input-text"/>
+                                        <span class="unit">元</span>
+                                    </div>
+                                </td>
+                                <td class="w-100">
+                                    <input type="checkbox">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="w-100">漏电保护插座</td>
+                                <td class="w-100">
+                                    <div class="priceWrap">
+                                        <input type="text" class="input-text"/>
+                                        <span class="unit">元</span>
+                                    </div>
+                                </td>
+                                <td class="w-100">
+                                    <input type="checkbox" class="">
+                                    <div class="priceWrap dangri">
+                                        <input type="text" class="input-text"/>
+                                        <span class="unit">元</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="text-c ">
+                    <a href="javascript:doLS();" class="sfbtn sfbtn-opt3 w-70 mr-5">保存</a>
+                    <a href="javascript:closeLS();" id="quxiaoLsCancel" class="sfbtn sfbtn-opt w-70">取消</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 零售 -->
+<div class="popupBox addgoodspopup " >
+    <h2 class="popupHead">
+        选择商品
+        <a href="javascript:closeLsDiv();" class="sficon closePopup goodsListCloseup"></a>
+    </h2>
+    <div class="popupContainer">
+        <div class="pcontent">
+            <div class="popupMain pl-15 pt-15 pb-15">
+            	<form id="goodsListForm">
+	                <div class="mb-20 warnMsgContain">
+	                    <div class="f-l mr-20"><span>商品名称：</span><input type="text" id="goodsName" name="goodsName" class="priceWrap"></div>
+	                    <!-- <div class="f-l mr-20"><span>商品类别：</span><input type="text" name="goodsCategory" class="priceWrap">
+	                    </div>
+	                    <div class="f-l mr-20"><span>商品编号：</span><input type="text" name="goodsNumber" class="priceWrap">
+	                    </div> -->
+	                    <input id="alreadySelectedIds" name="alreadySelectedIds" hidden="hidden" />
+	                    <button type="button" class="sfbtn sfbtn-opt3 w-70 mr-5 f-r" onclick="getSiteGoodsList()">查询</button>
+	                </div>
+				</form>
+                <div class="mb-15 price_jiao" style="height: 250px;overflow: auto;">
+                    <table class="table table-bg table-border table-bordered table-sdrk text-c"
+                           style="table-layout: auto;">
+                        <thead>
+                        <tr>
+                            <th class="w-50"></th>
+                            <th class="w-300">商品名称</th>
+                            <th class="w-230">商品型号</th>
+                            <th class="w-100">库存</th>
+                        </tr>
+                        </thead>
+                        <tbody id="goodsList">
+	                        
+                        </tbody>
+                    </table>
+                </div>
+	            <p class="mark mb-30">备注：<br>
+	               	商品库存为0时，点击选中商品时提示：您选中的商品无库存，请重新选择。
+	            </p>
+                <div class="text-c ">
+                    <a href="javascript:addGoodsToSale();" class="sfbtn sfbtn-opt3 w-70 mr-5">保存</a>
+                    <a href="javascript:closeLS();" id="quxiaoLsCancel" class="sfbtn sfbtn-opt w-70">取消</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+	
+
+<script type="text/javascript" src="${ctxPlugin}/lib/datatables/1.10.0/jquery.dataTables.min.js"></script> 
+<script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script> 
+<script type="text/javascript">
+    var tichengWays = '${saleSet}';//服务商提成计算方式
+	$(function(){
+		$(".lingshou").popup();
+		dd = $('.dropdown-sin-2').dropdown({
+	        // data: json2.data,
+	        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+	        choice: function() {
+	        }
+	    }).data("dropdown");
+		$('.dropdown-sin-2').bind('click', function(){ 
+			/*工程师改变*/
+			employeChanges();
+		})
+		
+	    customerPriceChange(); 
+	})
+	
+	/*工程师改变*/
+	function employeChanges(){
+		
+    	var idAs = $("#xiaoName").val();
+    	console.log("change emp");
+	}
+	
+	function customerPriceChange(){
+		/*减*/
+		$('.reduce').click(function () {
+	        var num = $(this).next().text();
+	        if (num > 1) {
+	            num--;
+	            $(this).next().text(num);
+	            var customerPrice = 0;
+		        if($(this).parent("td").parent("tr").find("td").eq(2).find("select").hasClass("select")){//有折扣价的时候
+		        	customerPrice = $.trim($(this).parent("td").parent("tr").find("td").eq(2).find("select").val());
+		        }else{
+		        	customerPrice = $.trim($(this).parent("td").parent("tr").find("td").eq(2).text());
+		        }
+		        $(this).parent("td").parent("tr").find("td").eq(4).find("div").find("input").val(parseFloat(parseFloat(num) * parseFloat(customerPrice)).toFixed(2));
+	        }else{
+	        	//layer.msg("数量要求大于0！");
+	        	
+	        }
+	        evaluatePrice();
+	        return;
+	    });
+		/*加*/
+	    $('.plus_').click(function () {
+	        var num = $(this).prev().text();
+	        var stocks = $(this).parent("td").parent("tr").find("td").eq(1).find("span").eq(0).text();
+	        if(parseFloat(stocks) <= parseFloat(num)){
+	        	layer.msg("销售数量不得大于库存数！");
+	        	return;
+	        }
+	        num++;
+	        $(this).prev().text(num);
+	        var customerPrice = 0;
+	        if($(this).parent("td").parent("tr").find("td").eq(2).find("select").hasClass("select")){//有折扣价的时候
+	        	customerPrice = $.trim($(this).parent("td").parent("tr").find("td").eq(2).find("select").val());
+	        }else{
+	        	customerPrice = $.trim($(this).parent("td").parent("tr").find("td").eq(2).text());
+	        }
+	        $(this).parent("td").parent("tr").find("td").eq(4).find("div").find("input").val(parseFloat(parseFloat(num) * parseFloat(customerPrice)).toFixed(2));
+	        evaluatePrice();
+	    });
+	    
+	    /*价格改变*/
+		$(".selecthas").change(function(){
+			var num = $.trim($(this).parent("td").parent("tr").find("td").eq(3).find(".saleNum_").text());
+			$(this).parent("td").parent("tr").find("td").eq(4).find("div").find("input").val(parseFloat(parseFloat(num) * parseFloat($(this).val())).toFixed(2));
+			evaluatePrice();
+		});
+	    
+	    /*删除一条商品*/
+	    $(".reducemark").bind("click",function(){
+	    	addReducemarkPosition(this);
+	    	$(this).parent("td").parent("tr").remove();
+	    });
+	    
+	    /*添加商品时*/
+	    $(".addmark").bind("click",function(){
+	    	getSiteGoodsList();
+	    	$(".addgoodspopup").popup({level:2});
+	    });
+	    
+	    /*列表成交价改变*/
+	    $(".oneFinalPrice").change(function(){
+	    	evaluatePrice();
+	    });
+	    
+	    /*初始化计算价格*/
+	    evaluatePrice();
+	}
+	
+	/*初始化计算价格*/
+	function evaluatePrice(){
+		var orderRealAmount = 0;//成交总额
+		var orderConfirmAmount = 0;//实收金额
+		var orderSalesCommissions = 0;//提成金额
+		var orderPaidCommissions = 0;//当日支付 
+		$("#dataList").find("tr").each(function(){
+			var oneRealAmount = $(this).find("td").eq(4).find("div").find("input").eq(0).val();
+			/* var num = $(this).find("td").eq(3).find("saleNum_").text(); */
+			orderRealAmount =( parseFloat(oneRealAmount) + parseFloat(orderRealAmount) ).toFixed(2);
+			if(){
+				
+			}
+		})
+		$("#orderRealAmount").val(orderRealAmount);
+		$("#orderConfirmAmount").val(orderRealAmount);
+	}
+	
+	function getSiteGoodsList(){
+		var ids = "";
+		$("#dataList").find("tr").each(function(){
+			if(isBlank(ids)){
+				ids = $(this).find("td").eq(0).find("input").val();
+			}else{
+				ids += ","+ $(this).find("td").eq(0).find("input").val();
+			}
+		})
+		$("#alreadySelectedIds").val(ids);
+		$.ajax({
+    		type:"post",
+    		url:"${ctx}/goods/siteselfOrder/getSiteGoodsList",
+    		dataType:"json",
+    		data:$("#goodsListForm").serialize(),
+    		success:function(data){
+    			var html = "";
+    			if(data.length > 0){
+    				for(var i=0;i<data.length;i++){
+    					var dt = data[i].columns;
+    					var html1 = '<td><input type="checkbox"  value="'+dt.id+'" slStocks="'+dt.stocks+'"></td>';
+    					if(parseFloat(dt.stocks) <= parseFloat(0)){
+    						html1 = '<td><input type="checkbox" class="disabledclass" value="'+dt.id+'" slStocks="'+dt.stocks+'"></td>';
+    					}
+    					html += '<tr>'+html1+
+			                        '<td> '+dt.name+'</td>'+
+			                        '<td>'+(isBlank(dt.model) ? '无' : dt.model)+'</td>'+
+			                        '<td>'+dt.stocks+(isBlank(dt.unit) ? '个' : dt.unit)+'</td>'+
+			                    '</tr>';
+        			}
+    			}
+    			$("#goodsList").empty().append(html);
+    			$(".disabledclass").bind("click",function(){
+    				layer.msg("您选中的商品无库存,请重新选择！");
+    				return;
+    			})
+    		}
+    	})
+	}
+	
+	function isBlank(val){
+		if(val==null || $.trim(val)=='' || val==undefined){
+			return true;
+		}
+		return false;
+	}
+	
+	function addReducemarkPosition(obj){
+		var mark = "1";
+		$(obj).parent("td").parent("tr").find("td").eq(5).find("img").each(function(){
+			if($(this).hasClass("addmark")){
+				mark = "2";
+			}
+		})
+		if(mark=='2'){//自身有添加的标识
+			$(obj).parent("td").parent("tr").prev("tr").find("td").eq(5).append('<img src="${ctxPlugin}/static/h-ui.admin/images/addItem.png" class="addmark" alt="" width="25">');
+			if($("#dataList").find("tr").length==2){
+				$(obj).parent("td").parent("tr").prev("tr").find("td").eq(5).find(".reducemark").remove();
+			};
+		}else{//自身无添加的标识
+			if($("#dataList").find("tr").length==2){
+				$(obj).parent("td").parent("tr").next("tr").find("td").eq(5).find(".reducemark").remove();
+			};
+		}
+	}
+	
+	function closeLS(){
+		$(".goodsListCloseup").trigger("click");
+	}
+	
+	function closeLsDiv(){
+		$("#goodsName").val('');
+	}
+	
+	function getSelectedGoodsList(){
+		var ids = "";
+		var mark = "1";
+		debugger
+		$("#goodsList").find("tr").each(function(){
+			var id = $(this).find("td").eq(0).find("input").val();
+			if($(this).find("td").eq(0).find("input").is(':checked')){
+				var stocks = $(this).find("td").eq(0).find("input").attr("slStocks");
+				if(parseFloat(stocks) <= parseFloat(0)){
+					mark = "2";
+				}
+				if(isBlank(ids)){
+					ids = id;
+				}else{
+					ids += ","+ id;
+				}
+			}
+		});
+		if(mark=='2'){
+			layer.msg("您选中的商品无库存,请重新选择！");
+			return "no";
+		}
+		return ids;
+	}
+	
+	var addGoodsToSaleMark = false;
+	function addGoodsToSale(){
+		if(addGoodsToSaleMark){
+			return;
+		}
+		var ids = getSelectedGoodsList();
+		if("no"==ids){
+			return;
+		}
+		addGoodsToSaleMark = true;
+		$.ajax({
+			type:"post",
+    		url:"${ctx}/goods/siteselfOrder/getSelectedAddGoods",
+    		dataType:"json",
+    		data:{ids:ids},
+    		success:function(data){
+				var html = "";				
+				if(data.length > 0){
+					for(var i=0;i<data.length;i++){
+						var dt = data[i].columns;
+						var html1 = dt.customer_price;
+						var html2 = "";
+						if(i==data.length-1){
+							html2 = '<img src="${ctxPlugin}/static/h-ui.admin/images/addItem.png" alt="" class="addmark"  width="25">';
+						}
+						if(dt.rebate_flag=='1'){
+							html1 = '<select class="select selecthas">'+
+							    		'<option value="'+dt.customer_price+'">'+dt.customer_price+'</option>'+
+							    		'<option value="'+dt.rebate_price+'">'+dt.rebate_price+'</option>'+
+							    	'</select>';
+						}
+						html += '<tr>'+
+			                        '<td>'+dt.name+'<input class="selectedId" value="'+dt.id+'" hidden="hidden" /></td>'+
+			                        '<td><span class="stocksmark"> '+dt.stocks +'</span>'+ (isBlank(dt.unit) ? '个' : dt.unit)+'</td>'+
+			                        '<td>'+html1+'</td>'+
+			                        '<td class="gModel">'+
+			                            '<span class="reduce">-</span><span class="saleNum_">1</span><span class="plus_">+</span>'+
+			                        '</td>'+
+			                        '<td class="gCategory">'+
+			                            '<div class="priceWrap f-l">'+
+			                                '<input type="text" value="'+dt.customer_price+'" class="input-text"/>'+
+			                                '<span class="unit">元</span>'+
+			                            '</div>'+
+			                        '</td>'+
+			                        '<td class="gUnit">'+
+			                            '<img src="${ctxPlugin}/static/h-ui.admin/images/delete_.png" class="reducemark" alt="" width="25" class="mr-20">'+
+			                            html2 + 
+			                        '</td>'+
+			                    '</tr>';
+					}
+				}
+				$("#dataList").find(".addmark").remove();
+				if($("#dataList").find("tr").length==1){
+					$("#dataList").find("tr").find("td").eq(5).append('<img src="${ctxPlugin}/static/h-ui.admin/images/delete_.png" class="reducemark" alt="" width="25" class="mr-20">');
+				}
+				$("#dataList").append(html);
+				customerPriceChange();
+				addGoodsToSaleMark = false;
+				$(".goodsListCloseup").trigger("click");
+			},
+			error:function(){
+				alert("error");
+			}
+		})
+		
+	}
+	
+	
+</script> 
+</body>
+</html>

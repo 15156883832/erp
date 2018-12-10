@@ -1,0 +1,269 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+  <head>
+    <meta name="decorator" content="base"/>
+  </head>
+  <body>
+    <div class="sfpagebg bk-gray">
+	<div class="sfpage  table-header-settable">
+	<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+			<a class="btn-tabBar  current" href="${ctx}/order/viewManager">弹屏设备</a>
+			<a class="btn-tabBar"  href="${ctx }/goods/platFormOrder/bombScreenHeaderList">弹屏订单</a>
+			<p class="f-r btnWrap">
+				<a class="sfbtn sfbtn-opt" onclick="add()" ><i class="sficon sficon-add"></i>添加</a>
+			</p>
+		</div>
+			
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<div>
+					<table id="table-waitdispatch" class="table"></table>
+					<!-- pagination -->
+					<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+					<!-- pagination -->
+				</div>
+			</form>
+		</div>
+	</div>
+</div>
+
+</div>
+</div>
+
+
+<!-- 添加 -->
+<div class="popupBox gysxzsp" style="width:450px">
+	<h2 class="popupHead">
+		   <span id="headtype">添加</span>
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain">
+			<div style="padding-left:50px">
+				<div class="cl mb-10">
+					<label class="f-l w-90"><em class="mark">*</em>服务商名称：</label>
+					<input type="text" class="input-text w-200 f-l gyname"  id="name" name="name"/>
+				</div>
+				<div class="cl mb-10">
+					<label class="f-l w-90"><em class="mark">*</em>设备序列号：</label>
+					<input type="text" class="input-text w-200 f-l gycontactor"  id="loginName" name="seriNo"/>
+				</div>
+			</div>
+			<div class="text-c mt-20">
+				<a href="javascript:;" class="sfbtn sfbtn-opt3 w-70 mr-5"  onclick="save()">保存</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt w-70 mr-5"  onclick="closed()">取消</a>
+			</div>
+		
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript">
+var type;
+var oId;
+
+var oldserino="";
+var deviceId="";
+
+var sfGrid;
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+
+$(function(){
+	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	initSfGrid();
+});
+
+//初始化jqGrid表格，传递的参数按照说明
+function initSfGrid(){
+	var url = "${ctx}/order/getViewList";
+	sfGrid = $("#table-waitdispatch").sfGrid({
+		url:url, 
+		sfHeader:defaultHeader,
+		sfSortColumns:sortHeader,
+		shrinkToFit: true,
+		multiselect: false,
+		rownumbers : true,
+ 		gridComplete:function(){
+ 			_order_comm.gridNum();
+ 		}
+	});
+}
+
+function closed(){
+	$.closeDiv($(".gysxzsp"));
+}
+function add(){
+	$("#headtype").text("添加");
+	$("input[name='name']").removeClass("readonly");
+	$("input[name='name']").prop("readonly",false);
+	$("input").val("");
+	$(".gysxzsp").popup();
+}
+
+function fmtOper(rowData){	
+	return "<span><a href=javascript:addEdit('"+rowData.id+"') style='color:blue'>修改</a></span>&nbsp;&nbsp;<span><a style='color:blue' href=javascript:deleteMsg('"+rowData.id+"')>删除</a></span>";	
+}
+
+function search(){
+	var pageSize = $("#pageSize").val();
+	if ($.trim(pageSize) == '' || pageSize == null) {
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch({
+        postData: $("#searchForm").serializeJson()
+    });
+}
+
+$("input[name='seriNo']").blur(function(){
+	var seriNo=$(this).val();
+	if(!isBlank(oldserino)){
+		if($.trim(oldserino)!=$.trim(seriNo)){
+			check(seriNo);
+			return;
+		}
+	}else{
+		check(seriNo);
+	}
+})
+
+function check(seriNo){
+	$.ajax({
+		type: "POST",
+		url: "${ctx}/order/quRepeat",
+		data:{seriNo:seriNo,oldserino:oldserino,deviceId:deviceId},
+		datatype:"text",
+		success: function (result) {
+			if(result=="ok"){
+				layer.msg("该序列号已存在，请重新输入！");
+				$("input[name='seriNo']").focus();
+				return;
+			}
+		},
+		error: function () {
+			layer.msg("系统繁忙!");
+			return;
+		},
+
+	});
+}
+
+
+function save(){
+	var serviceName=$("input[name='name']").val();
+	var seriNo=$("input[name='seriNo']").val();
+	if(isBlank(serviceName)){
+		layer.msg("请输入服务商名称！");
+		return;
+	}else if(isBlank(seriNo)){
+		layer.msg("请输入序列号！");
+		return;
+	}else{
+		$.ajax({
+			type: "POST",
+			url: "${ctx}/order/addPingView",
+			data:{name:serviceName,seriNo:seriNo,oldserino:oldserino,id:deviceId},
+			datatype:"text",
+			success: function (result) {
+				if(result=="ok"){
+					oldserino="";
+					if(!isBlank(deviceId)){
+						layer.msg("修改成功！");
+					}else{
+						layer.msg("添加成功！");
+					}
+					deviceId="";
+					$.closeDiv($(".gysxzsp"));
+					$('#table-waitdispatch').trigger("reloadGrid");
+				}else if(result=="200"){
+					layer.msg("服务商名称不存在，请重新输入！");
+				}else{
+					layer.msg("设备序列号已存在，请重新输入！");
+				}
+			},
+			error: function () {
+				layer.msg("系统繁忙!");
+				return;
+			},
+
+		});
+	}
+	
+}
+
+function deleteMsg(id){
+	$('body').popup({
+		level: '3',
+		type: 2,  // 提示是否进行某种操作
+		content: '确认要删除该服务商序列号吗？',
+		fnConfirm: function () {
+			$.ajax({
+				type: "POST",
+				url: "${ctx}/order/deleteMsg",
+				data:{id:id},
+				datatype:"text",
+				success: function (result) {
+					if(result=="ok"){
+						layer.msg("删除成功！");
+						$('#table-waitdispatch').trigger("reloadGrid");
+					}
+				},
+				error: function () {
+					layer.msg("系统繁忙!");
+					return;
+				},
+
+			});
+		},
+		fnCancel: function () {
+			
+		}
+	});
+}
+
+function addEdit(id){
+	$.ajax({
+		type: "POST",
+		url: "${ctx}/order/getDevice",
+		data:{id:id},
+		datatype:"json",
+		success: function (result) {
+			if(result!="null"){
+				$("input[name='name']").val(result.columns.name);
+				$("input[name='name']").addClass("readonly");
+				$("input[name='name']").prop("readonly",true);
+				$("input[name='seriNo']").val(result.columns.serial_no);
+				deviceId=result.columns.id;
+				oldserino=result.columns.serial_no;
+				$("#headtype").text("修改");
+				$(".gysxzsp").popup();
+			}
+		},
+		error: function () {
+			layer.msg("系统繁忙!");
+			return;
+		},
+
+	});
+}
+
+function isBlank(val) {
+	if(val==null || val=='' || val == undefined) {
+		return true;
+			}
+	return false;
+}
+</script>
+  </body>
+</html>

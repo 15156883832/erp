@@ -1,0 +1,164 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+  <head>
+    
+    <meta name="decorator" content="base"/>
+	<!--
+	<link rel="stylesheet" type="text/css" href="styles.css">
+	-->
+<script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+	  <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/>
+	  <script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+  </head>
+  
+  <body>
+  <div class="popupBox gcsjsmxhzWrap">
+	<h2 class="popupHead">
+		提成汇总
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain pd-15" >
+		<form action="${ctx}/finance/revenue/employeCostGoodsAll" id="searchForm" method="post">
+		<input type="hidden" name="page" id="pageNo" value="1">
+		<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+			<div class="cl mb-10">
+				<label class="f-l w-100 text-r">&#12288;&#12288;&#12288;销售人员：</label>
+				<span class=" f-l w-120">
+				<select class="select f-l w-120" name="employeName" id="employeName">
+					<option value="">请选择</option>
+					<c:forEach items="${empList }" var="el">
+						<option value="${el.columns.salesman }" <c:if test="${map1.employeName==el.columns.salesman }">selected="selected"</c:if>>${el.columns.salesman }</option>
+					</c:forEach> 
+				</select>
+				</span> 
+				
+				<label class="f-l w-100 text-r">商品名称：</label>
+				<input type="text"  id="goodName" name="goodName" value="${map1.goodName }" class="input-text  f-l w-120" >
+				
+				<label class="f-l w-100 text-r">零售时间：</label>
+				<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'createTimeMax\')||\'%y-%M-%d\'}'})" id="createTimeTimeMin" name="createTimeMin" value="${map1.createTimeMin }" class="input-text Wdate f-l w-120" style="width:120px">
+				<span class="pd-5 f-l"> 至</span>
+				<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'createTimeMin\')}',maxDate:'%y-%M-%d'})" id="createTimeMax" name="createTimeMax" value="${map1.createTimeMax }" class="input-text Wdate f-l w-120" style="width:120px">
+			</div>
+			<div class="cl mb-10">
+				<label class="f-l w-100 text-r">收款时间：</label>
+				<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'confirmTimeTimeMax\')||\'%y-%M-%d\'}'})" id="confirmTimeTimeMin" name="confirmTimeTimeMin" value="${map1.confirmTimeTimeMin }" class="input-text Wdate f-l w-120" style="width:120px">
+				<span class="pd-5 f-l"> 至</span>
+				<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'confirmTimeTimeMin\')}',maxDate:'%y-%M-%d'})" id="confirmTimeTimeMax" name="confirmTimeTimeMax" value="${map1.confirmTimeTimeMax }" class="input-text Wdate f-l w-120" style="width:120px">
+				
+				<label class="f-l w-100 text-r" style="margin-left: 78px">出库时间：</label>
+				<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'outstockTimeMax\')||\'%y-%M-%d\'}'})" id="outstockTimeMin" name="outstockTimeMin" value="${map1.outstockTimeMin }" class="input-text Wdate f-l w-120" style="width:120px">
+				<span class="pd-5 f-l"> 至</span>
+				<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'outstockTimeMin\')}',maxDate:'%y-%M-%d'})" id="outstockTimeMax" name="outstockTimeMax" value="${map1.outstockTimeMax }" class="input-text Wdate f-l w-120" style="width:120px">
+			</div>
+		</form>
+			<div class="mt-15" id="gcsjsmx">
+				<div class="tabBarP2 mb-15">
+					<a class="radiobox  mr-15" onclick="huizong1()"  >提成明细</a>
+					<a class="radiobox radiobox-selected"  onclick="huizong()" >汇总</a>
+					
+					<a class="sfbtn sfbtn-opt w-70 f-r ml-10" target="_blank" onclick="return exports()"><i class="sficon sficon-export"></i>导出</a>
+					<a class="sfbtn sfbtn-opt w-70 f-r ml-10" href="javascript:search();"><i class="sficon sficon-search"></i>查询</a>
+				</div>
+				<div>
+					<div class="boxWrap" id="boxWrapHead">
+						<table class="table table-bg table-border table-bordered table-sdrk" id="huizongtable">
+							<thead>
+								<tr>
+									<th style="width: 25%;">销售人员</th>
+									<th style="width: 25%;">提成金额</th>
+								</tr>
+							</thead>
+						</table>
+					</div>
+					<div class="boxWrap" id="boxWrapTable">
+						<table class="table table-border table-bordered text-c"  style="border-top: 0;">
+							<tbody id="countCost">
+								<c:forEach items="${page.list}" var="pl">
+									<tr>
+										<td>${pl.columns.salesman }</td>
+										<td>${pl.columns.ticheng }</td>
+									</tr> 
+								</c:forEach> 
+							</tbody>
+						</table>
+					</div>
+					
+					
+					<div class="cl mt-10">
+						<!-- 分页 -->
+						<div class="pagination">${page}</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+   
+<script type="text/javascript">
+
+$(function(){
+	
+	
+	 $('.gcsjsmxhzWrap').popup();
+	$.setPos($('.gcsjsmxhzWrap'));
+	initTableH();
+    $('#employeName').select2();
+    $(".selection").css("width","120px");
+})
+
+function search(){
+	$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+	$('#pageNo').val('1');
+	$('#searchForm').submit();
+}
+
+function page(n, s) {
+	$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+	$("#pageNo").val(n);
+	$("#pageSize").val(s);
+	$("#searchForm").submit();
+	return;
+}
+
+function initTableH(){
+	var h2 = $('#boxWrapTable table').height();
+	if(h2 > 470){
+		$('#boxWrapHead').css({'padding-right':'17px'});
+	}
+}
+
+function exports(){
+	var idArr=document.getElementById("huizongtable").rows.length ;
+	var content="共"+idArr+"条数据，本次允许导出前10000条，确定继续导出吗？";
+	if(idArr>10000){
+		$('body').popup({
+			level:3,
+			title:"导出",
+			content:content,
+			 fnConfirm :function(){
+				 location.href="${ctx}/finance/revenue/employeCostGoodsAllExports?maps="+$("#searchForm").serialize();
+			 }
+		});
+	}else{
+		 location.href="${ctx}/finance/revenue/employeCostGoodsAllExports?maps="+$("#searchForm").serialize();
+	}
+
+}
+
+function huizong(){
+	window.location.href="${ctx}/finance/revenue/employeCostGoodsAll?map="+$("#searchForm").serialize();
+	$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+}
+
+function huizong1(){
+	window.location.href="${ctx}/finance/revenue/toEmployeGoodsDetail?map="+$("#searchForm").serialize();
+	$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+}
+
+</script>
+  </body>
+</html>

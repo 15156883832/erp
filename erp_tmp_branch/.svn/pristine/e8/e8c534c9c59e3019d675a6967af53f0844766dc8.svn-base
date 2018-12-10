@@ -1,0 +1,141 @@
+package com.jojowonet.modules.finance.dao;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.finance.entity.BalanceManager;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+import org.springframework.stereotype.Repository;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by yc on 2017/12/25.
+ * 收支流水管理dao
+ */
+
+@Repository
+public class BalanceManagerDao extends BaseDao<BalanceManager>{
+    public List <Record> getbalancemanagerlist(Page <Record> page, String siteId, Map <String, Object> map) {
+        StringBuffer sf = new StringBuffer();
+        sf.append("SELECT a.*,b.name as exacctName from crm_site_balance a LEFT JOIN crm_exacct b on a.exacct_id=b.id ");
+        sf.append(" where a.site_id=? and a.status='0' ");
+        sf.append(getCondition(map));
+        sf.append(" order by a.occur_time desc, a.create_time desc");
+        if (page != null) {
+            sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+        }
+        return Db.find(sf.toString(), siteId);
+    }
+
+    public long getcount(String siteId, Map <String, Object> map) {
+        StringBuffer sf = new StringBuffer();
+        sf.append("SELECT COUNT(*) FROM crm_site_balance a LEFT JOIN crm_exacct b on a.exacct_id=b.id");
+        sf.append(" where a.site_id=? and a.status='0' ");
+        sf.append(getCondition(map));
+        return Db.queryLong(sf.toString(), siteId);
+    }
+
+    public String getCondition(Map <String, Object> map) {
+        StringBuffer sf = new StringBuffer();
+        if (map != null) {
+            if (StringUtil.checkParamsValid(map.get("exacctName"))) {
+                String str[] = map.get("exacctName").toString().split(",");
+                sf.append(" and b.name in (" + StringUtil.joinInSql(str) + ")");
+            }
+            if (StringUtil.checkParamsValid(map.get("costType"))) {
+                String costType = (String) map.get("costType");
+                sf.append(" and a.cost_type='" + costType + "'");
+            }
+            if (StringUtil.checkParamsValid(map.get("costType"))) {
+            	String costType = (String) map.get("costType");
+            	sf.append(" and a.cost_type='" + costType + "'");
+            }
+            if (StringUtil.checkParamsValid(map.get("detailContent"))) {
+            	String detailContent = (String) map.get("detailContent");
+            	sf.append(" and a.detail_content like '%" + detailContent + "%'");
+            }
+            if (StringUtil.checkParamsValid(map.get("exacctBrand"))) {
+            	String exacctBrand = (String) map.get("exacctBrand");
+            	sf.append(" and a.exacct_brand like '%" + exacctBrand + "%'");
+            }
+            if (StringUtil.checkParamsValid(map.get("remarks"))) {
+            	String remarks = (String) map.get("remarks");
+            	sf.append(" and a.remarks like '%" + remarks + "%'");
+            }
+
+            if (StringUtil.checkParamsValid(map.get("createName"))) {
+                String str[] = map.get("createName").toString().split(",");
+                sf.append(" and a.create_by in (" + StringUtil.joinInSql(str) + ")");
+            }
+            if (StringUtil.checkParamsValid(map.get("costproducer"))) {
+                String str[] = map.get("costproducer").toString().split(",");
+                sf.append(" and a.cost_producer in (" + StringUtil.joinInSql(str) + ")");
+            }
+            if (StringUtil.checkParamsValid(map.get("occurTimesMin"))) {
+                sf.append(" and a.occur_time >= '" + (map.get("occurTimesMin")) + " 00:00:00'  ");
+            }
+            if (StringUtil.checkParamsValid(map.get("occurTimesMax"))) {
+                sf.append(" and a.occur_time <= '" + (map.get("occurTimesMax")) + " 23:59:59' ");
+            }
+        }
+        return sf.toString();
+    }
+    //获得网点名
+    public List <Record> getSiteBysiteid(String siteId) {
+        String sql = "select * from crm_site where id=?";
+        return Db.find(sql, siteId);
+    }
+   //获得网点下的信息员，会计员，配件员等员工信息
+    public List <Record> getAllServicemanlist(String siteId) {
+        StringBuffer sql = new StringBuffer("");
+        sql.append(" select ns.id,ns.name,u.user_type as gangStatus,u.email as roleName,ns.user_id as user_id ");
+        sql.append(" from crm_employe  ns LEFT JOIN sys_user u ON ns.user_id=u.id ");
+        sql.append(" where ns.site_id='" + siteId + "' and (u.status='0') and ns.status='0' ");
+        return Db.find(sql.toString());
+    }
+   //获取网点下的所有服务工程师信息
+    public List <Record> getAllEmployeInfo(String siteId) {
+        StringBuffer sql = new StringBuffer("");
+        sql.append("select ns.id,ns.name,u.user_type as gangStatus,ns.site_id as roleName,ns.user_id as user_id ");
+        sql.append(" from crm_non_serviceman ns");
+        sql.append(" left join sys_user u on ns.user_id=u.id");
+        sql.append(" where ns.site_id='" + siteId + "' and (u.status='0') and ns.status='0' ");
+        return Db.find(sql.toString());
+    }
+   //获取收入的金额总和
+   public BigDecimal getIncome(String siteId, Map <String, Object> map) {
+       StringBuffer sql = new StringBuffer("");
+       sql.append("select round(sum(cost_total),2) from crm_site_balance a LEFT JOIN crm_exacct b on a.exacct_id=b.id and b.status='0' ");
+       sql.append(" where  a.cost_type='0' and  a.site_id='" + siteId + "' and a.status='0' ");
+       sql.append(getCondition(map));
+       return Db.queryBigDecimal(sql.toString());
+   }
+   //获取支出总和
+   public BigDecimal getOutcome(String siteId, Map <String, Object> map) {
+       StringBuffer sql = new StringBuffer("");
+       sql.append("select round(sum(cost_total),2) from crm_site_balance a LEFT JOIN crm_exacct b on a.exacct_id=b.id and b.status='0' ");
+       sql.append(" where  a.cost_type='1' and  a.site_id='" + siteId + "' and a.status='0' ");
+       sql.append(getCondition(map));
+       return Db.queryBigDecimal(sql.toString());
+   }
+
+   public String getBalanceIdBycollectionId(String collectionId,String siteId){
+        String sql = "select id from crm_site_balance where collection_id=? and site_id=?";
+        return Db.queryStr(sql,collectionId,siteId);
+   }
+   public Record getBalanceById(String id){
+       String sql = "select * from crm_site_balance where id=?";
+       return Db.findFirst(sql,id);
+   }
+
+   public int deleteByid(String id){
+       String sql = "update crm_site_balance set status='1' where id=?";
+       return Db.update(sql,id);
+   }
+
+}

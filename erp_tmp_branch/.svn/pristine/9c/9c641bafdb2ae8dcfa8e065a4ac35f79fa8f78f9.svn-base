@@ -1,0 +1,350 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<title>全部工单</title>
+<meta name="decorator" content="base"/>
+	<meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+<script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+</head>
+<body>
+<div class="sfpagebg bk-gray">
+<div class="sfpage table-header-settable">
+<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+			<sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEATTEND_EMPLOYEPOSITION_TAB" html='<a class="btn-tabBar " href="${ctx }/operate/employeOrientation/firstPage">工程师定位</a>'></sfTags:pagePermission>
+			<sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEATTEND_EMPLOYERECORD_TAB" html='<a class="btn-tabBar current" href="${ctx }/operate/employeDailySign/headerList">考勤记录</a>'></sfTags:pagePermission>
+			<p class="f-r btnWrap">
+				<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:reset();" class="sfbtn sfbtn-opt resetSearchBtn" ><i class="sficon sficon-reset"></i>重置</a>
+			</p>
+		</div>
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<div class="bk-gray pt-10 pb-5">
+					<table class="table table-search">
+						<tr>
+							<th style="width: 76px;" class="text-r">姓名：</th>
+							<td>
+								<input type="text" class="input-text" name= "employeName"/>
+							</td>
+							<th style="width: 76px;" class="text-r">打卡类别：</th>
+							<td>
+								<span class="select-box">
+									<select class="select" name="signType">
+										<option value="">请选择</option>
+										<option value="1">签到</option>
+										<option value="2">签退</option>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">打卡状态：</th>
+							<td>
+								<span class="select-box">
+									<select class="select" name="signResult">
+										<option value="">请选择</option>
+										<option value="0">正常</option>
+										<option value="1">迟到</option>
+										<option value="2">早退</option>
+										<option value="4">未打卡</option>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">打卡日期：</th>
+							<td colspan="2">
+								<input type="text" class="input-text Wdate" onFocus="WdatePicker({readOnly:true,lang:'zh-cn',dateFmt:'yyyy-MM-dd'})" value="${date}" id="startDate1" name = "startDate" readonly/>&nbsp;至&nbsp;<input type="text" onFocus="WdatePicker({readOnly:true,lang:'zh-cn',dateFmt:'yyyy-MM-dd'})" value="${date}" class="input-text Wdate" id="endDate1" name = "endDate" readonly/>
+							</td>
+						</tr>
+					</table>
+				</div>
+			</form>
+			
+			<div class="pt-10 pb-5 cl">
+				<div class="f-r">
+				<sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEATTEND_EMPLOYERECORD_EXPORT_BTN" html='<a  onclick="return exports()" class="sfbtn sfbtn-opt2"><i class="sficon sficon-export"></i>导出</a>'></sfTags:pagePermission>
+				</div>
+								
+			</div>
+			
+			<div>
+				<table id="table-waitdispatch" class="table"></table>
+				<!-- pagination -->
+					<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+					<!-- pagination -->
+			</div>
+			
+		</div>
+	</div>
+</div>
+</div>
+</div>
+
+<!-- 修改打卡时间-->
+<div class="popupBox spqrsf">
+	<h2 class="popupHead">
+		修改打卡时间
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain">
+			<div class="pcontent" id="confirmGatheringbox" >
+				<div class="mb-10 cl">
+					<label class="w-130 f-l">打卡时间：</label>
+					<input type="text" class="input-text Wdate w-150" onFocus="WdatePicker({readOnly:true,lang:'zh-cn',dateFmt:'HH:mm'})" value="" id="signTime" name = "signTime"/>
+					<input type="text" class="input-text" hidden="hidden" value=""  id="signType" name = "signTime"/>
+					<input type="text" class="input-text" hidden="hidden" value=""  id="date" name = "date"/>
+				</div>
+			</div> 
+			<div class="text-c mt-35">
+				<a href="javascript:;" onclick="confirmEdit()" class="sfbtn sfbtn-opt3 w-70 mr-5">确定</a>
+				<a href="javascript:;" id="btn-confirm-cancel" class="sfbtn sfbtn-opt w-70 mr-5">取消</a>
+			</div>
+		</div>	
+	</div>
+</div>
+
+<script type="text/javascript" src="http://webapi.amap.com/maps?v=1.3&key=727b25e7366ab5015225754e8ee00fef"></script>
+<script type="text/javascript">
+	
+var id = '${headerData.id}';						//服务商表格的ID
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var defaultId = '${headerData.defaultId}';			//系统表格的ID
+var rId;
+var signType;
+var ifFk;
+var bolean = '${ifExist}';
+
+var date = new Date();
+$("#startDate").val(date.toLocaleDateString()); 
+$("#endDate").val(date.toLocaleDateString()); 
+
+$(function(){
+ 	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	initSfGrid(); 
+});
+
+function search(){
+	var pageSize = $("#pageSize").val();
+	if ($.trim(pageSize) == '' || pageSize == null) {
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch({
+        postData: $("#searchForm").serializeJson()
+    });
+}
+
+function initSfGrid(){ //加载grid表格
+	$("#table-waitdispatch").sfGrid({
+		url : '${ctx}/operate/employeDailySign/employeDailySignGrid',
+		sfHeader: defaultHeader,
+		sfSortColumns: sortHeader,
+		postData:$("#searchForm").serializeJson(),
+		shrinkToFit:true,
+		rownumbers : true,
+		gridComplete:function(){
+			_order_comm.gridNum();
+		}
+	});
+} 
+
+function fmtOper(rowData){ //列表操作
+	if(isBlank(rowData.id)){
+		return "---";
+	}
+	var html1;
+	var html2;
+	if('${fns:checkBtnPermission("FITTINGMGM_FITSTOCK_COMPANYSTOCK_ADJUSTSTOCK_BTN")}' === 'true'){
+		html1 = "<span  ><a onclick='msg()'class='c-0383dc' ><i class='sficon sficon-edit'></i>修改打卡时间</a></span>";
+		html2 = "<span  ><a onclick='editSignTime(\""+rowData.id+"\",\""+rowData.sign_time+"\",\""+rowData.sign_type+"\",\""+rowData.date+"\")'class='c-0383dc' ><i class='sficon sficon-edit'></i>修改打卡时间</a></span>";
+		if(bolean=="1"){
+			return html1 ;
+		}else{
+			return html2;
+		}
+	}
+	
+}
+
+function statusOne(rowData){ //列表打卡状态
+	if(isBlank(rowData.id)){
+		return "未打卡";
+	}
+	if(bolean=="1"){
+		return "<span><a href='${ctx}/operate/employeDailySign/signEdit' class='c-0383dc'>设置</a></span>";
+	}else{
+		if(rowData.sign_result=='0'){
+			return "<span>正常</span>";
+		}else if(rowData.sign_result=='1'){
+			return "<span>迟到</span>";
+		}else if(rowData.sign_result=='2'){
+			return "<span>早退</span>";
+		}
+	}
+	
+}
+
+function typeOne(rowData){ //列表打卡类别
+	if(isBlank(rowData.id)){
+		return "---";
+	}
+	if(bolean=="1"){
+		return "<span>---</span>";
+	}else{
+		if(rowData.sign_type=='1'){
+			return "<span>签到</span>";
+		}else if(rowData.sign_type=='2'){
+			return "<span>签退</span>";
+		}
+	}
+}
+
+function hmTime(rowData){
+	if(isBlank(rowData.id)){
+		return "---";
+	}
+	if(bolean=="1"){
+		return "<span>---</span>";
+	}else{
+		return "<span>"+rowData.hm+"</span>";
+	}
+}
+
+function ymdTime(rowData){
+	if(isBlank(rowData.id)){
+		return "---";
+	}
+	if(bolean=="1"){
+		return "<span>---</span>";
+	}else{
+		return "<span>"+rowData.ymd+"</span>";
+	}
+}
+
+function minutes(rowData){
+	if(isBlank(rowData.id)){
+		return "---";
+	}
+	if(bolean=="1"){
+		return "<span>---</span>";
+	}else{
+		if(rowData.sign_result=='0'){
+			return "<span>---</span>";
+		}else{
+			return "<span>"+rowData.out_time+"</span>";
+		}
+	}
+}
+
+function signAddress(rowData){
+	if(isBlank(rowData.id)){
+		return "---";
+	}
+	if(bolean=="1"){
+		return "<span>---</span>";
+	}else{
+		return "<span>"+rowData.sign_address+"</span>";
+	}
+	
+}
+
+function fmtEmploye(rowData){
+	
+}
+
+function isBlank(val){
+	if(val==null || $.trim(val)=='' || val==undefined){
+		return true;
+	}
+	return false;
+}
+
+function editSignTime(rowId,signTime,signType,date){ //列表中点击收款操作
+	$("#signTime").val(signTime.substring(11,16));
+	$("#signType").val(signType);
+	$("#date").val(date);
+	rId=rowId;	
+	signType=signType;
+	$('.spqrsf').popup();
+}
+
+function confirmEdit(){
+	var date = $("#date").val();
+	var d = new Date();
+	var signTime = date+" "+$("#signTime").val()+":00";
+	var signType = $("#signType").val();
+	
+	$.ajax({
+			type:"POST",
+			url:"${ctx}/operate/employeDailySign/editSignTime",
+			data:{rowId:rId,
+				signTime:signTime,
+				signType:signType,
+				date:date}, 
+			dataType:'json',
+			success:function(result){
+				if(result==true){
+					layer.msg("保存成功！");
+					window.location.reload(true);
+					$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+				}else{
+					$('body').popup({
+						level:'3',
+						type:1,
+						content:"修改失败，请检查！"
+					})
+				}
+				
+			}
+	})
+}
+
+$('#btn-confirm-cancel').on('click', function() { //点击取消 关闭修改打卡时间弹出框
+	$.closeDiv($('.spqrsf'));
+});
+
+function msg(){
+	$('body').popup({
+		level:'3',
+		type:1,
+		content:"未设置考勤，无法修改！"
+	})
+}
+
+function reset(){
+	$("#startDate1").val('');
+	$("#endDate1").val('');
+}
+
+
+function exports(){
+	var idArr=$("#table-waitdispatch").jqGrid('getGridParam','records')
+	var content="共"+idArr+"条数据，本次允许导出前10000条，确定继续导出吗？";
+	if(idArr>10000){
+		$('body').popup({
+			level:3,
+			title:"导出",
+			content:content,
+			 fnConfirm :function(){
+				 location.href="${ctx}/operate/employeDailySign/export?formPath=/a/operate/employeDailySign/headerList&&maps="+$("#searchForm").serialize();
+			 }
+	
+		});
+	}else{
+		location.href="${ctx}/operate/employeDailySign/export?formPath=/a/operate/employeDailySign/headerList&&maps="+$("#searchForm").serialize();
+	}
+
+}
+</script>
+	
+</body>
+</html>

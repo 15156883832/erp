@@ -1,0 +1,1041 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta name="decorator" content="base"/>
+
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select2.min.css"/>
+	<script type="text/javascript" src="${ctxPlugin}/lib/select2.full.min.js"></script>
+
+	<title>回访结算工单-工单详情</title>
+	<style type="text/css">
+		.has-switch{ min-width: 70px;}
+		.has-switch span, .has-switch label{
+			padding-top: 0;
+			padding-bottom: 0;
+			line-height: 22px;
+			height: 22px;
+		}
+		/*.addJsBox{ z-index: 500 !important;}*/
+	</style>
+</head>
+<body>
+
+<div class="popupBox  orderSettle">
+	<h2 class="popupHead">
+		工单结算
+		<a href="javascript:;" class="sficon closePopup jiesuan-popup"></a>
+	</h2>
+	<div class="popupContainer pos-r pb-60">
+		<div class="popupMain" >
+			<div class="pcontent pl-15 pt-10"><div class="w-830">
+				<h3 class="modelHead mb-10">收入</h3>
+				<div class="cl mb-10">
+					<label class="w-110 text-r f-l">厂家结算费：</label>
+					<%--
+					<div id="switch1" class="switch f-l mr-15" data-on-label="有" data-off-label="无">
+						<input type="checkbox" id="factoryFeeChecker"/>
+					</div>
+					--%>
+					<div class="priceWrap w-100 f-l factoryPriceWrap">
+						<input type="text" class="input-text" id="ffee" onkeyup="updatePVAndCalcOverall();"/>
+						<span class="unit">元</span>
+					</div>
+				</div>
+				<div class="cl mb-10">
+					<label class="w-100 text-r f-l hide"><span class="c-005aab va-t">工单收费</span>：</label>
+					<div class="priceWrap w-100 f-l readonly hide">
+						<input type="text" class="input-text" readonly="readonly" value="${orderCost}" id="orderfee"/>
+						<span class="unit">元</span>
+					</div>
+					<label class="w-110 text-r f-l">APP中的服务费：</label>
+					<div class="priceWrap w-100 f-l readonly">
+						<input type="text" class="input-text" readonly="readonly" value="${order.serveCost}" />
+						<span class="unit">元</span>
+					</div>
+					<label class="w-110 text-r f-l">APP中的材料费：</label>
+					<div class="priceWrap w-100 f-l readonly">
+						<input type="text" class="input-text" readonly="readonly" value="${order.auxiliaryCost}" />
+						<span class="unit">元</span>
+					</div>
+					<label class="w-110 text-r f-l">APP中的延保费：</label>
+					<div class="priceWrap w-100 f-l readonly">
+						<input type="text" class="input-text" readonly="readonly" value="${order.warrantyCost}" />
+						<span class="unit">元</span>
+					</div>
+				</div>
+				<h3 class="modelHead mb-10">支出</h3>
+				<div class="f-l lh-26">
+					<span class="f-l">工程师结算费：</span>
+					<span class="f-l"><input id="empCost" readonly="readonly" style="border:none" class="input-text w-60" value="0.00" />元</span>
+					<span class="f-l ml-10 c-888">（当日支付：<input id="payed" readonly="readonly" style="border:none" class="input-text w-60 c-888" value="0.00" /> 元）</span>
+				</div>
+				<div class="cl mb-10">
+					<label class="w-100 text-r f-l"><span class="c-005aab va-t">材料成本</span>：</label>
+					<div id="switch2" class="switch f-l mr-10" data-on-label="有" data-off-label="无">
+						<input type="checkbox" />
+					</div>
+					<div class="hide f-l fucaiCostWrap">
+						<label class="text-r f-l ">公司成本：</label>
+						<div class="priceWrap w-80 f-l " >
+							<input type="text" class="input-text"  value="${accessoryCost}" id="afee" onkeyup="calcOverall();"/>
+							<span class="unit">元</span>
+						</div>
+						<label class="pl-10 text-r f-l ">工程师成本：</label>
+						<div class="priceWrap w-80 f-l " >
+							<input type="text" class="input-text readonly"  value="${empAccCost}" readonly/>
+							<span class="unit">元</span>
+						</div>
+					</div>
+				</div>
+				<%--
+				<div class="cl mb-10">
+					<label class="w-100 text-r f-l"><span class="c-005aab va-t">工程师结算费</span>：</label>
+					<div class="priceWrap w-100 f-l readonly">
+						<input type="text" id="empCost" class="input-text" readonly="readonly" value="" />
+						<span class="unit">元</span>
+					</div>
+				</div>
+
+				<div class="cl mb-10">
+					<label class="w-100 text-r f-l"><span class="c-005aab va-t">当日支付</span>：</label>
+					<div class="priceWrap w-100 f-l readonly">
+						<input type="text" id="payed" class="input-text" readonly="readonly" value="" />
+						<span class="unit">元</span>
+					</div>
+				</div>
+				--%>
+				<div class="retractWrap">
+					<div class="pos-r pl-160 ">
+						<div class="lb w-160">
+							<a href="javascript:;" class="jsbtn mr-5 btn-retract" >收起<i class="Hui-iconfont Hui-iconfont-arrow2-bottom ml-5"></i></a>
+							<span class="lh-26">派单工程师结算：</span>
+						</div>
+						<div class="cl" style="min-height: 26px;">
+							<c:forEach items="${emps}" var="emp">
+								<div class="f-l mb-10">
+									<label class="f-l">${emp.columns.name}：</label>
+									<div class="priceWrap w-70 f-l readonly mr-15">
+										<input type="text" class="input-text empi" readonly="readonly" value=""/>
+										<input type="hidden" class="emp-ratio" value="${emp.columns.ratio}">
+										<input type="hidden" class="emp-id" value="${emp.columns.id}">
+										<span class="unit">元</span>
+									</div>
+								</div>
+							</c:forEach>
+							<c:if test="${fn:length(emps) gt 1}">
+								<a href="javascript:;" class="jsbtn mt-3" id="btn-modDispEmpJs" onclick="redoEmpJS();">修改</a>
+							</c:if>
+						</div>
+					</div>
+					<div class="bk-blue-dotted pt-10 mb-10 sdefinedbox retractBox" id="sdefinedbox1">
+						<div class="cl mb-10">
+							<label class="w-100 text-r textColon f-l">服务结算方案</label>
+							<span class=" w-210 f-l">
+								<select class="select" name="fwjsfa" id="smethod">
+									<option value="0">请选择</option>
+									<c:forEach items="${tmpls}" var="tmpl">
+										<option value="${tmpl.index}">${tmpl.name}</option>
+									</c:forEach>
+								</select>
+							</span>
+							<!-- <span class="c-0383dc f-l lh-26 ml-10"><i class="sficon sficon-whjsfa mr-5"></i>维护结算方案</span> -->
+						</div>
+						<div class="sdefined sdefined0">
+							<div class="cl mt-10">
+								<div class="f-l mb-10 pjsbox">
+									<label class="w-100 text-r textColon f-l flabel">服务费结算</label>
+									<select class="select w-100 f-l mr-10" id="sel1" onchange="changeUnit(this)">
+										<option value="1">固定金额</option>
+										<option value="2">比例提成</option>
+									</select>
+									<div class="priceWrap w-70 f-l jsbox jsbox1">
+										<input type="text" id="fixedsfee" class="input-text" maxlength="6" onkeyup="calcOverall();"/>
+										<span class="unit">元</span>
+									</div>
+									<div class="f-l hide jsbox2 jsbox">
+										<div class="priceWrap w-70 f-l mr-10">
+											<input type="text" id="scaledspercent" class="input-text" onkeyup="calcBaseServe(this);" maxlength="3"/>
+											<span class="unit">%</span>
+										</div>
+										<div class="priceWrap w-70 f-l readonly">
+											<input type="text" id="scaledsfee" class="input-text readonly" readonly="readonly" unselectable="on"/>
+											<span class="unit">元</span>
+										</div>
+									</div>
+								</div>
+								<div class="f-l mb-10 pjsbox">
+									<label class="w-100 text-r f-l textColon flabel">辅材费结算</label>
+									<select class="select w-100 f-l mr-10" id="sel2" onchange="changeUnit(this)">
+										<option value="1">固定金额</option>
+										<option value="2">比例提成</option>
+									</select>
+									<div class="priceWrap w-150 f-l jsbox jsbox1">
+										<input type="text" id="fixedafee" class="input-text"  maxlength="6" onkeyup="calcOverall();"/>
+										<span class="unit">元</span>
+									</div>
+									<div class="f-l hide jsbox jsbox2">
+										<div class="priceWrap w-70 f-l mr-10">
+											<input type="text" id="scaledapercent" class="input-text" onkeyup="calcBaseAcc(this);" maxlength="3"/>
+											<span class="unit">%</span>
+										</div>
+										<div class="priceWrap w-70 f-l readonly">
+											<input type="text" id="scaledafee" class="input-text readonly" readonly="readonly" unselectable="on"  />
+											<span class="unit">元</span>
+										</div>
+									</div>
+								</div>
+								<div class="f-l mb-10 pjsbox">
+									<label class="w-100 text-r textColon f-l flabel">延保费结算</label>
+									<select class="select w-100 f-l mr-10" id="sel3" onchange="changeUnit(this)">
+										<option value="1">固定金额</option>
+										<option value="2">比例提成</option>
+									</select>
+									<div class="priceWrap w-70 f-l jsbox jsbox1">
+										<input type="text" id="fixedyfee" class="input-text" maxlength="6" onkeyup="calcOverall();"/>
+										<span class="unit">元</span>
+									</div>
+									<div class="f-l hide jsbox jsbox2">
+										<div class="priceWrap w-70 f-l mr-10">
+											<input type="text" id="scaledypercent" class="input-text" onkeyup="calcBaseYanBao(this);" maxlength="3"/>
+											<span class="unit">%</span>
+										</div>
+										<div class="priceWrap w-70 f-l readonly">
+											<input type="text" id="scaledyfee" class="input-text readonly" readonly="readonly" unselectable="on"  />
+											<span class="unit">元</span>
+										</div>
+									</div>
+								</div>
+								<div class="f-l mb-10 pjsbox">
+									<label class="w-100 text-r f-l textColon flabel">其他结算</label>
+									<div class="priceWrap w-100 f-l">
+										<input type="text" id="otherfee" class="input-text" maxlength="6" onkeyup="calcOverall();"/>
+										<span class="unit">元</span>
+									</div>
+								</div>
+								<div class="f-l mb-10" style="width: 774px">
+									<div class="pos-r pl-90 ml-10">
+										<label class="w-90 text-r lb">备注：</label>
+										<input type="text" class="input-text tmpl-memo" style="width:100%;"/>
+									</div>
+								</div>
+							</div>
+						</div>
+						<c:forEach items="${tmpls}" var="tmpl">
+							<div class="sdefined sdefined${tmpl.index} cl hide">
+								<c:forEach items="${tmpl.items}" var="item">
+									<div class="f-l mb-10 ">
+										<!-- 自定义的结算方案名称不能超过7个字（不包含冒号） -->
+										<label class="w-100 text-r f-l textColon flabel" title="${item.name}">${item.name}</label>
+										<div class="priceWrap w-100 f-l">
+											<input type="text" class="input-text ppp ${item.factoryFeeProportionBasedItem ? 'factoryFeeProportionBasedItem' : ''}" value="<fmt:formatNumber type="number" value="${item.cost}" maxFractionDigits="2"/>" onkeyup="calcOverall();"/>
+											<c:if test="${item.factoryFeeProportionBasedItem}"><input type="hidden" value="${item.factoryPV}" class="fpv"></c:if>
+											<span class="unit">元</span>
+										</div>
+									</div>
+								</c:forEach>
+								<div class="f-l mb-10" style="width: 774px">
+									<div class="pos-r pl-90 ml-10">
+										<label class="w-90 text-r lb">备注：</label>
+										<input type="text" class="input-text tmpl-memo" style="width:100%;"/>
+									</div>
+								</div>
+							</div>
+						</c:forEach>
+					</div>
+				</div>
+				<div class="retractWrap">
+					<div class="pos-r pl-160">
+						<div class="lb w-160">
+							<a href="javascript:;" class="jsbtn mr-5 btn-retract">收起<i class="Hui-iconfont Hui-iconfont-arrow2-top ml-5"></i></a>
+							<span class="lh-26">添加工程师结算：</span>
+						</div>
+						<div class="cl" style="min-height: 26px;" id="addedEmps">
+							<!--
+							<div class="f-l mb-10">
+								<label class="f-l">张晓晓：</label>
+								<div class="priceWrap w-70 f-l readonly mr-15">
+									<input type="text" class="input-text" readonly="readonly" value="20" />
+									<span class="unit">元</span>
+								</div>
+							</div>
+							<div class="f-l mb-10">
+								<label class="f-l">张晓晓：</label>
+								<div class="priceWrap w-70 f-l readonly mr-15">
+									<input type="text" class="input-text" readonly="readonly" value="20" />
+									<span class="unit">元</span>
+								</div>
+							</div>
+							-->
+							<a href="javascript:;" class="jsbtn mt-3" id="btn-addJs"><i class="Hui-iconfont mr-5">&#xe600;</i>添加结算</a>
+						</div>
+					</div>
+					<div class="bk-blue-dotted pt-10 mb-10 hide retractBox" id="addJsBox">
+						<!--
+						<div class="mb-5">
+							<span class="w-80 text-r">张三：</span>
+							<span class="w-260">添加拉货结算货结算 </span>
+							<span class="w-60">20元</span>
+							<span class="w-150 c-888">2017-07-07 09:20</span>
+						</div>
+						-->
+					</div>
+				</div>
+
+				<div class="cl mb-10 mt-10">
+					<label class="w-100 text-r f-l "><em class="mark">*</em><span class="c-005aab va-t">结算归属日期</span>：</label>
+					<input type="text" onfocus="WdatePicker({})" id="bxdatemax" name="bxdatemax" value="${endTime}" class="input-text Wdate w-140 f-l" >
+				</div>
+				<!-- <div class="pos-r pl-90 ml-10">
+					<label class="w-90 text-r lb">备注：</label>
+					<input type="text" class="input-text"  id="memo"/>
+				</div> -->
+
+				<%--<h3 class="modelHead mb-10">利润</h3>--%>
+
+				<h3 class="modelHead mb-10">利润
+					<span class="tiShi pr-80">（计算公式：利润=厂家结算费+工单收费-辅材成本-工程师结算费）</span>
+					当日支付<span class="tiShi">（表示：当日支出的记账信息）</span>
+				</h3>
+
+
+				<div class="cl mb-10">
+					<label class="w-100 text-r f-l lh-26"> <span class="c-005aab va-t">利润</span>：</label>
+					<div class="priceWrap w-100 f-l">
+						<input type="text" class="input-text" value="" id="profit"/>
+						<span class="unit">元</span>
+					</div>
+					<label class="w-100 text-r f-l lh-26" style="margin-left: 320px"> <span class="c-005aab va-t">当日支付</span>：</label>
+					<div class="priceWrap w-100 f-l readonly">
+						<input type="text" class="input-text readonly" value="" id="payed-mirror" readonly="readonly"/>
+						<span class="unit">元</span>
+					</div>
+				</div>
+
+
+				<span class="f-l c-888 lh-26 ml-20"></span>
+
+			</div></div>
+		</div>
+		<div class="text-c btnWrap">
+			<a href="javascript:saveSettlement();" class="sfbtn sfbtn-opt3 w-70 mr-5">保存</a>
+			<a href="javascript:parent.closeJiesuanForm();" class="sfbtn sfbtn-opt w-70 " id="btnCancel">取消</a>
+		</div>
+	</div>
+</div>
+
+<div class="popupBox w-380 addJsBox">
+	<h2 class="popupHead">
+		添加结算
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<form id="addJsForm">
+		<div class="popupContainer pos-r">
+			<div class="popupMain pt-30 pb-15" id="styleMark">
+				<div class="cl mb-10">
+					<label class="f-l w-140 text-r"><em class="mark">*</em>工程师：</label>
+					<select class="select f-l w-160" id="emp">
+						<option value="">请选择</option>
+						<c:forEach items="${siteEmps}" var="emp">
+							<option value="${emp.columns.id}">${emp.columns.name}</option>
+						</c:forEach>
+					</select>
+				</div>
+				<div class="cl mb-10">
+					<label class="f-l w-140 text-r"><em class="mark">*</em>结算原因：</label>
+					<select class="select f-l w-160 mustfill" id="reason">
+						<option value="">请选择</option>
+						<option value="1">扣款</option>
+						<option value="2">当日支付</option>
+						<option value="3">新增结算费</option>
+					</select>
+				</div>
+				<div class="cl mb-10">
+					<label class="f-l w-140 text-r"><em class="mark">*</em>结算金额：</label>
+					<div class="priceWrap w-160 f-l" id="minusWrap">
+						<span class="prefix hide">-</span>
+						<input type="text" class="input-text mustfill" id="samount"/>
+						<span class="unit">元</span>
+					</div>
+				</div>
+				<div class="cl mb-10">
+					<label class="f-l w-140 text-r">备注：</label>
+					<div class="priceWrap w-160 f-l">
+						<input type="text" class="input-text" id="remarks" maxlength="20"/>
+					</div>
+				</div>
+				<!--
+                <div class="cl mb-10">
+                    <label class="f-l w-140 text-r"><em class="mark">*</em>结算归属日期：</label>
+                    <input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'bxdatemax\')||\'%y-%M-%d\'}'})" id="bxdatemin" name="bxdatemin" value="" class="input-text Wdate w-160 f-l" readonly>
+                </div>
+                -->
+				<div class="text-c mt-30">
+					<a href="#" class="sfbtn sfbtn-opt3 w-70 mr-5" id="saveAddedSettlementItem">保存</a>
+					<a href="javascript:cancelJs();" class="sfbtn sfbtn-opt w-70 ">取消</a>
+				</div>
+			</div>
+		</div>
+	</form>
+</div>
+
+<div class="popupBox w-380 modDispEmpJsBox">
+	<h2 class="popupHead">
+		修改结算
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<form id="modDispEmpJsForm">
+		<div class="popupContainer pos-r">
+			<div class="popupMain pt-30 pb-15">
+				<c:forEach items="${emps}" var="emp">
+					<div class="cl mb-10">
+						<label class="f-l w-140 text-r"><span class="emp-name-sp">${emp.columns.name}</span>：</label>
+						<div class="priceWrap w-160 f-l">
+							<input type="text" class="input-text mustfill empjs"/>
+							<span class="unit">元</span>
+						</div>
+					</div>
+				</c:forEach>
+				<div class="text-c mt-30">
+					<a href="#" class="sfbtn sfbtn-opt3 w-70 mr-5" onclick="saveDispEmpJs();">修改</a>
+					<a href="javascript:$.closeDiv($('.modDispEmpJsBox'));" class="sfbtn sfbtn-opt w-70 ">取消</a>
+				</div>
+			</div>
+		</div>
+	</form>
+</div>
+
+<script type="text/javascript">
+
+    function updatePVAndCalcOverall() {
+        // 更新所有的结算方案中，结算项依据是厂家结算费百分比的项目的值.
+        $(".factoryFeeProportionBasedItem").each(function(index, el) {
+            var proportion = $(el).next(".fpv").eq(0).val(); // 取得厂家结算费用比例
+            var factoryFee = $.trim(factoryfee.val());
+            if (!isNaN(parseFloat(factoryFee))) {
+                $(this).val(parseFloat(factoryFee)*parseFloat(proportion).toFixed(2));
+            }
+        });
+        calcOverall();
+    }
+
+    $('#reason').on('change',function(){
+        var index = $(this).val();
+        if(index == 1){
+            $('#minusWrap').addClass('minusWrap');
+            $('#minusWrap').find('.prefix').show();
+        }else{
+            $('#minusWrap').removeClass('minusWrap');
+            $('#minusWrap').find('.prefix').hide();
+        }
+    });
+
+    $(".jiesuan-popup").on("click", function () {
+        $('#Hui-article-box', window.top.document).css({'z-index': '1009'});
+        parent.closeJiesuanForm();
+    });
+
+    $('#btnCancel').on('click', function () {
+        $('#Hui-article-box', window.top.document).css({'z-index': '1009'});
+    });
+    var dispEmpList;
+    var addedJiesuan = [];
+    var jiesuanItems = [];
+    var jiesuanItemVals = [];
+    var dispEmpIds = [];
+    var dispEmpVals = [];
+    var formPosted = false, factoryFeeEnabled = true, accCostEnabled = false;
+    $(function(){
+//		$.Huitab("#detialWd .tabBarP .tabswitch","#detialWd .tabCon","current","click","0");
+//		$.Huitab("#serveFb .tabBarP .tabswitch","#serveFb .tabCon","current","click","4");
+//		$.selectCheck('payRadio');
+
+//		$('.orderdetailVb').popup({fixedHeight:false});
+        $('.orderSettle').popup({level:2,fixedHeight:false});
+        $("#bxdatemax").css({'background-color': '#dbf5fd','border':'1px solid #5ebdfb'});
+        dispEmpList = $(".empi");
+        fixedSfeeE = $("#fixedsfee"),
+            fixedAfeeE = $("#fixedafee"),
+            fixedYfeeE = $("#fixedyfee"),
+            scaledSp = $("#scaledspercent"),scaledSf = $("#scaledsfee"),
+            scaledAp = $("#scaledapercent"),scaledAf = $("#scaledafee"),
+            scaledYp = $("#scaledypercent"),scaledYf = $("#scaledyfee"),
+            sel1 = $("#sel1"),sel2 = $("#sel2"),sel3 = $("#sel3"),
+            otherfee = $("#otherfee");
+        factoryfee = $("#ffee");
+        fucaiCost = $("#afee");
+        $("#saveAddedSettlementItem").on('click', function() {
+            addNewSettlementItem();
+        });
+//		$("#switch1").on('switch-change', function (e, data) {
+//			if (data.value) {
+//				$(".factoryPriceWrap").show();
+//			} else {
+//				$(".factoryPriceWrap").hide();
+//			}
+//			factoryFeeEnabled = data.value;
+//			calcOverall();
+//		});
+        $("#switch2").on('switch-change', function (e, data) {
+            if (data.value) {
+                $(".fucaiCostWrap").show();
+            } else {
+                $(".fucaiCostWrap").hide();
+            }
+            accCostEnabled = data.value;
+            calcOverall();
+        });
+        $("#emp").select2();
+        $("#emp").next().find(".selection").css("width","160px");
+        $("#smethod").select2({});
+        $("#smethod").next().find(".selection").css("width","210px");
+    });
+
+    $('select[name="fwjsfa"]').on('change',function(){
+        var index = $(this).find("option:selected").val();
+        $(this).closest('.sdefinedbox').find('.sdefined').hide();
+        $('.sdefined').hide();
+        $(this).closest('.sdefinedbox').find('.sdefined'+index).show();
+        calcOverall();
+    });
+
+    //	$('.jiesuan-popup').bind('click', function() {
+    //		parent.closeJiesuanForm();
+    //	});
+
+    function changeUnit(obj) {
+        var oIndex = $(obj).find('option:selected').val();
+        $(obj).closest('.pjsbox').find('.jsbox').hide();
+        $(obj).closest('.pjsbox').find('.jsbox' + oIndex).show();
+        calcOverall();
+    }
+
+    $('.btn-retract').on('click', function(){
+        var target =  $(this).closest('.retractWrap').find('.retractBox');
+        if(target.is(':visible')){
+            $(this).find('.Hui-iconfont').removeClass('Hui-iconfont-arrow2-bottom').addClass('Hui-iconfont-arrow2-top');
+            target.hide();
+        }else{
+            $(this).find('.Hui-iconfont').removeClass('Hui-iconfont-arrow2-top').addClass('Hui-iconfont-arrow2-bottom');
+            target.show();
+        }
+    });
+
+    //	$('#btn-dayPay').on('click',function(){
+    //		if($('#daypayBox').is(':visible')){
+    //			$('#daypayTotal').hide();
+    //			$('#daypayBox').hide();
+    //			$(this).find('.label-cbox2').removeClass('label-cbox2-selected');
+    //		}else{
+    //			$('#daypayTotal').show();
+    //			$('#daypayBox').show();
+    //			$(this).find('.label-cbox2').addClass('label-cbox2-selected');
+    //		}
+    //	});
+
+    function calcByPercent(el, base) {
+        var elq = $(el);
+        var val = $.trim(elq.val());
+        if (!isNaN(parseFloat(val))) {
+            elq.parent().siblings("div").find("input").val((parseFloat(val) / 100.0 * parseFloat(base)).toFixed(2));
+        } else {
+            elq.parent().siblings("div").find("input").val('');
+        }
+    }
+
+    function calcOverall(mode) {
+        // mode 0 表示默认，1表示需要根据修改后的工程师结算计算派单工程师结算费用.
+        var mode1 = (typeof mode === 'undefined')? "0" : "1";
+        var ratioSum = ${ratioSum};
+        valid = validateJiesuan(mode1);
+//		var emps = dispEmpList.size();
+//		if (!valid.valid) {
+//			$("#empCost").val('');
+//			$(".empi").val('');
+//		} else {
+//			$("#empCost").val(valid.total);
+//			$(".empi").val((valid.dispTotal / emps).toFixed(2));
+//		}
+
+        if (!isNaN(valid.total)) {
+            $("#empCost").val(valid.total.toFixed(2));
+        } else {
+            $("#empCost").val("");
+        }
+        if (!isNaN(valid.total) && mode1 === '0') {
+            $(".empi").each(function(index, el) {
+                var ratio = parseFloat($(this).next(".emp-ratio").val());
+                $(this).val((valid.dispTotal * 1.0 / ratioSum * ratio).toFixed(2));
+            });
+        } else {
+            if (mode === '0') {
+                $(".empi").val("");
+            }
+        }
+
+        // 当厂家结算费用和辅材成本都是合法数值的时候
+        if (valid.valid) {
+            var accFee = $.trim($("#afee").val()); // 辅材费
+            var ffee = $.trim($("#ffee").val()); // 厂家结算费
+            if (/^(\-)?\d+(.\d{1,2})?$/.test(accFee) && /^(\-)?\d+(.\d{1,2})?$/.test(ffee) || accFee == '' || ffee == '') {
+                if (accFee == '' || !accCostEnabled) {
+                    accFee = '0';
+                }
+                if (ffee == '') {
+                    ffee = '0';
+                }
+                var profit = parseFloat(ffee) + parseFloat($("#orderfee").val()) - parseFloat(accFee) - valid.total;
+                if (!isNaN(profit)) {
+                    $("#profit").val(profit.toFixed(2));
+                } else {
+                    $("#profit").val("");
+                }
+            } else {
+                $("#profit").val("");
+            }
+        }
+    }
+
+    function pValue(el) {
+        var val = $.trim(el.val());
+        return val == '' ? 0 : parseFloat(val);
+    }
+
+    function calcAllJiesuanFeeToDispEmps() {
+        var dispTotal = 0;
+        var smethod = $('#smethod').val();
+        var activeSMethodContainer = $('.sdefined' + smethod);
+        if(smethod == '0') {
+            if (sel1.val() == '1') {
+                dispTotal += pValue(fixedSfeeE);
+            } else {
+                dispTotal += pValue(scaledSf);
+            }
+            if (sel2.val() == '1') {
+                dispTotal += pValue(fixedAfeeE);
+            } else {
+                dispTotal += pValue(scaledAf);
+            }
+            if (sel3.val() == '1') {
+                dispTotal += pValue(fixedYfeeE);
+            } else {
+                dispTotal += pValue(scaledYf);
+            }
+            dispTotal += pValue(otherfee);
+        } else {
+            var priceWraps2 = $("input.ppp", activeSMethodContainer);
+            priceWraps2.each(function (idx, el) {
+                dispTotal += pValue($(this));
+            });
+        }
+        return dispTotal;
+	}
+
+    function validateJiesuan(mode) {
+//        var smethod = $('#smethod').val();
+        var dispTotal = 0;
+        var total = 0;
+//        var valid = true;
+		if (mode === '1') {
+		    // 对应用户已经修改了派单工程师结算费的情况
+			$(".empi").each(function(idx, el) {
+			    dispTotal += pValue($(el));
+			});
+		} else {
+            dispTotal = calcAllJiesuanFeeToDispEmps();
+		}
+
+        $("input.addedEmpCosti").each(function (idx, el) {
+            total += pValue($(this));
+        });
+        total += dispTotal;
+        return {total: total, dispTotal: dispTotal, valid: true};
+    }
+
+    function validateNumber(el, msg) {
+        var val = $.trim(el.val());
+        if (val && !/^(\-)?\d+(.\d{1,2})?$/.test(val)) {
+            layer.msg(msg);
+            return false;
+        }
+        return true;
+    }
+
+    function doFormValidation() {
+        if (!validateNumber(factoryfee, "厂家结算费格式不正确")) {
+            return false;
+        }
+        if (!validateNumber(fucaiCost, "材料成本格式不正确")) {
+            return false;
+        }
+        var smethod = $('#smethod').val();
+        if(smethod == '0') {
+            if (sel1.val() == '1') {
+                if (!validateNumber(fixedSfeeE, "服务结算费格式不正确")) {
+                    return false;
+                }
+            } else {
+                if (!validateNumber(scaledSp, "服务结算费比例提成格式不正确")) {
+                    return false;
+                }
+            }
+            if (sel2.val() == '1') {
+                if (!validateNumber(fixedAfeeE, "辅材结算费格式不正确")) {
+                    return false;
+                }
+            } else {
+                if (!validateNumber(scaledAp, "辅材结算费比例提成格式不正确")) {
+                    return false;
+                }
+            }
+            if (sel3.val() == '1') {
+                if (!validateNumber(fixedYfeeE, "延保结算费格式不正确")) {
+                    return false;
+                }
+            } else {
+                if (!validateNumber(scaledYp, "延保结算费比例提成格式不正确")) {
+                    return false;
+                }
+            }
+        } else {
+            var activeSMethodContainer = $('.sdefined' + smethod);
+            var priceWraps2 = $("input.ppp", activeSMethodContainer);
+            var valid = true;
+            priceWraps2.each(function (idx, el) {
+                if (!validateNumber($(this), $(this).parent().prev("label").text() + "数据格式不正确")) {
+                    valid = false;
+                    return false;
+                }
+            });
+            if (!valid) {
+                return false;
+            }
+        }
+        if (!validateNumber(otherfee, "其他结算费格式不正确")) {
+            return false;
+        }
+        var d = $("#bxdatemax");
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(d.val())) {
+            layer.msg("请选择结算归属日期");
+            return false;
+        }
+        return true;
+    }
+
+    function calcBaseServe(el) {
+        calcByPercent(el, '${order.serveCost}');
+        calcOverall();
+    }
+    function calcBaseAcc(el) {
+        calcByPercent(el, '${order.auxiliaryCost}');
+        calcOverall();
+    }
+    function calcBaseYanBao(el) {
+        calcByPercent(el, '${order.warrantyCost}');
+        calcOverall();
+    }
+    $('#btn-addJs').on('click', function(){
+        $('#minusWrap').removeClass('minusWrap');
+        $('#minusWrap').find('.prefix').hide();
+        $("#emp").val(null).trigger("change");
+        $("#styleMark .select2-selection--single").css({'background-color': '#dbf5fd','border':'1px solid #5ebdfb'});
+        $('.addJsBox').popup({level:4});
+        $("#addJsForm").get(0).reset();
+    });
+
+    function cancelJs() {
+        $.closeDiv($('.addJsBox'));
+//		parent.closeJiesuanForm();
+    }
+
+    function createEmpSettlementItem(empid, empName, amount, reason, reasonTxt, remark, calc, stamp) {
+        addedJiesuan.push({
+            empId: empid,
+            empName: empName,
+            amount: amount,
+            item: reason,
+            remark: remark,
+            reasonTxt: reasonTxt,
+            delf: false,
+			stamp: stamp
+        });
+        if (reason == '2') {
+            var payed = conv($("#payed"));
+            $("#payed").val((payed + parseFloat(amount)).toFixed(2));
+            $("#payed-mirror").val((payed + parseFloat(amount)).toFixed(2));
+            return;
+        }
+        var item = $("#" + empid);
+        if (item.size() == 0) {
+            var item2 = '<div class="f-l mb-10 addedEmpItem" id="' + empid + '">' +
+                '<label class="f-l">' + empName + '：</label>' +
+                '<div class="priceWrap w-70 f-l readonly mr-15">' +
+                '<input type="text" class="input-text addedEmpCosti" readonly="readonly" value="' + amount + '" />' +
+                '<span class="unit">元</span>' +
+                '</div>' +
+                '</div>';
+            $("#addedEmps").append($(item2));
+        } else {
+            var el = item.find('input');
+            el.val((parseFloat(amount) + parseFloat(el.val())).toFixed(2));
+        }
+        if (calc) {
+            calcOverall();
+        }
+    }
+
+    // todo
+    function deleteTR(stamp) {
+        var jsitems = addedJiesuan;
+        addedJiesuan = [];
+        $("#addJsBox").empty();
+        $("#payed").val(0);
+        $("#payed-mirror").val(0);
+        $(".addedEmpItem").remove();
+
+        for (var i = 0; i < jsitems.length; i++) {
+            if (jsitems[i].stamp != stamp) {
+                var it = jsitems[i];
+                createAddedSettlementTR(it.empId, it.empName, it.item, it.reasonTxt, it.amount,  it.remark, false, new Date().getTime());
+            }
+        }
+        calcOverall();
+    }
+
+    function conv(el) {
+        var val = $.trim(el.val());
+        return val == '' ? 0 : parseFloat(val);
+    }
+
+    function saveSettlement() {
+        if (formPosted) {
+            return false;
+        }
+
+        jiesuanItems = [];
+        jiesuanItemVals = [];
+        dispEmpIds = [];
+        dispEmpVals = [];
+        if (!doFormValidation()) {
+            return;
+        }
+
+        var elSmethod = $('#smethod');
+        var smethod = elSmethod.val();
+        var activeSMethodContainer = $('.sdefined' + smethod);
+        var selectMemo = activeSMethodContainer.find(".tmpl-memo").val();
+        if(smethod == '0') {
+            if (sel1.val() == '1') {
+                jiesuanItemVals.push(conv(fixedSfeeE));
+            } else {
+                jiesuanItemVals.push(conv(scaledSf));
+            }
+            if (sel2.val() == '1') {
+                jiesuanItemVals.push(conv(fixedAfeeE));
+            } else {
+                jiesuanItemVals.push(conv(scaledAf));
+            }
+            if (sel3.val() == '1') {
+                jiesuanItemVals.push(conv(fixedYfeeE));
+            } else {
+                jiesuanItemVals.push(conv(scaledYf));
+            }
+            jiesuanItemVals.push(conv(otherfee));
+            jiesuanItems.push("服务费结算");
+            jiesuanItems.push("辅材费结算");
+            jiesuanItems.push("延保费结算");
+            jiesuanItems.push("其他结算");
+        } else {
+            $(".flabel", activeSMethodContainer).each(function () {
+                jiesuanItems.push($(this).text());
+            });
+            $("input.ppp", activeSMethodContainer).each(function() {
+                jiesuanItemVals.push(conv($(this)));
+            });
+        }
+        var factoryFee = $("#ffee").val();
+        var accCost = accCostEnabled ? $("#afee").val() : 0;
+        var sMeth = elSmethod.children("option").filter(":selected").text();
+        if ("请选择" === sMeth) {
+            sMeth = "平台默认结算方案";
+        }
+        $(".empi").each(function() {
+            dispEmpVals.push($(this).val());
+        });
+        $(".emp-id").each(function() {
+            dispEmpIds.push($(this).val());
+        });
+        var data =  {
+            factoryFee: factoryFee,
+            accCost: accCost,
+            sMethod: sMeth,
+            memo: selectMemo,
+            addedJisuan: addedJiesuan,
+            jiesuanItems: jiesuanItems,
+            jiesuanItemVals: jiesuanItemVals,
+            dispEmpIds: dispEmpIds,
+            dispEmpVals: dispEmpVals,
+            orderId: '${order.id}',
+            settlementTime: $("#bxdatemax").val(),
+            paymentAmount: $("#payed").val(),
+            factoryFeeEnabled: true, // 这个其实没有必要
+            mode: "${mode}",
+            profit: $.trim($("#profit").val())
+        };
+
+        // do some validation
+        formPosted = true;
+        $.ajax({
+            url: "${ctx}/order/settlement/save2017",
+            type: 'POST',
+            data: JSON.stringify(data),
+            contentType: "application/json; charset=utf-8",
+            success: function (data) {
+                if(data.code=="422"){
+                    layer.msg("没有对应的服务工程师！");
+                    return false;
+                }else if(data.code=="421"){
+                    layer.msg("该工单已经结算，请勿重复结算。");
+                }else if(data.code=="200"){
+                    layer.msg("结算成功");
+                    var topDoc = window.top.document;
+                    var p = parent.parent;
+                    parent.closeJiesuanForm();
+                    if (p) {
+                        p.layer.closeAll();
+                    }
+                    var $iFrame = $('#Hui-article-box',topDoc);
+                    $iFrame.css({'z-index': 9});
+                }else if(data.code=="430") {
+                    layer.msg("请回访后再进行结算！");
+                    return;
+                }else if(data.code=="431") {
+                    layer.msg("工单交款金额和实收金额不一致，请确认一致后再进行结算！");
+                    return;
+                }else if(data.code=="432") {
+                    layer.msg("请回访后再进行结算！");
+                    return;
+                }else if(data.code=="433") {
+                    layer.msg("工单交款金额和实收金额不一致，请确认一致后再进行结算！");
+                    return;
+                } else{
+                    layer.msg("结算失败，请检查");
+                    return false;
+                }
+            },
+            error: function() {
+                formPosted = false;
+            }
+        });
+    }
+
+    $("#samount").blur(function(){
+        var samount = $.trim($("#samount").val());
+        if(samount<0){
+            layer.msg("请输入正确格式的结算金额");
+            return false;
+        }
+        if(!(/^[1-9]\d*(\.\d{1,2})?$/).test(samount) || !(/^[1-9]\d*(\.\d{1,2})?$/).test(samount)){
+            layer.msg("结算金额要求大于零且最多包含两位小数");
+            return false;
+        }
+        if (!/^(\-)?\d+(.\d{1,2})?$/.test(samount)) {
+            layer.msg("结算金额需为数字且最多包含两位小数");
+            return false;
+        }
+    });
+
+    function addNewSettlementItem() {
+        var emp = $("#emp"), reasonEl = $("#reason");
+        var reasonVal = $('#reason option:selected') .val();
+        var remarks = $("#remarks").val();
+        var empid = emp.val();
+        if (!empid) {
+            layer.msg("请选择服务工程师");
+            return false;
+        }
+        var empName = emp.children("option").filter(":selected").text();
+        var reason = reasonEl.val();
+        if (!reason) {
+            layer.msg("请选择结算原因");
+            return false;
+        }
+        var reasonTxt = reasonEl.children("option").filter(":selected").text();
+        var samount = $.trim($("#samount").val());
+        if (!samount) {
+            layer.msg("请输入结算金额");
+            return false;
+        }
+        if(!(/^[1-9]\d*(\.\d{1,2})?$/).test(samount) || !(/^[1-9]\d*(\.\d{1,2})?$/).test(samount)){
+            layer.msg("结算金额要求大于零且最多包含两位小数");
+            return false;
+        }
+        if (reasonVal == "1") {
+            samount = -samount;
+        }
+        createAddedSettlementTR(empid, empName, reason, reasonTxt, samount, remarks, true, new Date().getTime());
+        cancelJs();
+    }
+
+    function createAddedSettlementTR(empid, empName, reason, reasonTxt, samount, remarks, calc, stamp) {
+        var item = "" +
+            '<div class="mb-5">' +
+            '<span class="w-80 text-r">' + empName + '：</span>' +
+            '<span class="w-150">' + reasonTxt + ' </span>' +
+            '<span class="w-150">' + samount + '元</span>' +
+            '<span class="w-150">' + remarks + '</span>' +
+            '<span class="w-150"><a class="c-0383dc" onclick="deleteTR(\''+stamp+'\')"><i class="sficon sficon-rubbish"></i>删除</a></span>' +
+            '</div>';
+        var rbox = $('#addJsBox');
+        rbox.append($(item));
+        if (!rbox.is(":visible")) {
+            $('.btn-retract').eq(1).trigger('click');
+        }
+        createEmpSettlementItem(empid, empName, samount, reason, reasonTxt, remarks, calc, stamp);
+    }
+
+    function redoEmpJS() {
+        var box = $(".modDispEmpJsBox");
+        var calcEmpJs = $("input.empi");
+        box.find(".empjs").each(function(idx, el) {
+            $(el).val(calcEmpJs.eq(idx).val());
+		});
+        box.popup({level: 4});
+    }
+
+    function saveDispEmpJs() {
+        var box = $(".modDispEmpJsBox");
+        var calcEmpJs = $("input.empi");
+        var newEmpJs = box.find(".empjs");
+        var valid = true;
+        newEmpJs.each(function (idx, el) {
+            var val = $.trim(newEmpJs.eq(idx).val());
+            if (!/^-?\d+(\.\d{1,2})?$/.test(val) && val) {
+                layer.msg("[" + $(el).parent().prev('label').find('.emp-name-sp').text() + "] 结算费格式不正确");
+                valid = false;
+                return false;
+            }
+        });
+        var dispEmpTotalCost = 0;
+        newEmpJs.each(function () {
+            dispEmpTotalCost += pValue($(this));
+        });
+        if (dispEmpTotalCost > calcAllJiesuanFeeToDispEmps()) {
+            layer.msg("派单工程师结算费总金额不能超过所选结算方案设置的总金额");
+            return false;
+        }
+
+        if (!valid) {
+            return false;
+        }
+        calcEmpJs.each(function (idx, el) {
+            $(el).val($.trim(newEmpJs.eq(idx).val()));
+        });
+        $.closeDiv(box);
+        calcOverall("1");
+    }
+</script>
+<script src="${ctxPlugin}/lib/gaols.validate.js"></script>
+</body>
+</html>

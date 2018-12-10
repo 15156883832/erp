@@ -1,0 +1,150 @@
+package com.jojowonet.modules.order.web;
+
+import java.io.IOException;
+import java.util.Map;
+
+import ivan.common.config.Global;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import net.sf.json.JSONObject;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Record;
+
+import com.jojowonet.modules.order.entity.ServiceMode;
+import com.jojowonet.modules.order.entity.ServiceType;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.ServiceTypeService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+
+@Controller
+@RequestMapping(value="${adminPath}/order/serviceType")
+public class ServiceTypeController extends BaseController {
+
+	@Autowired
+	private ServiceTypeService serviceTypeService;
+	
+	@ModelAttribute
+	public ServiceType get(@RequestParam(required=false) Integer id) {
+		if (id!=null){
+			return serviceTypeService.get(id);
+		}else{
+			return new ServiceType();
+		}
+	}
+	
+	@RequestMapping(value={"list",""})
+	public String list(ServiceType serviceType,HttpServletRequest request,HttpServletResponse response,Model model){		
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		return "modules/" + "order/serviceTypeList";
+	}
+	
+	@RequestMapping(value="serviceTypeList")
+	@ResponseBody
+	public String serviceTypeList(ServiceType serviceType,HttpServletRequest request,HttpServletResponse response,Model model){	
+		Page<ServiceType> page = new Page<>(request, response);
+		page = serviceTypeService.find(new Page<ServiceType>(request, response),serviceType);
+		model.addAttribute("page",page);
+		JqGridPage<ServiceType> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+	
+	@RequestMapping(value = "form")
+	public String form(ServiceType serviceType, Model model) {
+		model.addAttribute("serviceType", serviceType);
+		return "modules/" + "order/serviceTypeForm";
+	}
+	
+	@RequestMapping(value="edite")
+	public String edite(String id,Model model){	
+		Integer ids=Integer.valueOf(id);
+		Record rd=serviceTypeService.getServiceTypeById(ids);
+		model.addAttribute("serviceType",rd);
+		return "modules/" + "order/serviceTypeEdite";
+	}
+	
+	@RequestMapping(value = "save")
+	public @ResponseBody String save(String[] nameArr, String[] sortsArr, HttpServletResponse response, Model model,RedirectAttributes redirectAttributes ) {
+		for (int i=0;i<nameArr.length;i++) {
+      ServiceType serviceType=new ServiceType();
+      serviceType.setName(nameArr[i]);
+			if(sortsArr.length>0&&sortsArr[i].length()!=0){
+				if(sortsArr[i].equals("0")){
+					sortsArr[i]="0";
+				}
+				serviceType.setSort(sortsArr[i]);
+			}	
+			serviceTypeService.save(serviceType);	
+		}
+		return null;
+	}
+	
+	@RequestMapping("update")
+	public void update(String names,String sorts,String id){
+      if(sorts.length()==0||sorts.equals("0")){
+	      sorts="0";
+       }
+      Integer ids=Integer.valueOf(id);
+      serviceTypeService.updates(names,sorts,ids);
+	}
+	
+	@RequestMapping(value = "deleteserviceType")
+	public String delete(String id, RedirectAttributes redirectAttributes) {
+			Integer ids=Integer.valueOf(id);
+			serviceTypeService.delete(ids);
+		    return "redirect:"+Global.getAdminPath()+"/order/serviceType";
+	}
+	
+	@RequestMapping(value="queryNum")
+	public void queryNumByName(String[] nameArr,HttpServletRequest request,HttpServletResponse response){
+		boolean flag=false;
+		for(int i=0;i<nameArr.length;i++){
+			 flag = serviceTypeService.queryNumByName(nameArr[i]);
+			 if(flag){
+			break;
+			 }
+		}	
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	@RequestMapping(value="queryNums")
+	public void queryNumByNames(String names,String id,HttpServletRequest request,HttpServletResponse response){
+		boolean flag=false;
+		Integer ids=Integer.valueOf(id);
+	    flag = serviceTypeService.queryNumByNames(names,ids);
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+}

@@ -1,0 +1,101 @@
+package com.jojowonet.modules.sys.util;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.PushMessageDao;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.entity.PushMessage;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.SqlKit;
+import ivan.common.entity.mysql.common.User;
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.Date;
+import java.util.List;
+
+@Component
+public class InvalidOrderPusher extends BasePusher {
+
+    private final AppPusher appPusher;
+    private PushMessageDao pushMessageDao;
+    private static Logger logger = Logger.getLogger(InvalidOrderPusher.class);
+
+    @Autowired
+    public InvalidOrderPusher(AppPusher appPusher) {
+        this.appPusher = appPusher;
+    }
+
+    public void notifyOrderMarkAsInvalid(Order order, User operator) {
+        try {
+            createPushMessage(order, operator);
+        } catch (Exception ex) {
+            logger.error(ex.getMessage(), ex);
+        }
+    }
+
+    private void createPushMessage(Order order, User operator) {
+
+        SqlKit kit = new SqlKit()
+                .append("SELECT e.* FROM")
+                .append("(SELECT * FROM `crm_order_dispatch_employe_rel` AS rel")
+                .append("WHERE rel.`dispatch_id`=(")
+                .append("SELECT d.`id` FROM crm_order_dispatch AS d")
+                .append("WHERE d.`order_id`=? AND d.`status` in ('1','2','4','5') LIMIT 1)")
+                .append(") AS rt")
+                .append("INNER JOIN crm_employe AS e")
+                .append("ON e.`status`='0' AND e.`id` = rt.emp_id ");
+
+        List<Record> relatedEmployeList = Db.find(kit.toString(), order.getId());
+        if (relatedEmployeList.size() <= 0) {
+            return;
+        }
+
+//        String senderId = operator.getId();
+//        if ("2".equals(operator.getUserType())) {
+//            Record site = Db.findFirst("select s.id from crm_site as s where s.user_id=? and s.status='0'", operator.getId());
+//            senderId = site.getStr("id");
+//        } else if ("3".equals(operator.getUserType())) {
+//            Record man = Db.findFirst("select id from crm_non_serviceman where user_id=? and status='0'", operator.getId());
+//            senderId = man.getStr("id");
+//        } else {
+//            logger.warn(String.format("invalid user type found: %s", operator.getUserType()));
+//        }
+
+        for (Record r : relatedEmployeList) {
+            Record userRecord = Db.findFirst("select * from sys_user where id=? and status='0'", r.getStr("user_id"));
+            if (userRecord == null) {
+                continue;
+            }
+
+            PushMessage pm = new PushMessage();
+            pm.setAppType(userRecord.getStr("app_type"));
+            pm.setType("4");
+            String title = "无效工单提醒";
+            String content = String.format("温馨提醒：工单编号(%s)已被标记为无效工单。", order.getNumber());
+            pm.setStatus("0");
+            pm.setIsRead("0");
+            pm.setRegId(userRecord.getStr("registration_id"));
+            pm.setPushIds(userRecord.getStr("sf_regis_id"));
+            pm.setTitle(title);
+            pm.setTargetId(order.getId());
+            pm.setContent(content);
+            pm.setSendTime(new Date());
+            pm.setSenderName(CrmUtils.getUserXM());
+            pm.setSenderId(getSenderId(operator));
+            pm.setSenderType(operator.getUserType());
+            pm.setReceiverId(r.getStr("id"));
+            pm.setReceiverName(r.getStr("name"));
+            pm.setReceiverType("4");
+            pm.setSiteId(order.getSiteId());
+            pushMessageDao.save(pm);
+            appPusher.pushMsg(pm);
+        }
+    }
+
+    @Autowired
+    public void setPushMessageDao(PushMessageDao pushMessageDao) {
+        this.pushMessageDao = pushMessageDao;
+    }
+}

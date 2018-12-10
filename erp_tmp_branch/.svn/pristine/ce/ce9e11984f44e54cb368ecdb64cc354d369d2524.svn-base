@@ -1,0 +1,473 @@
+/**
+ */
+package com.jojowonet.modules.fitting.entity;
+
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Date;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+/**
+ * 备件申请Entity
+ * @author Ivan
+ * @version 2017-05-20
+ */
+@Entity
+@Table(name = "crm_site_fitting_apply")
+public class FittingApply implements Serializable {
+	
+	private static final long serialVersionUID = 1L;
+	
+	private String id; 		// 编号
+	private String number; 
+	private String type; 
+	private String siteId; 
+	private String employeName; 
+	private String employeId; 
+	private String employeFeedback; 
+	private String message; 
+	private String auditor; 
+	private String auditorId; 
+	private String auditorFeedback; 
+	private String confirmor;
+	private String confirmorId; 
+	private String orderId;
+	private String orderNumber;
+	private String status;
+	private String suitCategory; 
+	private String suitMode; 
+	private String fittingId; 
+	private String fittingCode; 
+	private String fittingVersion; 
+	private String fittingName; 
+	private String fittingImg;
+	private BigDecimal fittingApplyNum; 
+	private BigDecimal fittingAuditNum; 
+	private String oldFittingFlag;
+	private Date createTime;
+	private Date auditTime;
+	private Date confirmTime; 
+	private Date endTime;
+	private String creator;
+	private Date updateTime;
+	private String updateName;
+	private String refuseReason;
+	private String auditMarks;
+	private String customerName;
+	private String customerMobile;
+	private String customerAddress;
+	private String applianceCategory;
+	private String applianceBrand;
+	private String warrantyType;
+	private String applianceModel;
+
+	public FittingApply() {
+		super();
+		this.createTime = new Date();
+		this.status = "0";
+		this.type = "1";
+		this.oldFittingFlag = "0";
+	}
+
+	public FittingApply(String id){
+		this();
+		this.id = id;
+	}
+	@Id
+	@GeneratedValue(generator = "idGenerator")
+	@GenericGenerator(name ="idGenerator" , strategy ="uuid")
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getNumber() {
+		return number;
+	}
+
+	public void setNumber(String number) {
+		this.number = number;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getSiteId() {
+		return siteId;
+	}
+
+	public void setSiteId(String siteId) {
+		this.siteId = siteId;
+	}
+
+	public String getEmployeName() {
+		return employeName;
+	}
+
+	public void setEmployeName(String employeName) {
+		this.employeName = employeName;
+	}
+
+	public String getEmployeId() {
+		return employeId;
+	}
+
+	public void setEmployeId(String employeId) {
+		this.employeId = employeId;
+	}
+
+	public String getEmployeFeedback() {
+		return employeFeedback;
+	}
+
+	public void setEmployeFeedback(String employeFeedback) {
+		this.employeFeedback = employeFeedback;
+	}
+
+	public String getMessage() {
+		return message;
+	}
+
+	public void setMessage(String message) {
+		this.message = message;
+	}
+
+	public String getAuditor() {
+		return auditor;
+	}
+
+	public void setAuditor(String auditor) {
+		this.auditor = auditor;
+	}
+
+	public String getAuditorId() {
+		return auditorId;
+	}
+
+	public void setAuditorId(String auditorId) {
+		this.auditorId = auditorId;
+	}
+
+	public String getAuditorFeedback() {
+		return auditorFeedback;
+	}
+
+	public void setAuditorFeedback(String auditorFeedback) {
+		this.auditorFeedback = auditorFeedback;
+	}
+
+	public String getConfirmor() {
+		return confirmor;
+	}
+
+	public void setConfirmor(String confirmor) {
+		this.confirmor = confirmor;
+	}
+
+	public String getConfirmorId() {
+		return confirmorId;
+	}
+
+	public void setConfirmorId(String confirmorId) {
+		this.confirmorId = confirmorId;
+	}
+
+	public String getOrderId() {
+		return orderId;
+	}
+
+	public void setOrderId(String orderId) {
+		this.orderId = orderId;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public String getSuitCategory() {
+		return suitCategory;
+	}
+
+	public void setSuitCategory(String suitCategory) {
+		this.suitCategory = suitCategory;
+	}
+
+	public String getSuitMode() {
+		return suitMode;
+	}
+
+	public void setSuitMode(String suitMode) {
+		this.suitMode = suitMode;
+	}
+
+	public String getFittingId() {
+		return fittingId;
+	}
+
+	public void setFittingId(String fittingId) {
+		this.fittingId = fittingId;
+	}
+
+	public String getFittingCode() {
+		return fittingCode;
+	}
+
+	public void setFittingCode(String fittingCode) {
+		this.fittingCode = fittingCode;
+	}
+
+	public String getFittingVersion() {
+		return fittingVersion;
+	}
+
+	public void setFittingVersion(String fittingVersion) {
+		this.fittingVersion = fittingVersion;
+	}
+
+	public String getFittingName() {
+		return fittingName;
+	}
+
+	public void setFittingName(String fittingName) {
+		this.fittingName = fittingName;
+	}
+
+	public String getFittingImg() {
+		return fittingImg;
+	}
+
+	public void setFittingImg(String fittingImg) {
+		this.fittingImg = fittingImg;
+	}
+
+	public BigDecimal getFittingApplyNum() {
+		return fittingApplyNum;
+	}
+
+	public void setFittingApplyNum(BigDecimal fittingApplyNum) {
+		this.fittingApplyNum = fittingApplyNum;
+	}
+
+	public BigDecimal getFittingAuditNum() {
+		return fittingAuditNum;
+	}
+
+	public void setFittingAuditNum(BigDecimal fittingAuditNum) {
+		this.fittingAuditNum = fittingAuditNum;
+	}
+
+	public Date getCreateTime() {
+		return createTime;
+	}
+
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+
+	public Date getAuditTime() {
+		return auditTime;
+	}
+
+	public void setAuditTime(Date auditTime) {
+		this.auditTime = auditTime;
+	}
+
+	public Date getConfirmTime() {
+		return confirmTime;
+	}
+
+	public void setConfirmTime(Date confirmTime) {
+		this.confirmTime = confirmTime;
+	}
+
+	public Date getEndTime() {
+		return endTime;
+	}
+
+	public void setEndTime(Date endTime) {
+		this.endTime = endTime;
+	}
+
+	public String getCreator() {
+		return creator;
+	}
+
+	public void setCreator(String creator) {
+		this.creator = creator;
+	}
+
+	public Date getUpdateTime() {
+		return updateTime;
+	}
+
+	public void setUpdateTime(Date updateTime) {
+		this.updateTime = updateTime;
+	}
+
+	public String getUpdateName() {
+		return updateName;
+	}
+
+	public void setUpdateName(String updateName) {
+		this.updateName = updateName;
+	}
+
+	public String getOldFittingFlag() {
+		return oldFittingFlag;
+	}
+
+	public void setOldFittingFlag(String oldFittingFlag) {
+		this.oldFittingFlag = oldFittingFlag;
+	}
+
+	public String getRefuseReason() {
+		return refuseReason;
+	}
+
+	public void setRefuseReason(String refuseReason) {
+		this.refuseReason = refuseReason;
+	}
+
+	public String getAuditMarks() {
+		return auditMarks;
+	}
+
+	public void setAuditMarks(String auditMarks) {
+		this.auditMarks = auditMarks;
+	}
+
+	public String getOrderNumber() {
+		return orderNumber;
+	}
+
+	public void setOrderNumber(String orderNumber) {
+		this.orderNumber = orderNumber;
+	}
+
+	public String getCustomerName() {
+		return customerName;
+	}
+
+	public void setCustomerName(String customerName) {
+		this.customerName = customerName;
+	}
+
+	public String getCustomerMobile() {
+		return customerMobile;
+	}
+
+	public void setCustomerMobile(String customerMobile) {
+		this.customerMobile = customerMobile;
+	}
+
+	public String getCustomerAddress() {
+		return customerAddress;
+	}
+
+	public void setCustomerAddress(String customerAddress) {
+		this.customerAddress = customerAddress;
+	}
+
+	public String getApplianceCategory() {
+		return applianceCategory;
+	}
+
+	public void setApplianceCategory(String applianceCategory) {
+		this.applianceCategory = applianceCategory;
+	}
+
+	public String getApplianceBrand() {
+		return applianceBrand;
+	}
+
+	public void setApplianceBrand(String applianceBrand) {
+		this.applianceBrand = applianceBrand;
+	}
+
+	public String getWarrantyType() {
+		return warrantyType;
+	}
+
+	public void setWarrantyType(String warrantyType) {
+		this.warrantyType = warrantyType;
+	}
+
+	public String getApplianceModel() {
+		return applianceModel;
+	}
+
+	public void setApplianceModel(String applianceModel) {
+		this.applianceModel = applianceModel;
+	}
+
+
+	@Override
+	public String toString() {
+		return "FittingApply{" +
+//				"id='" + id + '\'' +
+//				", number='" + number + '\'' +
+//				", type='" + type + '\'' +
+//				", siteId='" + siteId + '\'' +
+//				", employeName='" + employeName + '\'' +
+//				", employeId='" + employeId + '\'' +
+//				", employeFeedback='" + employeFeedback + '\'' +
+//				", message='" + message + '\'' +
+//				", auditor='" + auditor + '\'' +
+//				", auditorId='" + auditorId + '\'' +
+//				", auditorFeedback='" + auditorFeedback + '\'' +
+//				", confirmor='" + confirmor + '\'' +
+//				", confirmorId='" + confirmorId + '\'' +
+//				", orderId='" + orderId + '\'' +
+//				", orderNumber='" + orderNumber + '\'' +
+//				", status='" + status + '\'' +
+//				", suitCategory='" + suitCategory + '\'' +
+//				", suitMode='" + suitMode + '\'' +
+//				", fittingId='" + fittingId + '\'' +
+//				", fittingCode='" + fittingCode + '\'' +
+//				", fittingVersion='" + fittingVersion + '\'' +
+//				", fittingName='" + fittingName + '\'' +
+//				", fittingImg='" + fittingImg + '\'' +
+//				", fittingApplyNum=" + fittingApplyNum +
+//				", fittingAuditNum=" + fittingAuditNum +
+//				", oldFittingFlag='" + oldFittingFlag + '\'' +
+//				", createTime=" + createTime +
+//				", auditTime=" + auditTime +
+//				", confirmTime=" + confirmTime +
+//				", endTime=" + endTime +
+//				", creator='" + creator + '\'' +
+//				", updateTime=" + updateTime +
+//				", updateName='" + updateName + '\'' +
+//				", refuseReason='" + refuseReason + '\'' +
+//				", auditMarks='" + auditMarks + '\'' +
+//				", customerName='" + customerName + '\'' +
+//				", customerMobile='" + customerMobile + '\'' +
+//				", customerAddress='" + customerAddress + '\'' +
+//				", applianceCategory='" + applianceCategory + '\'' +
+//				", applianceBrand='" + applianceBrand + '\'' +
+//				", warrantyType='" + warrantyType + '\'' +
+//				", applianceModel='" + applianceModel + '\'' +
+				'}';
+	}
+}
+
+

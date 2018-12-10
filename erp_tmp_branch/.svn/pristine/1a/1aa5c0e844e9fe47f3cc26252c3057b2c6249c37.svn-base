@@ -1,0 +1,493 @@
+package com.jojowonet.modules.operate.service;
+
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+
+import org.apache.commons.lang3.RandomStringUtils;
+import org.hibernate.SQLQuery;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.entity.GoodsPlatformOrder;
+import com.jojowonet.modules.goods.service.SitePlatformGoodsService;
+import com.jojowonet.modules.goods.utils.OrderInfo;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.operate.dao.SiteMsgDao;
+import com.jojowonet.modules.operate.dao.SiteParentRelDao;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.operate.entity.SiteParentRel;
+import com.jojowonet.modules.order.dao.SiteCommonSettingDao;
+import com.jojowonet.modules.order.entity.SiteCommonSetting;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.dao.UserDao;
+import com.jojowonet.modules.sys.util.SMSUtils;
+import com.jojowonet.modules.unipay.UniPayOrderServiceFactory;
+import com.jojowonet.modules.unipay.core.OrderContext;
+import com.jojowonet.modules.unipay.core.PushOrderResult;
+import com.jojowonet.modules.unipay.core.PushOrderStatus;
+import com.jojowonet.modules.unipay.core.UnifyOrderService;
+import com.jojowonet.modules.unipay.utils.TradeNoUtils;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.service.BaseService;
+import ivan.common.utils.MD5;
+import ivan.common.utils.StringUtils;
+
+
+/**
+ * @author yc
+ * 服务商资料service层
+ *
+ */
+@Component
+@Transactional(readOnly = true)
+public class SiteMsgService extends BaseService {
+	@Autowired
+	private SiteMsgDao siteMsgDao;
+	
+	@Autowired
+	private UserDao userDao;
+	
+	@Autowired
+	private SiteDao siteDao;
+	
+	@Autowired
+	private SiteParentRelDao siteParentRelDao;
+	
+	@Autowired
+	private SiteCommonSettingDao siteCommonSettingDao;
+	
+	@Autowired
+	private SitePlatformGoodsService sitePlatformGoodsService;
+	
+	//根据siteId查询服务商资料信息
+	public Record getSiteId(String siteId){
+		return siteMsgDao.getSiteId(siteId);
+	}
+	//根据siteId修改信息
+	public void updateSite(String siteId,String contacts,String province,String city,String area,String telephone,String address,String license_img,String lnglat){
+		siteMsgDao.updateSite(siteId, contacts, province, city, area, telephone,address, license_img,lnglat);
+	}
+	//查询所有的省份
+	public List<Record> getprovincelist(){
+		List<Record> provinslist=siteMsgDao.getprovincelist();
+		return provinslist;
+	}
+	public void updateZfb(String siteId, String imgzfb) {
+		siteMsgDao.updateZfb(siteId,imgzfb);
+		
+	}
+	public void updateWx(String siteId, String imgwx) {
+		siteMsgDao.updateWx(siteId,imgwx);
+		
+	}
+	
+	public List<Record> getCities(){
+		return Db.find("SELECT * FROM s_province a LEFT JOIN s_city b ON a.ProvinceID=b.ProvinceId ");
+	}
+	
+	public List<Record> getDistrincts(){
+		return  Db.find("SELECT * FROM s_city b LEFT JOIN s_district a ON b.CityID=a.CityId");
+	}
+	
+	public List<Record> getCitiesByProvince(String provinceName){
+		return Db.find("SELECT * FROM s_province a LEFT JOIN s_city b ON a.ProvinceID=b.ProvinceId WHERE a.ProvinceName='"+provinceName+"'");
+	}
+	
+	public List<Record> getDistrinctsProvince(String cityName){
+		return  Db.find("SELECT * FROM s_city b LEFT JOIN s_district a ON b.CityID=a.CityId WHERE b.CityName='"+cityName+"'");
+	}
+	
+	public String getCode(){
+		Random r=new Random();
+		String code = "";
+		for(int i=0;i<4;i++){
+			code=code+String.valueOf(r.nextInt(10));
+		}
+		return code;
+	}
+	
+	@Transactional
+	public String registerSign(Map<String,Object> map,String msgCode){
+			String qgOrsh = "";
+			String mobile = ((String[])map.get("mobile"))[0].toString().trim();
+			Long count = Db.queryLong("select count(*) from sys_user a where a.status='0' and a.user_type !='4' and a.login_name='"+mobile+"'");
+			Long count1 = Db.queryLong("select count(*) from sys_user a where a.status='0' and a.user_type !='4'  and a.mobile='"+mobile+"'");
+			if(count>0){
+				return "existName";
+			}
+			if(count1>0){
+				return "existName";
+			}
+			if(!msgCode.equals(((String[])map.get("confirmCode"))[0].toString().trim())){
+				return "wrongMsg";
+			}
+			String shareCode = ((String[])map.get("shareCode"))[0].toString().trim();//去空格的分享码
+			Long quguan = Db.queryLong("select count(*) from crm_area_manager a where a.status='0' and a.code='"+shareCode+"'");
+			Record rd1 = Db.findFirst("select * from crm_area_manager a where a.status='0' and a.code='"+shareCode+"'");
+			Long siteCount = Db.queryLong("select count(*) from crm_site a where a.status='0' and a.share_code='"+shareCode+"'");
+			Record rd = Db.findFirst("select * from crm_site a where a.status='0' and a.share_code='"+shareCode+"' limit 1");
+			Site site = new Site();
+			if(quguan<1){//不是区管码
+				if(siteCount<1){//不是网点的分享码
+					return "wrongCode";
+				}else{//是网点的分享码
+					site.setShareCodeSiteParentId(rd.getStr("id"));
+					if(StringUtils.isNotBlank(rd.getStr("area_manager_id"))){
+						site.setAreaManagerId(rd.getStr("area_manager_id"));//区管Id
+					}
+					//SQLQuery sql = userDao.getSession().createSQLQuery("update crm_site a set a.");
+					qgOrsh="shOk";
+				}
+			}else{//是区管码
+				site.setAreaManagerId(rd1.getStr("id"));//区管Id
+				if(rd1.getInt("left_share_count")<1){
+					return "qgLimit";
+				}
+				Db.update("update crm_area_manager a set a.left_share_count=(a.left_share_count-1),a.shared_count=(a.shared_count+1) where a.status='0' and a.left_share_count>0 and a.id=?",rd1.getStr("id"));
+				qgOrsh="qgOk";
+			}
+			Date dt = new Date();
+			User user = new User();
+			user.setLoginName(((String[])map.get("mobile"))[0]);//登录名
+			user.setPassword(MD5.MD5(((String[])map.get("password"))[0]));//登陆密码
+			user.setCreateBy("3");//创建人
+			user.setCreateDate(dt);
+			user.setUpdateTime(dt);
+			user.setUserType("2");//网点
+			user.setCreateType(2);//wed端添加
+			user.setStatus("0");
+			user.setMobile(((String[])map.get("mobile"))[0]);
+			userDao.save(user);
+			
+			site.setName(((String[])map.get("name"))[0]);
+			site.setMobile(((String[])map.get("mobile"))[0]);
+			site.setStatus("0");//审核中
+			site.setUser(user);
+			site.setLevel("0");
+			site.setNumber(genUniqueNo());
+			site.setCheckFlag("0");
+			site.setUpdateTime(dt);
+			site.setCreateTime(dt);
+			site.setCreateBy("3");
+			site.setCity(((String[])map.get("city1"))[0]);
+			site.setArea(((String[])map.get("area1"))[0]);
+			site.setProvince(((String[])map.get("province1"))[0]);
+			site.setAddress(((String[])map.get("address"))[0]);
+			site.setSmsAvailableAmount(0);
+			site.setShareCode(genSiteShareCode());
+			site.setType("0");
+			if("fwxh".equalsIgnoreCase(shareCode)){//服务商的这个分享码特殊处理
+				site.setType("2");
+			}
+			siteDao.save(site);
+			if("fwxh".equalsIgnoreCase(shareCode)){//服务商的这个分享码特殊处理 
+				SiteParentRel spr = new SiteParentRel();
+				spr.setStatus("0");
+				spr.setParentSiteId("ff808081616de39801616f505fab60f4");
+				spr.setCreateBy(user.getId());
+				spr.setCreateName(site.getName());
+				spr.setCreateTime(dt);
+				spr.setSiteId(site.getId());
+				siteParentRelDao.save(spr);
+			}
+			Db.update("insert into sys_user_role (user_id,role_id) values ('"+user.getId()+"','3')");
+			return qgOrsh;
+	}
+
+	private String genSiteShareCode() {
+		Long count1, count2;
+		String shareCode;
+		do {
+			shareCode = RandomStringUtils.randomAlphanumeric(4);// 服务商随机生成的分享码
+			count1 = Db.queryLong("select count(1) from crm_area_manager a where a.status='0' and a.code=?", shareCode);// 区管码
+			count2 = Db.queryLong("select count(1) from crm_site a where a.status='0' and a.share_code=?", shareCode);// 分享码
+		} while (count1 > 1 || count2 > 1);
+		return shareCode;
+	}
+
+	/**
+	 * 使用服务商分享的激活码，会走这个逻辑。
+	 * @return
+	 */
+	@Transactional
+	public HashMap<String, Object> registerSign1(Map<String,Object> map,String msgCode,OrderContext orderContext){
+			HashMap<String, Object> ret = new HashMap<>();
+			String mobile = ((String[])map.get("mobile"))[0].toString().trim();
+			Long count = Db.queryLong("select count(*) from sys_user a where a.status='0' and a.user_type !='4' and a.login_name='"+mobile+"'");
+			Long count1 = Db.queryLong("select count(*) from sys_user a where a.status='0' and a.user_type !='4'  and a.mobile='"+mobile+"'");
+			if(count>0){
+				ret.put("result", Result.fail("existName", "existName"));
+				ret.put("timeList", "");
+				return ret;
+			}
+			if(count1>0){
+				ret.put("result", Result.fail("existName", "existName"));
+				ret.put("timeList", "");
+				return ret;
+			}
+			if(!msgCode.equals(((String[])map.get("confirmCode"))[0].toString().trim())){
+				ret.put("result", Result.fail("wrongMsg", "wrongMsg"));
+				ret.put("timeList", "");
+				return ret;
+			}
+			String shareCode = ((String[])map.get("shareCode"))[0].toString().trim();//去空格的分享码
+			Record rd1 = Db.findFirst("select * from crm_area_manager a where a.status='0' and a.code='"+shareCode+"'");
+			Long siteCount = Db.queryLong("select count(*) from crm_site a where a.status='0' and a.share_code='"+shareCode+"'");
+			Record rd = Db.findFirst("select * from crm_site a where a.status='0' and a.share_code='"+shareCode+"'");
+			if(siteCount<1){//不是网点的分享码
+				ret.put("result", Result.fail("wrongCode", "wrongCode"));
+				ret.put("timeList", "");
+				return ret;
+			}
+			
+			String zfType = ((String[])map.get("zfTypeCopy"))[0].toString().trim();
+	    	String gmMonth = ((String[])map.get("gmMonthCopy"))[0].toString().trim();
+	    	String countMoney = ((String[])map.get("countMoneyCopy"))[0].toString().trim();
+	    	String name = ((String[])map.get("name"))[0].toString().trim();
+	    	String passWord = ((String[])map.get("password"))[0].toString().trim();
+	    	String province = ((String[])map.get("province1"))[0].toString().trim();
+	    	String city = ((String[])map.get("city1"))[0].toString().trim();
+	    	String area = ((String[])map.get("area1"))[0].toString().trim();
+	    	String address = ((String[])map.get("address"))[0].toString().trim();
+	    	
+	    	OrderInfo order = new OrderInfo();
+	    	
+	    	String payType="";
+	    	if(zfType.equals("wx")){
+	    		payType="wx";
+	    	}else{
+	    		payType="alipay";
+	    	}
+	    	UnifyOrderService unipayOrderService = UniPayOrderServiceFactory.getUnipayOrderService(payType);
+			orderContext.setNotifyUrl(Global.getConfig("pay.callback.prefix") + "/notify/sg/callback1/" + payType);//http/https路径。
+			String outTradeNo = TradeNoUtils.genUniqueNo("po");
+			logger.error("-> Generated out trade no is:" + outTradeNo);
+			order.setOutTradeNo(outTradeNo);
+			order.setPayType(payType);
+			String sbJect = "";
+			if(gmMonth.equals("1")){
+				sbJect="一个月";
+			}else if(gmMonth.equals("6")){
+				sbJect="半年";
+			}else if(gmMonth.equals("12")){
+				sbJect="一年";
+			}else if(gmMonth.equals("24")){
+				sbJect="两年";
+			}else if(gmMonth.equals("36")){
+				sbJect="三年";
+			}
+			BigDecimal totalMoney = new BigDecimal("0");
+			if(StringUtils.isNotBlank(countMoney)){
+				totalMoney = new BigDecimal(countMoney);
+			}
+			order.setQuantity(1);
+			order.setSubject("平台商品-思方erp VIP会员"+sbJect );
+			if ( "15212770911".equals(mobile) || "18656153972".equals(mobile)) {
+				order.setTotalFee(1L);
+			} else {
+				order.setTotalFee(Math.round(totalMoney.doubleValue() * 100));
+			}
+			order.setBody("平台商品-思方erp VIP会员" + " *" + order.getQuantity());
+			PushOrderResult pushOrderResult = unipayOrderService.unifyOrder(orderContext, order);//??
+			PushOrderStatus pushOrderStatus = pushOrderResult.getPushOrderStatus();
+			if (PushOrderStatus.SUCCESS != pushOrderStatus) {
+				ret.put("result", Result.fail("422", "precreate sc order failed"));
+				ret.put("timeList", "");
+				return ret;
+			}
+			GoodsPlatformOrder gpOrder = sitePlatformGoodsService.scPlatOrder1(outTradeNo, countMoney, zfType,  sbJect, gmMonth,name,passWord,mobile,province,city,area,address,shareCode);
+			Result result = createOrderResult(gpOrder, pushOrderResult);
+			ret.put("result", result);
+			ret.put("timeList", "");
+	    	return ret;
+	}
+	
+	public String checkSiteName(String name){
+		try {
+			Long count = Db.queryLong("select count(*) from crm_site a  where a.status='0' and a.name='"+name+"'");
+			if(count>0){
+				return "no";
+			}else{
+				return "ok";
+			}
+		} catch (Exception e) {
+			return "no";
+		}
+	}
+	
+	@Transactional
+	public String resertPwd(String mobile,String password,String msgCode,String msgCheck){
+		try {
+			if(!msgCheck.equals(msgCode)){
+				return "errorMsg";
+			}
+			Db.update("update sys_user a set a.update_time=now(),a.password='"+MD5.MD5(password)+"' where a.mobile='"+mobile+"' and a.status='0' and a.user_type != '4'");
+			return "ok";
+		} catch (Exception e) {
+			return "no";
+		}
+	}
+	
+	public String zcCheckMobile(String mobile,String code){
+		try {
+			Long count = Db.queryLong("select count(*) from sys_user a where a.status='0' and a.user_type !='4' and a.login_name='"+mobile+"'");
+			Long count1 = Db.queryLong("select count(*) from sys_user a where a.status='0' and a.user_type !='4'  and a.mobile='"+mobile+"'");
+			if(count>0){
+				return "existName";
+			}
+			if(count1>0){
+				return "existName";
+			}
+			SMSUtils.sendMsg(mobile,"【思方科技】您的验证码是:"+code+"，在5分钟内有效。如非本人操作请忽略本短信。","","");
+			return "ok";
+		} catch (Exception e) {
+			return "no";
+		}
+		
+	}
+	
+	public String xgmaCheckMobile(String code,String mobile){
+		try {
+			Long count = Db.queryLong("select count(*) from sys_user a where a.status='0' and a.user_type !='4' and a.login_name='"+mobile+"'");
+			Long count1 = Db.queryLong("select count(*) from sys_user a where a.status='0' and a.user_type !='4'  and a.mobile='"+mobile+"'");
+			if(count<1 && count1<1){
+				return "noExist";
+			}
+			SMSUtils.sendMsg(mobile,"【思方科技】您的验证码是:"+code+"，在5分钟内有效。如非本人操作请忽略本短信。","","");
+			return "ok";
+		} catch (Exception e) {
+			return "no";
+		}
+		
+	}
+	
+	public static String genUniqueNo() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+        return sdf.format(new Date()) + getPositiveRandomWithRang(4);
+    }
+
+    private static String getPositiveRandomWithRang(int count) {
+        StringBuilder sb = new StringBuilder();
+        String str = "0123456789";
+        Random r = new Random();
+        for (int i = 0; i < count; i++) {
+            int num = r.nextInt(str.length());
+            sb.append(str.charAt(num));
+            str = str.replace((str.charAt(num) + ""), "");
+        }
+        return sb.toString();
+    }
+    
+    public String getHtmlById(String goodId){
+    	Record rd = Db.findFirst("select * from crm_goods_siteself a where a.id='"+goodId+"'");
+    	if(rd!=null){
+    		//return rd.getStr("all_html");
+    		return rd.getStr("html");
+    	}else{
+    		return "";
+    	}
+    }
+    
+    public String getHtmlById1(String goodId){
+    	Record rd = Db.findFirst("select * from crm_goods_siteself a where a.id='"+goodId+"'");
+    	return rd.getStr("html");
+    }
+	
+    /**
+     * 根据平台业务订单和支付宝|微信下单结果，生成响应。
+     *
+     * @param order           业务订单
+     * @param pushOrderResult 向支付宝和微信下单结果
+     */
+    private Result createOrderResult(GoodsPlatformOrder order, PushOrderResult pushOrderResult) {
+        if (StringUtils.isNotBlank(order.getId())) {
+            Map<String, Object> response = pushOrderResult.getResponse();
+            String qrCodeUrl = (String) response.get("qr_code_url");
+            Result<String[]> ret = new Result<>();
+            ret.setCode("200");
+            ret.setData(new String[]{qrCodeUrl, order.getTradeNo(), order.getNumber()});
+            return ret;
+        }
+
+        return Result.fail("422", String.format("create platform %s order failed", order.getGoodName()));
+    }
+    
+    /*
+     * 开通服务商工单编号流水功能
+     */
+    @Transactional(rollbackFor=Exception.class)
+    public String openOrderSetConfirm(String type,String ids) {//type:0关闭 1开通
+    	if("1".equals(type)){
+    		List<SiteCommonSetting> list = new ArrayList<SiteCommonSetting>();
+	    	for(int i=0;i<ids.split(",").length;i++) {
+	    		//批量开通
+				Record rd = Db.findFirst("select a.* from crm_site_common_setting a where a.site_id=? and a.type='13' limit 1",ids.split(",")[i]);
+				if(rd==null) {
+	    			SiteCommonSetting scs = new SiteCommonSetting();
+	    			scs.setSetValue("1");
+	    			scs.setType("13");
+	    			scs.setSiteId(ids.split(",")[i]);
+	    			list.add(scs);
+	    		}
+	    		
+	    	}
+	    	if(list.size() > 0) {
+	    		siteCommonSettingDao.save(list);
+	    	}
+    	}
+    	if("0".equals(type)) {//批量关闭
+			SQLQuery sql = siteCommonSettingDao.getSession().createSQLQuery("delete from crm_site_common_setting where site_id in("+StringUtil.joinInSql(ids.split(","))+") and type='13' ");
+			sql.executeUpdate();
+		}
+    	return "200";
+    }
+    
+    public String ifOpenOrderSet(String siteId) {
+    	Record rd = Db.findFirst("select a.* from crm_site_common_setting  a where a.site_id=? and a.type='13' limit 1",siteId);
+    	if(rd==null) {
+    		return "420";
+    	}
+    	if("0".equals(rd.getStr("set_value"))){
+    		return "420";
+    	}
+    	return "200";
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Void> authorizeWxOpen(List<String> siteIds) {
+    	Result<Void> ret = new Result<>();
+    	siteCommonSettingDao.saveSiteCommonSetting(siteIds, "16", "0");
+    	ret.setCode("200");
+    	return ret;
+	}
+
+	@Transactional(rollbackFor = Exception.class)
+	public Result<Void> revokeWxOpen(List<String> siteIds) {
+		Result<Void> ret = new Result<>();
+		siteCommonSettingDao.saveSiteCommonSetting(siteIds, "16", "1");
+		ret.setCode("200");
+		return ret;
+	}
+
+	@Transactional(rollbackFor = Exception.class)
+	public boolean hasWxOpenPermission(String siteId) {
+		if (StringUtil.isBlank(siteId)) {
+			throw new IllegalArgumentException("site id required");
+		}
+
+		return siteCommonSettingDao.hasWxOpenPermission(siteId);
+	}
+
+}

@@ -1,0 +1,46 @@
+package com.jojowonet.modules.order.utils.caches;
+
+
+import com.jojowonet.modules.order.service.SiteOrderMapService;
+import com.jojowonet.modules.order.utils.SimpleCache;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Component
+public class SiteOrderMapCache extends SimpleCache<String> {
+
+    @Autowired
+    SiteOrderMapService siteOrderMapService;
+
+    /**
+     * Map table by siteId and table name without suffix.
+     *
+     * @param key pattern: site_id:table_name
+     * @return mapped table name.
+     */
+    @Override
+    protected String getCacheObject(String key) {
+        String[] split = key.split(":");
+        String siteId = split[0];
+        String tableName = split[1];
+        String suffix = siteOrderMapService.getSiteOrderSuffix(siteId);
+        if (suffix == null) {
+            return null;
+        }
+        return isDefaultSuffix(suffix) ? tableName : tableName + suffix;
+    }
+
+    @Override
+    protected int expireHour() {
+        return 4;
+    }
+
+    @Override
+    protected int cacheSize() {
+        return 500 * 7;
+    }
+
+    private boolean isDefaultSuffix(String suffix) {
+        return "_00".equals(suffix) || "".equals(suffix);
+    }
+}

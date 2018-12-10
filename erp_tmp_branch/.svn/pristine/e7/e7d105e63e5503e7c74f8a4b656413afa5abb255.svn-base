@@ -1,0 +1,359 @@
+package com.jojowonet.modules.goods.service;
+
+import com.google.gson.Gson;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.form.UserSiteMsg;
+import com.jojowonet.modules.goods.dao.GoodsPlatFormMjlOrderDao;
+import com.jojowonet.modules.goods.dao.GoodsPlatformTransferOrderDao;
+import com.jojowonet.modules.goods.dao.PlatFormOrderDao;
+import com.jojowonet.modules.goods.dao.SitePlatformGoodsDao;
+import com.jojowonet.modules.goods.entity.GoodsPlatFormMjlOrder;
+import com.jojowonet.modules.goods.entity.GoodsPlatform;
+import com.jojowonet.modules.goods.entity.GoodsPlatformOrder;
+import com.jojowonet.modules.goods.entity.GoodsPlatformTransferOrder;
+import com.jojowonet.modules.goods.utils.HttpUtils;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.WebPageFunUtils;
+import com.jojowonet.modules.unipay.utils.TradeNoUtils;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.Page;
+import ivan.common.utils.UserUtils;
+
+import org.apache.commons.lang.StringUtils;
+import org.hibernate.Query;
+import org.hibernate.SQLQuery;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.*;
+
+@Component
+@Transactional(readOnly = true)
+public class SitePlatformGoodsService {
+
+	@Autowired
+	private SitePlatformGoodsDao sitePlatformGoodsDao;
+	@Autowired
+	private PlatFormOrderDao platFormOrderDao;
+	@Autowired
+	private GoodsPlatformTransferOrderDao goodsPlatformTransferOrderDao;
+	@Autowired
+	private GoodsPlatFormMjlOrderDao goodsPlatFormMjlOrderDao;
+	
+	// 获取 服务商 商品线上付款交易记录
+	public Page<Record> getPlatformGoodsRecord(Page<Record> page, String siteId,
+			Map<String, Object> map) {
+		
+        List<Record> list = sitePlatformGoodsDao.getSitePlatformGoodsRecord(page, siteId, map);
+        long count = sitePlatformGoodsDao.getSitePlatformRecordCount(map, siteId);
+        page.setCount(count);
+        page.setList(list);
+
+		return page;
+	}
+
+	// 获取 服务商 商品线上付款交易记录
+	public Page<Record> getPlatformGoodsRecordPayed(Page<Record> page, String siteId,
+			Map<String, Object> map) {
+
+        List<Record> list = sitePlatformGoodsDao.getSitePlatformGoodsRecordPayed(page, siteId, map);
+        for(Record re:list){
+        	if("2".equals(re.getStr("goodsType"))){
+				if(StringUtils.isNotBlank(re.getStr("good_icon"))){
+					String[] images=re.getStr("good_icon").split(",");
+					re.set("good_icon",images[0]);
+				}
+			}
+		}
+        long count = sitePlatformGoodsDao.getSitePlatformRecordPayedCount(map, siteId);
+        page.setCount(count);
+        page.setList(list);
+
+		return page;
+	}
+
+	// 获取服务商平台商品list
+	public Page<Record> getSitePlatformGoodslist(Page<Record> page,
+			String siteId, Map<String, Object> map) {
+		
+        List<Record> list = sitePlatformGoodsDao.getSitePlatformGoodsList(page, siteId, map);
+		for(Record re:list){
+			if(StringUtils.isNotBlank(re.getStr("icon"))){
+				String[] images=re.getStr("icon").split(",");
+				re.set("icon",images[0]);
+			}
+		}
+        long count = sitePlatformGoodsDao.getSitePlatformListCount(map);
+        page.setCount(count);
+        page.setList(list);
+
+		return page;
+	}
+
+	// 获取平台助手商品list
+	public Page<Record> getPlatformAssistantList(Page<Record> page, Map<String, Object> map) {
+
+		List<Record> list = sitePlatformGoodsDao.getPlatformAssistantList(page, map);
+		long count = sitePlatformGoodsDao.getPlatformAssistantListCount(map);
+		page.setList(list);
+		page.setCount(count);
+		
+		return page;
+	}
+	//取消订单
+	public void cancelOrder(String id){
+		String sql="update crm_goods_platform_order set status='5'";
+		Db.update(sql);
+	}
+	//获取所有服务助手商品信息
+	public List<GoodsPlatform> getsiteAssistant(){
+		String sql="select * from crm_goods_platform where type='1' and status='0' ";
+		List<Record> re=Db.find(sql);
+		
+		List<GoodsPlatform> list=new ArrayList<GoodsPlatform>();
+		GoodsPlatform gpfo=new GoodsPlatform();//短信
+		GoodsPlatform gpft=new GoodsPlatform();//来电弹屏
+		GoodsPlatform gpftCode=new GoodsPlatform();//二维码
+
+		for(Record r:re){
+			if("短信".equals(r.getStr("category").trim())){
+				gpfo.setId(r.getStr("id"));
+				if(StringUtils.isNotEmpty(r.getStr("icon"))){
+					gpfo.setIcon(r.getStr("icon"));
+				}
+				if(StringUtils.isNotEmpty(r.getStr("imgs"))){
+					gpfo.setImgs(r.getStr("imgs"));
+				}
+				if(StringUtils.isNotEmpty(r.getStr("description"))){
+					gpfo.setDescription(r.getStr("description"));
+				}
+				if(StringUtils.isNotEmpty(r.getBigDecimal("site_price").toString())){
+					gpfo.setSitePrice(r.getBigDecimal("site_price"));
+				}
+				
+			}else if("来电弹屏".equals(r.getStr("category").trim())){
+				gpft.setId(r.getStr("id"));
+				if(StringUtils.isNotEmpty(r.getStr("icon"))){
+					gpft.setIcon(r.getStr("icon"));
+				}
+				if(StringUtils.isNotEmpty(r.getStr("imgs"))){
+					gpft.setImgs(r.getStr("imgs"));
+				}
+				if(StringUtils.isNotEmpty(r.getStr("description"))){
+					gpft.setDescription(r.getStr("description"));
+				}
+				if(StringUtils.isNotEmpty(r.getBigDecimal("site_price").toString())){
+					gpft.setSitePrice(r.getBigDecimal("site_price"));
+				}
+			}else if("二维码".equals(r.getStr("category").trim())){
+				gpftCode.setId(r.getStr("id"));
+				if(StringUtils.isNotEmpty(r.getStr("icon"))){
+					gpftCode.setIcon(r.getStr("icon"));
+				}
+				if(StringUtils.isNotEmpty(r.getStr("imgs"))){
+					gpftCode.setImgs(r.getStr("imgs"));
+				}
+				if(StringUtils.isNotEmpty(r.getStr("description"))){
+					gpftCode.setDescription(r.getStr("description"));
+				}
+				if(StringUtils.isNotEmpty(r.getBigDecimal("site_price").toString())){
+					gpftCode.setSitePrice(r.getBigDecimal("site_price"));
+				}
+			}
+		}
+		list.add(gpfo);
+		list.add(gpft);
+		list.add(gpftCode);
+		return list;
+	}
+	
+	// 导出  服务商出入库明细表的记录
+	public List<Record> getPlatformGoodsRecordList (Page<Record> page, String siteId, Map<String, Object> map) {
+		List<Record> list = sitePlatformGoodsDao.getSitePlatformGoodsRecord(page, siteId, map);
+		return list;
+	}
+
+	public long calcSmsFee(Integer msgCount) {
+		if (msgCount == null || msgCount <= 0) {
+			throw new IllegalArgumentException("msg count invalid");
+		}
+		double fee;
+		if (msgCount < 10000) {
+			fee = msgCount * 0.1d;
+		} else if (msgCount >= 10000 && msgCount < 20000) {
+			fee = msgCount * 0.08d;
+		} else {
+			fee = msgCount * 0.07d;
+		}
+		return Math.round(fee * 100d);
+	}
+	
+	 public String cancelPlatOrder(String id,String soId,String gId,Double pNum){
+	    	return sitePlatformGoodsDao.cancelPlatOrder(id,soId,gId,pNum);
+	    }
+	 public Record orderProgress(String id){
+		 Record rds = sitePlatformGoodsDao.orderProgress(id);
+		 if(rds != null){
+			 Map<String,String> map = HttpUtils.getLogistics(rds.getStr("logistics_no"), rds.getStr("logistics_name"));
+			List<Map.Entry<String,String>> list = HttpUtils.sort(map);
+			rds.set("listmap", list);
+		 }
+	    	return rds;
+	    }
+	 	//查看訂單性情
+	 public Record orderProgressId(String id){
+		 return sitePlatformGoodsDao.orderProgress(id);
+	 }
+	public GoodsPlatformOrder scPlatOrder(String outTradeNo, String countMoney, String zfType, String siteId, String sbJect, String gmMonth) {
+		 Record rd = Db.findFirst("select * from crm_site a where a.id='"+siteId+"'");
+		 User user = UserUtils.getUser();
+		 GoodsPlatformOrder gpo = new GoodsPlatformOrder();
+		 gpo.setSiteId(siteId);
+		 gpo.setTradeNo(outTradeNo);//交易记录号
+		 BigDecimal totalMoney = new BigDecimal("0");
+			if(StringUtils.isNotBlank(countMoney)){
+				totalMoney = new BigDecimal(countMoney);
+			}
+		 if(zfType.equals("zfb")){//支付方式
+			 gpo.setPaymentType("1");
+		 }else{
+			 gpo.setPaymentType("0"); 
+		 }
+		 gpo.setPlacingOrderBy(user.getId());
+		 gpo.setPlacingOrderTime(new Date());
+		 gpo.setPayer(user.getId());
+		 gpo.setStatus("0");
+		 gpo.setGoodName("思方erp VIP会员—"+sbJect);
+		 gpo.setGoodAmount(totalMoney);
+		 gpo.setCustomerName(rd.getStr("name"));
+		 gpo.setCustomerContact(rd.getStr("mobile"));
+		 gpo.setCustomerAddress(rd.getStr("address"));
+		 gpo.setPayStatus("0");
+		 gpo.setPurchaseNum(new BigDecimal(gmMonth));
+		 gpo.setCreator(CrmUtils.getUserXM());
+		 gpo.setNumber(TradeNoUtils.genOrderNo("V"));
+		 platFormOrderDao.save(gpo);
+		 return gpo;
+	 }
+	
+	public GoodsPlatformOrder scPlatOrder1(String outTradeNo, String countMoney, String zfType,  String sbJect, String gmMonth,String name,String passWord, String mobile,String province,String city,String area,String address,String shareCode) {
+		 GoodsPlatformOrder gpo = new GoodsPlatformOrder();
+		 UserSiteMsg usm = new UserSiteMsg();
+		 usm.setAddress(address);
+		 usm.setArea(area);
+		 usm.setCity(city);
+		 usm.setProvince(province);
+		 usm.setMobile(mobile);
+		 usm.setPassWord(passWord);
+		 usm.setShareCode(shareCode);
+		 usm.setName(name);
+		 String userSiteMsg = new Gson().toJson(usm);
+		// UserSiteMsg userSiteMsg = new Gson().fromJson(usm, UserSiteMsg.class);
+		 //String userSiteMsg = WebPageFunUtils.appendProcessDetail1(usm);
+		 gpo.setTradeNo(outTradeNo);//交易记录号
+		 BigDecimal totalMoney = new BigDecimal("0");
+		 if(StringUtils.isNotBlank(countMoney)){
+			 totalMoney = new BigDecimal(countMoney);
+		 }
+		 if(zfType.equals("zfb")){//支付方式
+			 gpo.setPaymentType("1");
+		 }else{
+			 gpo.setPaymentType("0"); 
+		 }
+		 gpo.setPlacingOrderTime(new Date());
+		 gpo.setStatus("0");
+		 gpo.setGoodName("思方erp VIP会员—"+sbJect);
+		 gpo.setGoodAmount(totalMoney);
+		 gpo.setPayStatus("0");
+		 gpo.setUserSiteMsg(userSiteMsg);
+		 gpo.setPurchaseNum(new BigDecimal(gmMonth));
+		 gpo.setNumber(TradeNoUtils.genOrderNo("V"));
+		 gpo.setCustomerName(name);
+         gpo.setCustomerAddress(address);
+         gpo.setCustomerContact(mobile);
+         gpo.setCreator(name);
+		 platFormOrderDao.save(gpo);
+		 return gpo;
+	 }
+	 
+	 public List<Record> historyOrder(String siteId){
+		 return Db.find("select a.*,b.review_status as review_status from crm_goods_platform_order a left join crm_invoice_application as b on a.invoice_record_id=b.id where a.pay_status='1' and a.good_id is null and a.site_id='"+siteId+"'");
+	 }
+	 
+	 public String distinct(String siteId){
+			Record rd = Db.findFirst("select * from crm_site a where a.status='0' and a.id='"+siteId+"'");
+			Date dueTime = rd.getDate("due_time");
+			Date now = new Date();
+			if(dueTime==null){
+				return "showPopup";
+			}else{
+				if(dueTime.getTime() >= now.getTime()){
+					return "noPopup";
+				}else{
+					return "showPopup";
+				}
+			}
+	 }
+
+	public boolean isVip(String siteId) {
+		if (StringUtils.isBlank(siteId)) {
+			throw new RuntimeException("invalid site when check vip");
+		}
+
+		String distinct = distinct(siteId);
+		return "noPopup".equals(distinct);
+	}
+
+	/**
+	 *新建订单信息
+	 */
+	 public void createNanDaoOrderDetail(List<GoodsPlatformTransferOrder> listGoods){
+		 goodsPlatformTransferOrderDao.save(listGoods);
+	 }
+
+	/**
+	 *新建订单信息(清洁剂)
+	 */
+	 public void createDetergentOrderDetail(List<GoodsPlatformOrder> listGoods){
+		 platFormOrderDao.save(listGoods);
+	 }
+
+	//新建美洁力订单信息
+	public void createMeiJLiOrderDetail(GoodsPlatFormMjlOrder gpon){
+		goodsPlatFormMjlOrderDao.save(gpon);
+	}
+
+	 public List<Map<String,Object>> timeDistinct(String siteId,String gmMonth){
+		 List<Map<String,Object>>  list = new ArrayList<>();
+		 Map<String,Object> map = new HashMap<>();
+		 Integer month = Integer.valueOf(gmMonth).intValue();
+		 Record rd = Db.findFirst("select * from crm_site a where a.status='0' and a.id='"+siteId+"'");
+		 Date date = new Date();
+		 String start1 =null ;
+		 String end1 = null;
+		 if(rd.getDate("due_time")==null || (rd.getDate("due_time").getTime() < date.getTime()) ){
+			 Record rd1 = Db.findFirst("select DATE_FORMAT(date_add(date_add(now(),interval "+month+" month),INTERVAL -1 DAY),'%Y.%c.%e') as end1,DATE_FORMAT(now(),'%Y.%c.%e') as start1");
+			 start1 = rd1.getStr("start1");
+			 end1 = rd1.getStr("end1");
+		 }else {
+			 Record rd2 = Db.findFirst("select DATE_FORMAT(date_add(date_add('"+rd.getDate("due_time")+"',interval "+month+" month),INTERVAL -1 DAY),'%Y.%c.%e') as end1,DATE_FORMAT('"+rd.getDate("due_time")+"','%Y.%c.%e') as start1");
+			 start1 = rd2.getStr("start1");
+			 end1 = rd2.getStr("end1");
+		 }
+		 map.put("start", start1);
+		 map.put("end", end1);
+		 list.add(map);
+		 return list;
+	 }
+	 
+	 public Record getSiteMessage(String siteId){
+		 return Db.findFirst("select * from crm_site a where a.id='"+siteId+"'");
+	 }
+	 public Record getSiteMessage1(String mobile){
+		 return Db.findFirst("select * from crm_site a where a.mobile='"+mobile+"' and a.status='2' ");
+	 }
+}

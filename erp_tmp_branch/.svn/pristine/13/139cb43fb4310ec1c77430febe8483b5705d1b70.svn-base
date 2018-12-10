@@ -1,0 +1,438 @@
+/**
+ */
+package com.jojowonet.modules.operate.dao;
+
+import com.google.common.collect.Lists;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.entity.Employe;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.order.utils.SqlKit;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import org.apache.log4j.Logger;
+import org.hibernate.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.*;
+
+
+/**
+ * 服务工程师DAO接口
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Repository
+public class EmployeDao extends BaseDao<Employe> {
+
+	private static Logger logger = Logger.getLogger(EmployeDao.class);
+/*
+	查询服务商下面服务工程师	
+*/	
+	public List<Employe> getListEmp(Employe employe,String siteId){
+		List<Employe> list = Lists.newArrayList();
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT * FROM crm_employe e WHERE e.site_id='"+siteId+"' AND e.status='0'");
+        List<Record> records= Db.find(sf.toString());
+        if(records !=null){
+        	for(Record rd : records){
+        		Employe em = new Employe();
+        		em.setCategory(rd.getStr("category"));
+        		em.setCreateBy(rd.getStr("create_by"));
+        		em.setCreateTime(rd.getDate("create_time"));
+        		em.setId(rd.getStr("id"));
+        		em.setImg(rd.getStr("img"));
+        		em.setMobile(rd.getStr("mobile"));
+        		em.setName(rd.getStr("name"));
+        		em.setRemarks(rd.getStr("remarks"));
+        		Site site = new Site();
+        		site.setId(rd.getStr("site_id"));
+        		em.setSite(site);
+        		em.setStatus(rd.getStr("status"));
+        		em.setUpdateTime(rd.getDate("update_time"));
+        		em.setUser(UserUtils.getUserById(rd.getStr("user_id")));
+        		list.add(em);
+        	}
+        }
+		return list;
+	}
+	/*
+	 * 查询服务上下的服务工程师，以及对应的工单情况
+	
+	*/
+	public List<Record> getEmployeOrder(String siteId){
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT ce.id,ce.name,ce.mobile,cd.longitude,cd.latitude,");
+		sf.append("SUM(CASE WHEN co.status='2' THEN 1 ELSE 0 END) 'wwc',");
+		sf.append("SUM(CASE WHEN co.status IN('3','4','5') THEN 1 ELSE 0 END) 'ywc' ");
+		sf.append("FROM crm_employe ce ");
+		sf.append(" LEFT JOIN crm_gps_record cd ON cd.role_id = ce.id ");
+		sf.append(" LEFT JOIN crm_order co ON co.employe_id = ce.id AND co.site_id = '"+siteId+"'  AND co.status IN('2','3','4','5') AND DATE_FORMAT(co.create_time,'%Y-%m')=DATE_FORMAT(NOW(),'%Y-%m')");
+		sf.append(" WHERE ce.site_id='"+siteId+"' AND ce.status='0' GROUP BY ce.name ");
+		return Db.find(sf.toString());
+	}
+
+	//获取当日在线的服务工程师
+	public List<Record> getSameDayOnlineEmploye(String siteId,String empId) {
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT e.id, e.name,  ot3.latitude, ot3.longitude, ot3.create_date ");
+		sf.append(" FROM crm_employe e ");
+		sf.append(" LEFT JOIN ( ");
+		sf.append(" SELECT gpr.role_id, gpr.latitude, gpr.longitude,gpr.create_date FROM ( ");
+		sf.append(" SELECT a.id, a.role_id, a.latitude, a.longitude, a.create_date  ");
+		sf.append(" FROM crm_gps_record a WHERE a.site_id = ? ");
+		sf.append(" AND a.role_type = '4' AND DATE(a.create_date) = CURDATE() ORDER BY a.create_date DESC ");
+		sf.append(" ) gpr WHERE 1=1  ");
+		sf.append(" GROUP BY gpr.role_id ");
+		sf.append(" )  ot3 ON ot3.role_id = e.id ");
+		sf.append(" WHERE e.site_id=? AND e.status='0' ");
+		if(StringUtils.isNotEmpty(empId)){
+			sf.append("AND e.id =? ");
+			return Db.find(sf.toString(),siteId,siteId,empId);
+		}
+		
+		return Db.find(sf.toString(),siteId,siteId);
+	}
+	
+	/**
+	 * 获取服务工程师当日完成工单和所有未完成工单量。
+     */
+	public List<Record> getEmployeOrder2(String siteId, String category) {
+		SqlKit kit = new SqlKit()
+                .forceMaster()
+				.append("SELECT a.id, a.name, l.latitude, l.longitude, l.create_date," )
+				.append("(SELECT COUNT(1) AS wwg" )
+				.append("FROM crm_order_dispatch aa,crm_order_dispatch_employe_rel c,crm_order as o" )
+				.append("WHERE c.dispatch_id = aa.id" )
+				.append("and o.status='2'" )
+				.append("and o.id=aa.`order_id`" )
+				.append("AND aa.site_id = ?" )
+				.append("AND c.site_id = ?" )
+				.append("AND aa.status IN ('1', '2', '4')" )
+				.append("and c.`emp_id` =a.id" )
+				.append(") as wwg," )
+				.append("(SELECT COUNT(1) AS jrywg" )
+				.append("FROM crm_order_dispatch aa" )
+				.append("INNER JOIN crm_order_dispatch_employe_rel b" )
+				.append("ON b.dispatch_id = aa.id" )
+				.append("AND b.site_id = ?" )
+				.append("AND aa.`status`='5'" )
+				.append("WHERE aa.status != '6'" )
+				.append("AND DATE(aa.end_time) = CURDATE()" )
+				.append("AND aa.site_id = ?" )
+				.append("AND b.`emp_id`=a.`id`" )
+				.append(") as jrywg" )
+				.append("FROM crm_employe a" )
+				.append("LEFT JOIN crm_gps_record_lastest l ON l.role_id = a.id" )
+				.append("LEFT JOIN sys_user su ON a.user_id = su.id" )
+				.append("WHERE a.site_id = ?" )
+				.append("AND a.status = '0'" )
+				.append("AND su.status = '0'" );
+
+		if (category != null) {
+			String sqls = "";
+			if ("".equals(category)) {
+				sqls = "";
+			} else {
+				String[] str = category.split(",");
+				for (String sr : str) {
+					if ("".equals(sqls)) {
+						sqls = sr;
+					} else {
+						sqls = sqls + "|" + sr;
+					}
+				}
+			}
+			kit.append(" and CONCAT(',', a.category, ',') REGEXP ',(" + sqls + "),'");
+		}
+		return Db.find(kit.toString(), siteId, siteId, siteId, siteId, siteId);
+	}
+	/**
+	 * 获取服务工程师当日完成工单和所有未完成工单量。
+     */
+	public List<Record> empSearch(String siteId,Integer category,String name) {
+		SqlKit kit = new SqlKit()
+		.append(" SELECT a.id, a.name, ot1.jrywg, ot1.jrgds, ot2.wwg, ot3.latitude, ot3.longitude, ot3.create_date")
+			.append(" FROM crm_employe a LEFT JOIN (")
+			.append(" 	SELECT b.emp_id, b.emp_name, ")
+			.append(" COUNT(CASE WHEN a.status = '5' THEN 1 END) AS jrywg,")
+			.append(" COUNT(a.id) AS jrgds")
+			.append(" FROM crm_order_dispatch a ")
+			.append(" INNER JOIN crm_order_dispatch_employe_rel b ON b.dispatch_id = a.id AND b.site_id = ? ")
+			.append(" WHERE a.status != '6'")
+			.append(" AND a.end_time = CURDATE() ")
+			.append(" AND a.site_id = ? ")
+			.append(" GROUP BY b.emp_id")
+			.append(" ) ot1 ON ot1.emp_id = a.id")
+		.append(" LEFT JOIN (")
+			.append(" SELECT a.id AS disId, b.id AS odId, b.status, c.emp_id, c.emp_name, COUNT(1) AS wwg")
+			.append(" FROM crm_order_dispatch a, crm_order b, crm_order_dispatch_employe_rel c, crm_employe d")
+			.append(" WHERE 1=1 ")
+			.append(" AND a.order_id = b.id")
+			.append(" AND c.dispatch_id = a.id")
+			.append(" AND d.id = c.emp_id")
+			.append(" AND d.status = '0'")
+			.append(" AND b.site_id = ? ")
+			.append(" AND a.site_id = ? ")
+			.append(" AND c.site_id = ? ")
+			.append(" AND d.site_id = ? ")
+			.append(" AND a.status IN ('1', '2', '4') AND b.status = '2'")
+			.append(" GROUP BY c.emp_id ")
+			.append(" ) ot2 ON ot2.emp_id = a.id")
+			.append(" LEFT JOIN (")
+			.append(" SELECT gpr.role_id, gpr.latitude, gpr.longitude,gpr.create_date FROM (")
+			.append(" SELECT a.id, a.role_id, a.latitude, a.longitude, a.create_date ")
+			.append(" FROM crm_gps_record a WHERE a.site_id = ? ")
+			.append(" AND a.role_type = '4' ORDER BY a.create_date DESC")
+			.append(" ) gpr WHERE 1=1 ")
+			.append(" GROUP BY gpr.role_id")
+			.append(" ) ot3 ON ot3.role_id = a.id")
+			.append(" WHERE a.site_id = ? ")
+			.append(" AND a.status = '0' ");
+		if(category != null){
+			kit.append(" and a.category like '%"+category+"%' ");
+		}
+		if(StringUtils.isNotBlank(name)){
+			kit.append(" and a.name like '%"+name+"%'");
+		}
+		return Db.find(kit.toString(), siteId, siteId, siteId, siteId, siteId, siteId, siteId, siteId);
+	}
+	
+
+	//美的未派工工单的派工策略中工程师今日工单数
+	public List<Record> getEmployeOrderAsc(String siteId){
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT e.id,e.name,COUNT(d.status) AS 'sss' FROM crm_employe e ");
+		sf.append(" LEFT JOIN (");
+		sf.append("  SELECT a.*,b.emp_name FROM crm_order_dispatch_factory a  ");
+		sf.append("  LEFT JOIN crm_order_dispatch_employe_rel_factory  b ON  b.dispatch_id=a.id WHERE a.site_id =? AND a.status IN ('1','2','4','5') ");
+		sf.append(" )d ON d.emp_name=e.name AND  d.status !='6' AND d.dispatch_time>=CURDATE() ");
+		sf.append("  WHERE  e.site_id=? and e.status='0' GROUP BY e.name ORDER BY sss ASC ");
+		return Db.find(sf.toString(),siteId, siteId);
+	}
+	
+	public List<Record> getEmployeOrderSum(String siteId){
+		StringBuffer sf = new StringBuffer();
+		sf.append("   SELECT e.name,COUNT(a.status) AS 'sjaj' ");
+		sf.append(" FROM crm_employe e ");
+		sf.append(" LEFT JOIN crm_order_factory a ON a.employe_name=e.name AND a.status='2' and a.site_id='"+siteId+"' ");
+		sf.append(" WHERE  e.status='0' AND  e.site_id =? GROUP BY e.name ORDER BY sjaj ASC  ");
+		return Db.find(sf.toString(), siteId);
+	}
+	
+	/*未完工工单中派单查询服务工程师
+	*/
+	public List<Record> getSiteEmploye(String siteId){
+		StringBuffer sb = new StringBuffer();
+		sb.append("SELECT ce.id, ce.name,ce.mobile,");
+		sb.append("SUM(CASE WHEN cd.status IN('2','4')  THEN 1 ELSE 0 END) 'yjd',");
+		sb.append("SUM(CASE WHEN cd.status IN('5') THEN 1 ELSE 0 END) 'yjdwwc', ");
+		sb.append("SUM(CASE WHEN cd.status ='1' THEN 1 ELSE 0 END) 'wjd' ");
+		sb.append(" FROM crm_employe ce ");
+		//sb.append(" LEFT JOIN crm_order_dispatch cd ON cd.employe_id = ce.id  ");
+		//sb.append(" LEFT JOIN crm_order co ON co.employe_id = ce.id AND co.status='2' AND DATE_FORMAT(co.create_time,'%Y-%m')=DATE_FORMAT(NOW(),'%Y-%m') ");
+		sb.append(" LEFT JOIN crm_order co ON co.employe_id = ce.id AND co.site_id = '"+siteId+"' AND DATE_FORMAT(co.create_time,'%Y-%m')=DATE_FORMAT(NOW(),'%Y-%m') ");
+		sb.append(" LEFT JOIN crm_order_dispatch cd ON cd.employe_id = ce.id  AND cd.order_id = co.id ");
+		sb.append(" WHERE ce.site_id='"+siteId+"' AND ce.status='0' GROUP BY ce.name ");
+		return Db.find(sb.toString());
+	}
+
+	public List<Record> findBySiteId(String siteId) {
+		StringBuffer sb = new StringBuffer("");
+		sb.append(" SELECT *  FROM crm_employe a WHERE a.site_id = ? AND a.status = '0' ");
+		return Db.find(sb.toString(), siteId);
+	}
+	public String findByEmpliyeMobile(String siteId,String name) {
+		StringBuffer sb = new StringBuffer("");
+		sb.append(" SELECT *  FROM crm_employe a WHERE a.site_id = ? AND a.status = '0' AND a.name=? ");
+		Record rd = Db.findFirst(sb.toString(),siteId,name);
+		if(rd != null){
+			return rd.getStr("mobile"); 
+		}
+		return ""; 
+	}
+
+	/**
+	 * 查询网点维修工。
+	 */
+	public List<Record> filterEmployee(String siteId, Page<Record> page, Map<String, String[]> filterMap) {
+		List<String> params = new ArrayList<>();
+		SqlKit kit = new SqlKit()
+				.append("SELECT e.id AS id, e.user_id AS user_id, e.province AS province, e.city AS city, e.area AS `area`, e.address AS address, e.mobile AS mobile, e.name AS `name`, e.hiredate AS hiredate, e.category AS category, e.site_id AS site_id, u.login_name as login_name")
+				.append("FROM crm_employe AS e")
+				.append("INNER JOIN crm_site AS s")
+				.append("ON e.site_id=s.id")
+				.append("INNER JOIN sys_user AS u")
+				.append("ON e.user_id=u.id")
+				.append("WHERE e.status=0")
+				.append("AND e.site_id=?")
+				.append(sqlOrdersByFilter(filterMap, params))
+				.last("LIMIT " + page.getPageSize() + " OFFSET " + (page.getPageNo() - 1) * page.getPageSize());
+
+		params.add(0, siteId);
+		return Db.find(kit.toString(), params.toArray());
+	}
+
+	private String sqlOrdersByFilter(Map<String, String[]> filterMap, List<String> params) {
+		SqlKit kit = new SqlKit();
+		if (filterMap.get("mobile") != null && StringUtils.isNotBlank((filterMap.get("mobile"))[0])) {
+			params.add("%" + (filterMap.get("mobile")[0]) + "%");
+			kit.append("AND e.mobile like ?");
+		}
+		if (filterMap.get("name") != null && StringUtils.isNotBlank((filterMap.get("name"))[0])) {
+			params.add("%" + (filterMap.get("name")[0]) + "%");
+			kit.append("AND e.name like ?");
+		}
+		return kit.toString();
+	}
+
+	public String getSiteidByUserId(String userId) {
+		Record record = Db.findFirst("select site_id from crm_employe where user_id=?", userId);
+		return record == null ? null : record.getStr("site_id");
+	}
+
+	public long countFilteredEmployee(String siteId, Page<Record> page, Map<String, String[]> filterMap) {
+		List<String> params = new ArrayList<>();
+		SqlKit kit = new SqlKit()
+				.append("SELECT COUNT(1) as count")
+				.append("FROM crm_employe AS e")
+				.append("INNER JOIN crm_site AS s")
+				.append("ON e.site_id=s.id")
+				.append("INNER JOIN sys_user AS u")
+				.append("ON e.user_id=u.id")
+				.append("WHERE e.status=0")
+				.append("AND e.site_id=?")
+				.last(sqlOrdersByFilter(filterMap, params));
+
+		params.add(0, siteId);
+		return Db.queryLong(kit.toString(), params.toArray());
+	}
+	public String isLocEmploye(String empId) {
+		Record ct = Db.findFirst("SELECT a.role_id FROM crm_gps_record a WHERE a.role_id = '"+empId+"' and a.create_date >= '"+
+				DateUtils.formatDate(new Date(), "yyyy-MM-dd")+" 00:00:00' ");
+		return ct != null ? ct.getStr("role_id") : "no";
+	}
+	public Map<String, Object> locEmploye(String empId) {
+		Record rd = Db.findFirst(" SELECT a.longitude, a.latitude, a.create_date FROM crm_gps_record a WHERE a.role_id = '"+empId+"' ORDER BY a.create_date DESC LIMIT 1 ");
+		return rd != null ? rd.getColumns() : null;
+	}
+	/**
+	 * 查询统计每天考勤
+	*/
+	public Record getEmployeSign(String time,String siteId){
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT ");
+		sf.append("COUNT(CASE WHEN c.signinTime IS NULL THEN 1 END) AS wkq, ");
+		sf.append(" COUNT(CASE WHEN TIME(c.signinTime) > '08:00:00' THEN 1 END) AS eightkq, ");
+		sf.append(" COUNT(CASE WHEN TIME(c.signinTime) > '07:00:00' AND TIME(c.signinTime) < '08:00:00' THEN 1 END) AS 7to8kq, ");
+		sf.append(" COUNT(CASE WHEN TIME(c.signinTime) < '07:00:00' THEN 1 END) AS sevenkq ");
+		sf.append(" FROM crm_employe b ");
+		sf.append(" LEFT JOIN ( ");
+		sf.append(" SELECT MIN(a.signin_time) AS signinTime ,a.employe_id FROM crm_employe_daily_sign a  ");
+		sf.append(" WHERE a.site_id='"+siteId+"' AND DATE(a.date)="+time+"  GROUP BY a.employe_id ORDER BY a.date DESC ");
+		sf.append(" ) c ON b.id = c.employe_id ");
+		sf.append(" WHERE b.status='0' AND b.site_id='"+siteId+"' ");
+		return Db.findFirst(sf.toString());
+	}
+	
+	public List<Record> gettodaySign(String siteId,String condition){
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT b.name  ");
+		sf.append(" FROM crm_employe b  ");
+		sf.append(" LEFT JOIN (  ");
+		sf.append(" SELECT MIN(a.signin_time) AS signinTime ,a.* FROM crm_employe_daily_sign a  ");
+		sf.append(" WHERE a.site_id='"+siteId+"' AND DATE(a.date)=CURDATE()  "); 
+		sf.append(" GROUP BY a.employe_id ORDER BY a.date DESC  "); 
+		sf.append(" ) c ON b.id = c.employe_id  "); 
+		sf.append(" WHERE b.status='0' AND b.site_id='"+siteId+"' AND TIME(c.signinTime) "+condition+"  "); 
+		return Db.find(sf.toString());
+	}
+	/**
+	 * 查询统计每天考勤签退
+	 */
+	public Record getEmployeSignOut(String time,String siteId){
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT ");
+		sf.append(" COUNT(CASE WHEN c.signoutTime IS NULL THEN 1 END) AS wkq,  ");
+		sf.append(" COUNT(CASE WHEN TIME(c.signoutTime) > '18:00:00' THEN 1 END) AS eightkq, ");
+		sf.append(" COUNT(CASE WHEN TIME(c.signoutTime) > '17:00:00' AND TIME(c.signoutTime) < '18:00:00' THEN 1 END) AS 7to8kq,  ");
+		sf.append(" COUNT(CASE WHEN TIME(c.signoutTime) < '17:00:00' THEN 1 END) AS sevenkq  ");
+		sf.append(" FROM crm_employe b ");
+		sf.append(" LEFT JOIN ( ");
+		sf.append("  SELECT MAX(a.signout_time) AS signoutTime ,a.employe_id FROM crm_employe_daily_sign a  ");
+		sf.append(" WHERE a.site_id='"+siteId+"' AND DATE(a.date)="+time+"  GROUP BY a.employe_id ORDER BY a.date DESC ");
+		sf.append(" ) c ON b.id = c.employe_id ");
+		sf.append(" WHERE b.status='0' AND b.site_id='"+siteId+"' ");
+		return Db.findFirst(sf.toString());
+	}
+	
+	public List<Record> gettodaySignOutName(String siteId,String condition){
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT b.name  ");
+		sf.append(" FROM crm_employe b  ");
+		sf.append(" LEFT JOIN (  ");
+		sf.append("  SELECT MAX(a.signout_time) AS signoutTime ,a.* FROM crm_employe_daily_sign a  ");
+		sf.append(" WHERE a.site_id='"+siteId+"' AND DATE(a.date)=CURDATE()  "); 
+		sf.append(" GROUP BY a.employe_id ORDER BY a.date DESC  "); 
+		sf.append(" ) c ON b.id = c.employe_id  "); 
+		sf.append(" WHERE b.status='0' AND b.site_id='"+siteId+"' AND TIME(c.signoutTime) "+condition+"  "); 
+		return Db.find(sf.toString());
+	}
+	
+	//查询短信发送记录
+	public List<Record> getSmsTemplate(Page<Record> page,String siteId){
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT s.*,o.number FROM crm_sended_sms  s ");
+		sf.append("LEFT JOIN crm_order o ON o.id = s.order_id AND o.site_id=? ");
+		sf.append("WHERE s.site_id=?  ");
+		sf.append(" ORDER BY create_time DESC ");
+		sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		return Db.find(sf.toString(),siteId,siteId);
+	}
+	
+	public long getSmsTemplatecount(String siteId){
+		String sql = " SELECT count(*) as count FROM crm_sended_sms WHERE site_id=?  ";
+		return Db.queryLong(sql, siteId);
+	}
+	
+	public String getById(String id){
+		String sb=(" SELECT *  FROM crm_employe a WHERE id='"+id+"'");
+		Record rd = Db.findFirst(sb);
+		if(rd != null){
+			return rd.getStr("name"); 
+		}
+		return ""; 
+	}
+	
+	public String getUserId(String id) {
+		String sb = (" SELECT *  FROM crm_employe a WHERE id='"+id+"'");
+		Record rd = Db.findFirst(sb);
+		if(rd != null){
+			return rd.getStr("user_id"); 
+		}
+		return ""; 
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<Employe> getEmployes(List<String> empIds) {
+		Query query = getSession().createQuery("from Employe where id in(:id)");
+		query.setParameterList("id", empIds);
+		return query.list();
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<Employe> getEmployes(String empIds) {
+		String[] empIdArr = empIds.split(",");
+		HashSet<String> uniq = new HashSet<>();
+		List<String> emps = Arrays.asList(empIdArr);
+		uniq.addAll(emps);
+		if (uniq.size() != emps.size()) {
+			logger.error("duplicated emp found,empids=" + empIds + ";", new Exception());
+		}
+		return getEmployes(Arrays.asList(empIdArr));
+	}
+
+}

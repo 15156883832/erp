@@ -1,0 +1,117 @@
+package com.jojowonet.modules.order.utils;
+
+import ivan.common.utils.IdGen;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+
+public class StatisticsUtils {
+	
+	public static void main(String[] args) {
+		getStatistic();
+	}
+	
+	public static void getStatistic(){
+		Map<String,Object> maps =Maps.newHashMap();
+		List<String> ups = Lists.newArrayList();
+		List<String> saves = Lists.newArrayList();
+		List<Record> rds = Db.find("SELECT * FROM crm_use_statistics ");
+		if(rds != null){
+			for(Record rd :rds){
+				maps.put(rd.getStr("site_id"), rd.getStr("id"));
+			}
+		}
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT s.id,s.user_id,");
+		sf.append("	(SELECT COUNT(1) FROM `crm_non_serviceman` AS m WHERE m.site_id=s.id AND m.status != '1') AS managernum ,");//人员数
+		sf.append("	(SELECT COUNT(1) FROM `crm_employe` AS e WHERE e.site_id=s.id AND e.status != '1') AS employenum ,	");//工程师数
+		sf.append("	(SELECT COUNT(1) FROM `crm_site` AS c WHERE c.`share_code_site_parent_id` =s.`id`  AND c.status!='1' AND c.due_time IS NOT NULL) AS sharecount, ");//分享数
+		sf.append("	(SELECT COUNT(1) FROM `crm_order` AS o WHERE o.`site_id`=s.`id`) AS ordercount,		");//ERP工单数
+		sf.append("	(SELECT COUNT(1) FROM `crm_order_400` AS o WHERE o.`site_id`=s.`id`) AS order400count,  ");//400工单数
+		sf.append("	(SELECT gp.placing_order_time FROM `crm_goods_platform_order` AS gp WHERE gp.`site_id`=s.`id` AND gp.good_name LIKE '%VIP会员%' AND gp.status='4' ORDER BY gp.placing_order_time DESC LIMIT 1 ) AS purchase_time,  ");//开通时间
+		sf.append("	(SELECT COUNT(1) FROM `crm_site_fitting` AS sf WHERE sf.`site_id`=s.`id` AND sf.status = '1') AS fitting_num, 	");//备件数量
+		sf.append("	(SELECT COUNT(1) FROM `crm_goods_siteself` AS gs WHERE gs.`site_id`=s.`id` AND gs.status = '0') AS goods_num,  ");//自营商品数
+		sf.append("	(SELECT COUNT(1) FROM `crm_goods_platform_transfer_order` AS gt WHERE gt.`site_id`=s.`id` AND gt.pay_status = '1' and gt.status in('1','2') ) AS not_covered_count,  ");//漏保购买次数
+		sf.append("	(SELECT SUM(go.purchase_num) FROM `crm_goods_platform_transfer_order` AS go WHERE go.`site_id`=s.`id` AND go.pay_status = '1' and go.status in('1','2')) AS not_covered_num, ");//漏保购买数
+		sf.append("	( SELECT gno.payment_time FROM `crm_goods_platform_transfer_order` AS gno WHERE gno.`site_id`=s.`id` AND gno.status IN ('1','2') ORDER BY gno.payment_time DESC LIMIT 1 ) AS payment_time,  ");//最新漏保购买时间
+		sf.append("	(SELECT COUNT(1) FROM `crm_order_collections` AS oc WHERE oc.`site_id`=s.`id` AND oc.status = '0') AS receivables_num, ");//CC收款记录数
+		sf.append("	(SELECT COUNT(1) FROM `crm_code` AS cd WHERE cd.`site_id`=s.`id` AND cd.status = '1') AS vcard_num,");//使用电子名片数
+		sf.append("	(SELECT SUM(gsm.purchase_num) FROM `crm_goods_platform_order` AS gsm WHERE gsm.`site_id`=s.`id` AND gsm.good_name ='短信' AND gsm.status='4' ) AS sms_num ");//短信购买数
+		sf.append("  FROM crm_site s ");
+		sf.append("   WHERE s.status!=1 ");
+		List<Record> list = Db.find(sf.toString());
+		for(Record rd:list){
+			BigDecimal sms= rd.getBigDecimal("sms_num");
+			BigDecimal cov= rd.getBigDecimal("not_covered_num");
+			Date per = rd.getDate("purchase_time");
+			Date paytime = rd.getDate("payment_time");
+			if(sms == null){
+				sms =new BigDecimal(0);
+			}
+			if(cov == null){
+				cov =new BigDecimal(0);
+			}
+			if(maps.containsKey(rd.getStr("id"))){//如果存在就更新数据
+				StringBuilder sql = new StringBuilder(); 
+
+				sql.append("UPDATE crm_use_statistics ");
+				sql.append("SET ");
+				sql.append("share_num = '"+rd.getLong("sharecount")+"' , employe_num = '"+rd.getLong("employenum")+"' , staff_num = '"+rd.getLong("managernum")+"' , erp_order_num = '"+rd.getLong("ordercount")+"' , ma_order_num = '"+rd.getLong("order400count")+"' , ");
+				sql.append("fitting_num = '"+rd.getLong("fitting_num")+"' , goods_num = '"+rd.getLong("goods_num")+"' , not_covered_count = '"+rd.getLong("not_covered_count")+"' ,");
+				sql.append("not_covered_num = '"+cov+"' , receivables_num = '"+rd.getLong("receivables_num")+"' , vcard_num = '"+rd.getLong("vcard_num")+"' , ");
+				sql.append("sms_num = '"+sms+"'  ");
+				if(per != null){
+					sql.append(", purchase_time = '"+rd.getDate("purchase_time")+"' ");
+				}
+				if(paytime != null){
+					sql.append(", payment_new_time = '"+rd.getDate("payment_time")+"' ");
+				}
+				sql.append("WHERE id = '"+maps.get(rd.getStr("id"))+"' ");
+				ups.add(sql.toString());
+			}else{
+			
+				Record re = Db.findFirst("SELECT us.login_name FROM `sys_user` AS us WHERE us.id = ? ",rd.getStr("user_id"));
+				String login_name = "";
+				if(re != null){
+					login_name = re.getStr("login_name");
+				}
+				StringBuilder sql = new StringBuilder(); 
+				sql.append("INSERT INTO crm_use_statistics ");
+				sql.append("(id, site_id, login_name, share_num, employe_num, staff_num, erp_order_num, ma_order_num, fitting_num, goods_num, ");
+				sql.append("not_covered_count, not_covered_num, receivables_num, vcard_num, sms_num");
+				if(per != null){
+					sql.append(", purchase_time ");
+				}
+				if(paytime != null){
+					sql.append(", payment_new_time ");
+				}
+				sql.append(")");
+				sql.append("VALUES");
+				sql.append("('"+IdGen.uuid()+"', '"+rd.getStr("id")+"', '"+login_name+"', '"+rd.getLong("sharecount")+"', '"+rd.getLong("employenum")+"', '"+rd.getLong("managernum")+"', '"+rd.getLong("ordercount")+"', ");
+				sql.append("'"+rd.getLong("order400count")+"', '"+rd.getLong("fitting_num")+"', '"+rd.getLong("goods_num")+"', '"+rd.getLong("not_covered_count")+"', ");
+				sql.append("'"+cov+"', '"+rd.getLong("receivables_num")+"', '"+rd.getLong("vcard_num")+"', '"+sms+"'" );
+				if(per != null){
+					sql.append(", '"+rd.getDate("purchase_time")+"' ");
+				}
+				if(paytime != null){
+					sql.append(", payment_new_time = '"+rd.getDate("payment_time")+"' ");
+				}
+				sql.append(")");
+				saves.add(sql.toString());
+				 
+			}
+		}
+		Db.batch(saves, saves.size());
+		Db.batch(ups, ups.size());
+		
+		
+	}
+
+}

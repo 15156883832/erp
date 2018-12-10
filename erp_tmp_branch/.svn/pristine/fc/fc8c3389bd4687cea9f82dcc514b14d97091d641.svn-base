@@ -1,0 +1,565 @@
+package com.jojowonet.modules.statistics.dao;
+
+import java.math.BigDecimal;
+import java.text.ParseException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.utils.SqlKit;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+
+@Repository
+public class OrderStatDao {
+
+	public List<Record> getAllOrderStat(String siteId, String year) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select count(1) as total, ");
+		sb.append(" count(case when a.status = '5' then 1 end) as ywc, ");
+		sb.append(" sum(case when a.end_time > '1970-01-01' then (TIMESTAMPDIFF(HOUR, a.repair_time, a.end_time)) else 0 end) as totalHours, ");
+		sb.append(" count(case when b.service_attitude in ('1','2') then 1 end) as bmyd, ");
+		sb.append(" DATE_FORMAT(a.repair_time,'%m') as month  ");
+		sb.append(" from crm_order a left join ");
+		sb.append(" crm_order_callback b on b.order_id = a.id ");
+		sb.append(" where a.site_id = ? ");
+		sb.append(" and date_format(a.repair_time, '%Y') = ? ");
+		sb.append(" group by DATE_FORMAT(a.repair_time,'%Y-%m') ");
+		return Db.find(sb.toString(), siteId, year);
+	}
+
+	public List<Record> getAllEmployeOrderStat(String siteId, String start, String end, String empIds, Map<String, String> params) {
+		/*
+		 * StringBuilder sb = new StringBuilder("");
+		 * sb.append(" select a.employe_name, a.employe_id, count(1) as total, ");
+		 * sb.append(" count(case when a.status = '5' then 1 end) as ywc, "); sb.
+		 * append(" sum(case when a.end_time > '1970-01-01' then (TIMESTAMPDIFF(HOUR, a.repair_time, a.end_time)) else 0 end) as totalHours, "
+		 * ); sb.
+		 * append(" count(case when b.service_attitude in ('1','2') then 1 end) as bmyd, "
+		 * ); sb.append(" sum(a.confirm_cost) as totalCost, ");
+		 * sb.append(" DATE_FORMAT(a.repair_time,'%m') as month  ");
+		 * sb.append(" from crm_order a left join ");
+		 * sb.append(" crm_order_callback b on b.order_id = a.id and b.site_id = ? ");
+		 * sb.
+		 * append(" where a.site_id = ? and a.employe_name is not null and a.employe_id is not null"
+		 * ); if(StringUtils.isNotBlank(start)){
+		 * sb.append(" and date_format(a.repair_time, '%Y-%m-%d') >= '"+start+"' "); }
+		 * if(StringUtils.isNotBlank(end)){
+		 * sb.append(" and date_format(a.repair_time, '%Y-%m-%d') <= '"+end+"' "); }
+		 * sb.append(" group by DATE_FORMAT(a.repair_time,'%Y-%m'), a.employe_name ");
+		 */
+
+		Date now = new Date();
+		Date stD = DateUtils.addMonths(now, -1);
+		Date endD = now;
+		if (StringUtils.isNotBlank(end)) {
+			endD = DateUtils.parseDate(end);
+			// endD = DateUtils.addDays(endD, 1);
+		}
+		if (StringUtils.isNotBlank(start)) {
+			stD = DateUtils.parseDate(start);
+		}
+
+		StringBuilder tmpSb = new StringBuilder("");
+		tmpSb.append(" select cep.id as empId, cep.name as empName, ot3.* from  crm_employe cep left join ( ");
+		tmpSb.append(" select ot1.emp_name, ot1.emp_id, ot1.total, ot1.ywc, ot1.wwc, ot1.wxgd, ot1.bmyd, ot1.wjs, ot1.sfze, ot1.totalCost, ");
+		tmpSb.append("  ot2.orderCnt as yjs, ot2.sum_money as sm  from ( ");
+		tmpSb.append(" select odrel.emp_name, odrel.emp_id, count(cd.id) as total,  ");
+		// tmpSb.append(" count(case when cd.status = '5' then 1 end) as ywc, ");
+		tmpSb.append(" count(case when a.status in ('3', '4', '5') then 1 end) as ywc,   ");
+		tmpSb.append(" count(case when cd.status in('1', '2', '4') and a.`status` ='2'  then 1 end) as wwc, ");
+		tmpSb.append(" count(case when a.status = '8' then 1 end ) as wxgd, ");
+		tmpSb.append(" count(case when b.service_attitude in ('1','2') then 1 end) as bmyd,  ");
+		tmpSb.append(" count(case when a.status in ('3','4') then 1 end) as wjs, ");
+		tmpSb.append(" sum(case when(a.status in ('2', '3', '4', '5')) then (a.serve_cost + a.auxiliary_cost + a.warranty_cost) else 0 end ) as sfze, ");
+		tmpSb.append(" sum(case when(a.status in ('2', '3', '4', '5')) then (a.confirm_cost) else 0 end ) as totalCost ");
+
+		/*
+		 * tmpSb.append("  from crm_order a "); tmpSb.
+		 * append("  left join crm_order_dispatch  cd on cd.order_id = a.id and cd.site_id = a.site_id and cd.status in ('1', '2', '4', '5') "
+		 * ); tmpSb.
+		 * append("  left join crm_order_dispatch_employe_rel odrel on odrel.dispatch_id = cd.id and odrel.order_id = a.id  "
+		 * ); tmpSb.append(" 	and odrel.site_id = a.site_id ");
+		 */
+
+		tmpSb.append("  from crm_order_dispatch  cd ");
+		tmpSb.append("  inner join crm_order a on a.id = cd.order_id and a.site_id = cd.site_id and a.status != '6' ");
+		tmpSb.append("  inner join crm_order_dispatch_employe_rel odrel on odrel.dispatch_id = cd.id and odrel.order_id = a.id  ");
+		tmpSb.append(" 	and odrel.site_id = cd.site_id ");
+
+		tmpSb.append(" left join crm_order_callback b on b.order_id = a.id and b.site_id = cd.site_id ");
+		tmpSb.append("  where a.site_id = ? ");
+		tmpSb.append("  and cd.status in ('1', '2', '4', '5') ");
+		tmpSb.append("  and a.status != '6' ");
+		// tmpSb.append(" and cd.`dispatch_time` >= '"+DateUtils.formatDate(stD,
+		// "yyyy-MM-dd")+" 00:00:01' ");
+		if ("2".equals(params.get("searchType"))) {// 完工时间
+			tmpSb.append(" and a.`end_time` >= '" + DateUtils.formatDate(stD, "yyyy-MM-dd") + " 00:00:01' ");
+			tmpSb.append(" and a.`end_time` < '" + DateUtils.formatDate(endD, "yyyy-MM-dd") + " 23:59:59' ");
+		} else {// 保修时间
+			tmpSb.append(" and a.`repair_time` >= '" + DateUtils.formatDate(stD, "yyyy-MM-dd") + " 00:00:01' ");
+			tmpSb.append(" and a.`repair_time` < '" + DateUtils.formatDate(endD, "yyyy-MM-dd") + " 23:59:59' ");
+		}
+
+		tmpSb.append("  group by  odrel.emp_id  ");
+		tmpSb.append(" ) ot1 left join ( ");
+		tmpSb.append(" select iot.id, iot.order_id, iot.employe_id , sum(iot.sum_money) as sum_money, count(iot.order_id) as orderCnt from (   ");
+		tmpSb.append(" select a2.id, sum(case when a2.service_measures != '当日支付' then a2.sum_money else 0 end) as sum_money, a2.order_id, ");
+		tmpSb.append("  a2.employe_id  ");
+		tmpSb.append(" from crm_order_settlement_detail a2, crm_order b , crm_order_dispatch c ");
+		tmpSb.append(" where b.id = a2.order_id and b.site_id = a2.site_id and c.site_id = a2.site_id and c.order_id = a2.order_id ");
+		tmpSb.append(" and a2.employe_id != 'null' and a2.employe_id is not null ");
+		tmpSb.append("  and a2.site_id = ? ");
+		tmpSb.append("  and c.status in ('1', '2', '4', '5') ");
+		// tmpSb.append(" and c.`dispatch_time` >= '"+DateUtils.formatDate(stD,
+		// "yyyy-MM-dd")+" 00:00:01' ");
+		if ("2".equals(params.get("searchType"))) {// 完工时间
+			tmpSb.append(" and b.`end_time` >= '" + DateUtils.formatDate(stD, "yyyy-MM-dd") + " 00:00:01' ");
+			tmpSb.append(" and b.`end_time` < '" + DateUtils.formatDate(endD, "yyyy-MM-dd") + " 23:59:59' ");
+		} else {// 保修时间
+			tmpSb.append(" and b.`repair_time` >= '" + DateUtils.formatDate(stD, "yyyy-MM-dd") + " 00:00:01' ");
+			tmpSb.append(" and b.`repair_time` < '" + DateUtils.formatDate(endD, "yyyy-MM-dd") + " 23:59:59' ");
+		}
+		// tmpSb.append(" and b.`repair_time` > ? ");
+		// tmpSb.append(" and b.`repair_time` <= ? ");
+		tmpSb.append(" group by a2.order_id, a2.employe_id ");
+		tmpSb.append(" ) iot where 1=1 group by iot.employe_id ");
+		tmpSb.append(" ) ot2 on ot2.employe_id = ot1.emp_id ");
+		tmpSb.append(" ) ot3 on cep.id = ot3.emp_id ");
+		tmpSb.append(" where cep.status = '0' and cep.site_id = ? ");
+		if (StringUtils.isNotBlank(empIds) && !"null".equalsIgnoreCase(empIds)) {
+			tmpSb.append(" and cep.id in (" + StringUtil.joinInSql(empIds.split(",")) + ") ");
+		}
+		return Db.find(tmpSb.toString(), siteId, siteId, siteId);
+		// return Db.find(sb.toString(), siteId, siteId);
+	}
+
+	public List<Record> getStockStat(String siteId, String fittingCode, String fittingName, Page<Record> page) {
+		StringBuilder sb1 = new StringBuilder();
+		sb1.append(" select a.id, a.code, a.name, a.warning, a.total, a.site_price, (a.unreceived_num + a.number + a.cjnum) as outTotal ");
+		sb1.append(" from crm_site_fitting a ");
+		sb1.append(" where a.site_id = ? and a.status='1' ");
+		if (StringUtils.isNotBlank(fittingCode)) {
+			sb1.append(" and a.code like '%" + fittingCode.trim() + "%' ");
+		}
+		if (StringUtils.isNotBlank(fittingName)) {
+			sb1.append(" and a.name like '%" + fittingName.trim() + "%' ");
+		}
+		sb1.append("  group by a.id");
+		if (page != null) {
+			sb1.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		List<Record> list = Db.find(sb1.toString(), siteId);
+		StringBuilder sb2 = new StringBuilder();
+		sb2.append("select sum(case when b.type = '2' then b.used_num else 0 end) as fhNum, ");
+		sb2.append(" sum(case when b.type = '1' then b.used_num else 0 end) as useNum ");
+		sb2.append(" from crm_site_fitting_used_record b ");
+		sb2.append(" where b.fitting_id = ? group by b.fitting_id limit 1 ");
+		String ids = "";
+		if (list.size() > 0) {
+			for (Record rd : list) {
+				Record rd1 = Db.findFirst(sb2.toString(), rd.getStr("id"));
+				if (rd1 != null) {
+					rd.set("fhNum", rd1.getBigDecimal("fhNum"));
+					rd.set("useNum", rd1.getBigDecimal("useNum"));
+				} else {
+					rd.set("fhNum", new BigDecimal(0));
+					rd.set("useNum", new BigDecimal(0));
+				}
+			}
+		}
+		return list;
+	}
+
+	public Long getStockStatCount(String siteId, String fittingCode, String fittingName) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(" select count(*) ");
+		sb.append(" from crm_site_fitting a ");
+		sb.append(" where a.site_id = ? and a.status='1' ");
+		if (StringUtils.isNotBlank(fittingCode)) {
+			sb.append(" and a.code like '%" + fittingCode.trim() + "%' ");
+		}
+		if (StringUtils.isNotBlank(fittingName)) {
+			sb.append(" and a.name like '%" + fittingName.trim() + "%' ");
+		}
+		return Db.queryLong(sb.toString(), siteId);
+	}
+
+	/**
+	 * 工程师库存总资产盘点
+	 * 
+	 * @param siteId
+	 * @param fittingCode
+	 * @param fittingName
+	 * @return
+	 */
+	public List<Record> getEmpStockStat(String siteId, String fittingCode, String fittingName, Page<Record> page) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(" SELECT a.id, b.code, b.name, a.warning, a.total, b.site_price,(a.number + a.cjnum) AS outTotal, ");
+		sb.append(" SUM(CASE WHEN c.type = '3' THEN c.amount ELSE 0 END) AS fhNum, ");
+		sb.append(" SUM(CASE WHEN c.type = '1' THEN c.amount ELSE 0 END) AS useNum ");
+		sb.append(" FROM crm_employe_fitting a ");
+		sb.append(" LEFT JOIN crm_site_fitting b ON a.fitting_id=b.`id` ");
+		sb.append(" LEFT JOIN crm_employe_fitting_keep c ON c.fitting_id = a.fitting_id ");
+		sb.append(" WHERE a.status='1' AND a.site_id = ? ");
+		if (StringUtils.isNotBlank(fittingCode)) {
+			sb.append(" and b.code like '%" + fittingCode.trim() + "%' ");
+		}
+		if (StringUtils.isNotBlank(fittingName)) {
+			sb.append(" and b.name like '%" + fittingName.trim() + "%' ");
+		}
+		sb.append("  group by a.id");
+		if (page != null) {
+			sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		return Db.find(sb.toString(), siteId);
+	}
+
+	public Long getEmpStockStatCount(String siteId, String fittingCode, String fittingName) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(" SELECT count(*)");
+		sb.append(" FROM crm_employe_fitting a ");
+		sb.append(" LEFT JOIN crm_site_fitting b ON a.fitting_id=b.`id` ");
+		sb.append(" WHERE a.status='1' AND a.site_id = ? ");
+		if (StringUtils.isNotBlank(fittingCode)) {
+			sb.append(" and b.code like '%" + fittingCode.trim() + "%' ");
+		}
+		if (StringUtils.isNotBlank(fittingName)) {
+			sb.append(" and b.name like '%" + fittingName.trim() + "%' ");
+		}
+		return Db.queryLong(sb.toString(), siteId);
+	}
+
+	/**
+	 * 旧件统计
+	 * 
+	 * @param siteId
+	 * @param fittingCode
+	 * @param fittingName
+	 * @return
+	 */
+	public List<Record> getOldStockStat(String siteId, String fittingCode, String fittingName, Page<Record> page) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(" SELECT a.id, a.code, a.name,a.version,a.brand,a.num,a.`unit_price`,a.`employe_name`,a.yrpz_flag,CONVERT((a.num*a.`unit_price`),DECIMAL(9,2)) AS totalPrice ");
+		sb.append(" FROM crm_site_old_fitting a ");
+		sb.append(" WHERE a.status='1' and site_id=? ");
+		if (StringUtils.isNotBlank(fittingCode)) {
+			sb.append(" and a.code like '%" + fittingCode.trim() + "%' ");
+		}
+		if (StringUtils.isNotBlank(fittingName)) {
+			sb.append(" and a.name like '%" + fittingName.trim() + "%' ");
+		}
+		sb.append(" GROUP BY a.id ");
+		if (page != null) {
+			sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		List<Record> list = Db.find(sb.toString(), siteId);
+		return list;
+	}
+
+	public Long getOldStockStatCount(String siteId, String fittingCode, String fittingName) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(" SELECT count(*)  ");
+		sb.append(" FROM crm_site_old_fitting a ");
+		sb.append(" WHERE a.status='1' and site_id=? ");
+		if (StringUtils.isNotBlank(fittingCode)) {
+			sb.append(" and a.code like '%" + fittingCode.trim() + "%' ");
+		}
+		if (StringUtils.isNotBlank(fittingName)) {
+			sb.append(" and a.name like '%" + fittingName.trim() + "%' ");
+		}
+		return Db.queryLong(sb.toString(), siteId);
+	}
+
+	public Record getStockInfo(String siteId, String goodCatetgory, String times) {
+		StringBuilder sb = new StringBuilder("");
+		/*
+		 * sb.
+		 * append(" select sum(ot.empStocks) as empStocks, sum(empMoney) as empMoney ");
+		 * sb.append(" from ( ");
+		 */
+		/*
+		 * sb.append(" select  "); sb.append(" sum(a.stocks) as empStocks, ");
+		 * sb.append(" sum(a.stocks * b.site_price) as empMoney ");
+		 */
+		sb.append(
+				"SELECT SUM(ott.stocks) AS empStocks,SUM(ott.stocks * ott.site_price) AS empMoney FROM ( SELECT a.stocks,b.site_price from crm_goods_employe_own a , crm_goods_siteself b ");
+		if (StringUtils.isNotBlank(times)) {
+			sb.append("LEFT JOIN crm_goods_siteself_order o1 ON o1.good_id = b.id  ");
+			/*
+			 * sb.append("ON o1.good_id = b.id AND o1.status IN ('3','5')  ");
+			 * sb.append("AND o1.outstock_type IN ('0' , '3')  ");
+			 */
+		}
+		sb.append(" where b.id = a.good_id and b.site_id = a.site_id ");
+		sb.append(" and a.site_id = '" + siteId + "' and b.status='0' ");
+		if (StringUtils.isNotBlank(goodCatetgory)) {
+			sb.append(" and b.category = '" + goodCatetgory + "' ");
+		}
+		if (StringUtils.isNotBlank(times)) {
+			sb.append(" AND o1.status IN ('5','3') AND o1.outstock_type IN ('0','3') AND ( DATE_FORMAT(o1.outstock_time,'%Y-%m') IN (" + times
+					+ ")  OR  DATE_FORMAT(o1.placing_order_time,'%Y-%m') IN (" + times + ")  ) ");
+		}
+		sb.append("GROUP BY a.id) AS ott");
+		/*
+		 * sb.append(" group by a.good_id "); sb.append(" ) ot ");
+		 */
+
+		StringBuilder sb1 = new StringBuilder("");
+		sb1.append("SELECT SUM(ott.stocks) AS siteStocks,SUM(ott.stocks * ott.site_price) AS siteMoney   FROM ( SELECT  ot.stocks,ot.site_price FROM crm_goods_siteself ot ");
+		sb1.append(dealConditions1(times));
+		sb1.append("WHERE ot.site_id = '" + siteId + "' AND ot.status = '0' ");
+		if (StringUtils.isNotBlank(goodCatetgory)) {
+			sb1.append(" and ot.category = '" + goodCatetgory + "' ");
+		}
+		sb1.append(dealConditions2(times));
+		sb1.append(" GROUP BY ot.id) AS ott ");
+		Record rd1 = Db.findFirst(sb1.toString());
+		Record rd = Db.findFirst(sb.toString());
+		rd.set("siteStocks", rd1.getBigDecimal("siteStocks"));
+		rd.set("siteMoney", rd1.getBigDecimal("siteMoney"));
+		return rd;
+
+	}
+
+	public String dealConditions1(String times) {
+		StringBuilder sb = new StringBuilder("");
+		if (StringUtils.isNotBlank(times)) {
+			sb.append(" LEFT JOIN crm_goods_siteself_order o1 ON o1.good_id=ot.id ");
+		}
+		return sb.toString();
+	}
+
+	public String dealConditions2(String times) {
+		StringBuilder sb = new StringBuilder("");
+		if (StringUtils.isNotBlank(times)) {
+			sb.append(" AND o1.status IN ('2','3') AND o1.outstock_type IN ('0','1','2') AND ( DATE_FORMAT(o1.outstock_time,'%Y-%m') IN (" + times
+					+ ")  OR  DATE_FORMAT(o1.placing_order_time,'%Y-%m') IN (" + times + ")  ) ");
+		}
+		return sb.toString();
+	}
+
+	public List<Record> getGoodsStat(String siteId, String[] times) {
+		return null;
+	}
+
+	public Record getOrderCompleteStat(String siteId, String startStr, String endStr) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(" select count(1) as total, ");
+		sb.append(" count(case when a.warranty_type = '1' then 1 end) as baonei, ");
+		sb.append(" count(case when a.warranty_type = '2' then 1 end) as baowai, ");
+		// sb.append(" count(case when a.service_type = '安装' then 1 end) as anzhuang,
+		// ");
+		// sb.append(" count(case when a.service_type = '维修' then 1 end) as weixiu, ");
+		// sb.append(" count(case when a.service_type = '保养' then 1 end) as baoyang, ");
+		sb.append(" count(case when a.dropin_count = '1' then 1 end) as zcshangmen, ");
+		sb.append(" count(case when a.dropin_count > 1 then 1 end) as duocishangmen, ");
+		sb.append(" count(case when a.reject_count = 0 then 1 end) as zcpaigong, ");
+		sb.append(" count(case when a.reject_count > 0 then 1 end) as duocipaigong, ");
+		sb.append(" count(a.id) as totalYS, ");
+		sb.append(" sum(case when (TIMESTAMPDIFF(HOUR, a.repair_time, a.end_time)) < 24  ");
+		sb.append(" 	then 1 else 0 end) as YS24, ");
+		sb.append(" sum(case when ((TIMESTAMPDIFF(HOUR, a.repair_time, a.end_time)) >= 24 and  (TIMESTAMPDIFF(HOUR, a.repair_time, a.end_time)) < 48 ) ");
+		sb.append(" 	then 1 else 0 end) as YS48, ");
+		sb.append(" sum(case when ((TIMESTAMPDIFF(HOUR, a.repair_time, a.end_time)) >= 48 and  (TIMESTAMPDIFF(HOUR, a.repair_time, a.end_time)) < 72 ) ");
+		sb.append(" 	then 1 else 0 end) as YS72, ");
+		sb.append(" sum(case when ((TIMESTAMPDIFF(HOUR, a.repair_time, a.end_time)) >= 72 ) ");
+		sb.append(" 	then 1 else 0 end) as YSOV72, ");
+		sb.append(" count(case when b.service_attitude ='1' then 1 end) as sfbmy, ");
+		sb.append(" count(case when b.service_attitude ='2' then 1 end) as bmy, ");
+		sb.append(" count(case when b.service_attitude ='3' then 1 end) as ybmy, ");
+		sb.append(" count(case when b.service_attitude ='4' then 1 end) as my, ");
+		sb.append(" count(case when b.service_attitude ='5' then 1 end) as sfmy, ");
+		sb.append(" count(case when b.safety_evaluation ='1' then 1 end) as saf1, ");
+		sb.append(" count(case when b.safety_evaluation ='2' then 1 end) as saf2, ");
+		sb.append(" count(case when b.safety_evaluation ='3' then 1 end) as saf3, ");
+		sb.append(" count(case when b.safety_evaluation ='4' then 1 end) as saf4 ");
+		sb.append(" from crm_order a  ");
+		sb.append(" left join  crm_order_callback b on b.order_id = a.id and b.site_id = ? ");
+		sb.append(" where a.status in ('3', '4', '5') ");
+		sb.append(" and a.site_id = ? ");
+		if (StringUtils.isNotBlank(startStr)) {
+			sb.append(" and a.end_time >= '" + startStr + "' ");
+		}
+		if (StringUtils.isNotBlank(endStr)) {
+			sb.append(" and a.end_time <= '" + endStr + " 23:59:59' ");
+		}
+
+		return Db.findFirst(sb.toString(), siteId, siteId);
+	}
+
+	public List<Record> getServiceTypeSum(String siteId, String startStr, String endStr) {
+		SqlKit kit = new SqlKit().append("SELECT service_type, COUNT(service_type) as cnt").append("FROM crm_order").append("WHERE service_type IS NOT NULL")
+				.append("AND site_id=? and status='5' ");
+
+		if (StringUtils.isNotBlank(startStr)) {
+			kit.append("AND repair_time >= '" + startStr + "' ");
+		}
+		if (StringUtils.isNotBlank(endStr)) {
+			kit.append("AND repair_time <= '" + endStr + " 23:59:59' ");
+		}
+		kit.append("GROUP BY service_type");
+		return Db.find(kit.toString(), siteId);
+	}
+
+	public Record getOrderDispatchStat(String siteId, String startStr, String endStr) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select ");
+		sb.append(" count(1) as total, ");
+		sb.append(" count(case when (a.status = '2' and (TIMESTAMPDIFF(HOUR, a.dispatch_time , a.process_time)) < 1 ) then 1 end) as jdjs ");
+		sb.append(" from crm_order_dispatch a ");
+		sb.append(" where a.site_id = ? ");
+		if (StringUtils.isNotBlank(startStr)) {
+			sb.append(" and a.dispatch_time >= '" + startStr + "' ");
+		}
+		if (StringUtils.isNotBlank(endStr)) {
+			sb.append(" and a.dispatch_time <= '" + endStr + " 23:59:59' ");
+		}
+		return Db.findFirst(sb.toString(), siteId);
+	}
+
+	public List<Record> getbmygdlist(Page<Record> page, String year, String month, String siteId) {
+		StringBuffer sf = new StringBuffer();
+		sf.append(
+				"SELECT a.*,b.service_attitude AS service_attitude,b.remarks AS remarks FROM crm_order a LEFT JOIN crm_order_callback AS b ON b.order_id=a.id WHERE a.site_id=? ");
+		sf.append(" AND DATE_FORMAT(a.repair_time, '%Y') = ? AND DATE_FORMAT(a.repair_time,'%m')=? ");
+		sf.append(" AND  b.service_attitude IN ('1','2')");
+		sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		return Db.find(sf.toString(), siteId, year, month);
+	}
+
+	public long getbmycount(String year, String month, String siteId) {
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT count(*) FROM crm_order a LEFT JOIN crm_order_callback AS b ON b.order_id=a.id WHERE a.site_id=? ");
+		sf.append(" AND DATE_FORMAT(a.repair_time, '%Y') = ? AND DATE_FORMAT(a.repair_time,'%m')=? ");
+		sf.append(" AND  b.service_attitude IN ('1','2')");
+		return Db.queryLong(sf.toString(), siteId, year, month);
+	}
+
+	public List<Record> getEmpGoodsList(Page<Record> page, Map<String, Object> map, String siteId) {
+		StringBuilder sf = new StringBuilder();
+		sf.append(
+				"SELECT a.*,b.stocks AS emStocks,c.customer_price,c.site_price,c.employe_price,c.name as goodsName,e.name AS empName FROM crm_goods_employe_owndetail a LEFT JOIN crm_goods_employe_own b ON (a.good_id=b.good_id AND a.employe_id=b.employe_id AND a.site_id=b.site_id)");
+		sf.append("LEFT JOIN crm_goods_siteself c ON c.id=a.good_id LEFT JOIN crm_employe e ON a.employe_id=e.id ");
+		sf.append("WHERE a.site_id=? AND a.status='0' AND a.type='1'");
+		sf.append(queryConditions(map));
+		sf.append("order by a.create_time desc");
+		if (page != null) {
+			sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		return Db.find(sf.toString(), siteId);
+	}
+
+	public Long countEmpGoodsRevenue(Map<String, Object> map, String siteId) {
+		StringBuilder sf = new StringBuilder();
+		sf.append(
+				"SELECT count(*) FROM crm_goods_employe_owndetail a LEFT JOIN crm_goods_employe_own b ON (a.good_id=b.good_id AND a.employe_id=b.employe_id AND a.site_id=b.site_id)");
+		sf.append("LEFT JOIN crm_goods_siteself c ON c.id=a.good_id LEFT JOIN crm_employe e ON a.employe_id=e.id ");
+		sf.append("WHERE a.site_id=? AND a.status='0' AND a.type='1'");
+		sf.append(queryConditions(map));
+		return Db.queryLong(sf.toString(), siteId);
+	}
+
+	public String queryConditions(Map<String, Object> map) {
+		StringBuilder sf = new StringBuilder();
+		if (map != null) {
+			String empName = getTrimmedParamValue(map, "empName");
+			if (StringUtils.isNotEmpty(empName)) {
+				sf.append("and e.name like '%" + empName + "%'");
+			}
+			String outstocksTimeMin = getTrimmedParamValue(map, "outstocksTimeMin");
+			if (StringUtils.isNotEmpty(outstocksTimeMin)) {
+				sf.append(" and a.create_time >= '" + outstocksTimeMin + " 00:00:00' ");
+			}
+			String outstocksTimeMax = getTrimmedParamValue(map, "outstocksTimeMax");
+			if (StringUtils.isNotEmpty(outstocksTimeMax)) {
+				sf.append(" and a.create_time <= '" + outstocksTimeMax + " 23:59:59' ");
+			}
+		}
+		return sf.toString();
+	}
+
+	private String getParamValue(Map<String, Object> map, String param) {
+		Object value = map.get(param);
+		return value == null ? null : (map.get(param).toString());
+	}
+
+	private String getTrimmedParamValue(Map<String, Object> map, String param) {
+		return StringUtils.trim(getParamValue(map, param));
+	}
+
+	public List<Record> getSiteRankList(Page<Record> page, Map<String, Object> params) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select a.site_id, b.name as siteName, a.cs, a.zs from ( ");
+		sb.append(" 	select a.site_id, count(1) as cs, sum(a.purchase_num) as zs  ");
+		sb.append(" 	from crm_goods_platform_transfer_order a where a.pay_status='1' and a.good_category like '%插座%' group by a.site_id ");
+		sb.append(" order by zs desc ");
+		sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		sb.append(" ) a inner join  ");
+		sb.append(" crm_site b on b.id = a.site_id ");
+		sb.append(" where 1=1  ");
+		if (params.get("siteName") != null) {
+			sb.append(" and b.name like '%" + params.get("siteName") + "%' ");
+		}
+
+		return Db.find(sb.toString());
+	}
+
+	public Long countSiteRank(Page<Record> page, Map<String, Object> params) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select count(1) as count from ( ");
+		sb.append(" 	select a.site_id, count(1) as cs, sum(a.purchase_num) as zs  ");
+		sb.append(" 	from crm_goods_platform_transfer_order a where a.pay_status='1' and a.good_category like '%插座%' group by a.site_id ");
+		sb.append(" ) a , crm_site b ");
+		sb.append(" where b.id = a.site_id ");
+		if (params.get("siteName") != null) {
+			sb.append(" and b.name like '%" + params.get("siteName") + "%' ");
+		}
+		return Db.queryLong(sb.toString());
+	}
+
+	public List<Record> getSiteLoubaoMonthList(Map<String, Object> params) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select date(a.placing_order_time) as paytime, sum(a.purchase_num) as totalNum , count(a.id) as cs ");
+		sb.append(" from crm_goods_platform_transfer_order a where 1=1 ");
+		if (params.get("queryMonth") != null) {
+			String queryMonth = String.valueOf(params.get("queryMonth"));
+			String[] pattern = { "yyyy-MM" };
+			try {
+				Date date = DateUtils.parseDate(queryMonth, pattern);
+				Calendar cl = Calendar.getInstance();
+				cl.setTime(date);
+				cl.set(Calendar.DAY_OF_MONTH, cl.getActualMinimum(Calendar.DAY_OF_MONTH));
+				sb.append(" and a.placing_order_time >= '" + DateUtils.formatDate(cl.getTime(), "yyyy-MM-dd") + " 00:00:00' ");
+				cl.set(Calendar.DAY_OF_MONTH, cl.getActualMaximum(Calendar.DAY_OF_MONTH));
+				sb.append(" and a.placing_order_time <= '" + DateUtils.formatDate(cl.getTime(), "yyyy-MM-dd") + " 23:59:59' ");
+			} catch (ParseException e) {
+				e.printStackTrace();
+			}
+		}
+		// sb.append(" and a.status in ('1', '2') group by date(a.placing_order_time),
+		// a.site_id ");
+		sb.append(" and a.pay_status='1' and a.status in ('0', '1', '2') and a.good_category like '%插座%' group by date(a.placing_order_time), a.site_id ");
+		return Db.find(sb.toString());
+	}
+
+	public List<Record> getVipChartData(Map<String, Object> params) {
+
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select ot.mt, count(1) as cnt from ( ");
+		sb.append(" 	select concat(year(a.due_time),'-', month(a.due_time)) as mt, a.id ");
+		sb.append(" 	from crm_site a where a.status = '0' and a.due_time >= '" + params.get("start") + "' and a.due_time <= '" + params.get("end") + "' ");
+		sb.append(" ) ot ");
+		sb.append(" group by ot.mt ");
+		return Db.find(sb.toString());
+	}
+
+}

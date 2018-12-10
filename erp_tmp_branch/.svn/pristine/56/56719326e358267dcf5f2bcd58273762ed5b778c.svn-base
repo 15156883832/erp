@@ -1,0 +1,685 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<title>全部工单</title>
+<meta name="decorator" content="base"/>
+<script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/easyui.css"/> 
+<script type="text/javascript" src="${ctxPlugin}/lib/select/jquery.easyui.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+	<script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.js"></script>
+	<style type="text/css">
+		.dropdown-clear-all{
+			line-height: 22px;
+		}
+		.dropdown-display{font-size: 12px}
+		.dropdown-selected{line-height: 22px}
+	</style>
+</head>
+<body>
+<div class="sfpagebg bk-gray">
+<div class="sfpage table-header-settable">
+<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+			<a id="meidi" class="btn-tabBar current"  href="${ctx }/operate/employeDailySign/signSet">考勤信息设置</a>
+			<p class="f-r btnWrap">
+				<a href="javascript:addNew();" class="sfbtn sfbtn-opt"><i class="sficon sficon-add"></i>新增</a>
+			</p>
+		</div>
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+			</form>
+			<div>
+				<table id="table-waitdispatch" class="table"></table>
+					<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+			</div>
+		</div>
+	</div>
+</div>
+</div>
+</div>
+
+<div class="popupBox bjfcbox w-520 addwork">
+	<form id="fc_form">
+		<h2 class="popupHead">
+			新增
+			<a href="javascript:;" class="sficon closePopup"></a>
+		</h2>
+		<div class="popupContainer">
+			<div class="popupMain pd-15">
+				<div class="cl mb-10">
+					<label class="f-l w-90 text-r"><em class="mark">*</em>上班时间：</label>
+					<input type="text" onFocus="WdatePicker({readOnly:true,lang:'zh-cn',dateFmt:'HH:mm:ss',startDate:'08:30:00'})" name="workdatemax" value="" class="input-text Wdate w-300">
+				</div>
+				<div class="cl mb-10">
+					<label class="f-l w-90 text-r"><em class="mark">*</em>下班时间：</label>
+					<input type="text" onFocus="WdatePicker({readOnly:true,lang:'zh-cn',dateFmt:'HH:mm:ss',startDate:'18:00:00'})"  name="afterdatemax" value="" class="input-text Wdate w-300">
+				</div>
+				<div class="cl mb-10">
+					<label class="f-l w-90 text-r">打卡地点：</label>
+					<input type="text" class="input-text w-300 f-l signPoint" name="signPoint" /><a href="javascript:;" class="c-0e8ee7 ml-10" onclick="curmaskAddr()"  ><i class="Hui-iconfont Hui-iconfont-weizhi f-20"></i></a>
+				</div>
+				<input type="hidden" name="customerLnglat" class="customerLnglat" readonly="true"  value="" />
+				<input type="hidden" name="longitude" class="longitude" readonly="true" value="" />
+				<input type="hidden" name="latitude" class="latitude" readonly="true" value="" />
+				<div class="cl mb-10">
+					<label class="f-l w-90 text-r">打卡范围：</label>
+					<select class="select f-l w-300" name="signRange">
+						<option value="">请选择</option>
+						<option value="100">100米内</option>
+						<option value="200">200米内</option>
+						<option value="300">300米内</option>
+						<option value="500">500米内</option>
+						<option value="1000">1公里内</option>
+					</select>
+				</div>
+				<div class="cl mb-20 relaEmp">
+					<label class="f-l w-90 text-r"><em class="mark">*</em>关联工程师：</label>
+					<span class="reloadDropDown">
+					<span class="w-300 dropdown-sin-2" >
+						<select class="select-box w-300"  multiple name="employeIds"  style="width:300px">
+							<c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">
+								<option value="${emp.columns.id }">${emp.columns.name }</option>
+							</c:forEach>
+						</select>
+					</span>
+					</span>
+				</div>
+				<div class="text-c">
+					<a href="javascript:save()" class="sfbtn sfbtn-opt3 text-c f-13 w-70">保存</a>
+				</div>
+			</div>
+		</div>
+	</form>
+</div>
+
+<div class="popupBox bjfcbox w-520 updateWork">
+		<h2 class="popupHead">
+			修改
+			<a href="javascript:;" class="sficon closePopup updateBox"></a>
+		</h2>
+		<div class="popupContainer">
+			<div class="popupMain pd-15">
+				<div class="cl mb-10">
+					<label class="f-l w-90 text-r"><em class="mark">*</em>上班时间：</label>
+					<input type="text" onFocus="WdatePicker({readOnly:true,lang:'zh-cn',dateFmt:'HH:mm:ss',startDate:'08:30:00'})"  name="workdatemax" value="" class="input-text Wdate w-300">
+				</div>
+				<div class="cl mb-10">
+					<label class="f-l w-90 text-r"><em class="mark">*</em>下班时间：</label>
+					<input type="text" onFocus="WdatePicker({readOnly:true,lang:'zh-cn',dateFmt:'HH:mm:ss',startDate:'18:00:00'})"  name="afterdatemax" value="" class="input-text Wdate w-300">
+				</div>
+				<div class="cl mb-10">
+					<label class="f-l w-90 text-r">打卡地点：</label>
+					<input type="text" class="input-text w-300 f-l signPoint"  name="signPoint"/><a href="javascript:;" class="c-0e8ee7 ml-10" onclick="curmaskAddr()" ><i class="Hui-iconfont Hui-iconfont-weizhi f-20"></i></a>
+				</div>
+				<input type="hidden" name="customerLnglat" class="customerLnglat" readonly="true"  value="" />
+				<input type="hidden" name="longitude" class="longitude" readonly="true"  value="" />
+				<input type="hidden" name="latitude" class="latitude" readonly="true"  value="" />
+				<input type="hidden" name="signId" class="signId" readonly="true"  value="" />
+
+				<input type="hidden" name="type" class="type" readonly="true"  value="" />
+				<div class="cl mb-10">
+					<label class="f-l w-90 text-r">打卡范围：</label>
+					<select class="select f-l w-300" name="signRange">
+						<option value="">请选择</option>
+						<option value="100">100米内</option>
+						<option value="200">200米内</option>
+						<option value="300">300米内</option>
+						<option value="500">500米内</option>
+						<option value="1000">1公里内</option>
+					</select>
+				</div>
+				<div class="cl mb-20 relaEmp">
+					<label class="f-l w-90 text-r"><em class="mark">*</em>关联工程师：</label>
+					<span class="reloadDropDown3">
+					<span class="w-300 dropdown-sin-3" >
+						<select class="select-box w-300"  multiple name="employeIds"  style="width:300px">
+							<c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">
+								<option value="${emp.columns.id }" >${emp.columns.name }</option>
+							</c:forEach>
+						</select>
+					</span>
+					</span>
+				</div>
+				<div class="text-c">
+					<a href="javascript:updateSign()" class="sfbtn sfbtn-opt3 text-c f-13 w-70">保存</a>
+				</div>
+			</div>
+		</div>
+</div>
+
+<div class="popupBox popupMap plocation">
+	<h2 class="popupHead">
+		地址定位
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain ">
+			<div class="bk-gray mapBox pos-r">
+				<div class="addrTxtBg"></div>
+				<div class="addrTxt ">
+					<p class="c-f55025 lh-26">注：在地图上拖动用户位置或输入详细地址（XX市XX县/区XX街道XX小区）点击“定位”获取用户位置信息</p>
+					<input type="text" class="input-text w-300 mr-5" id="dingweidizhi" value="合肥市蜀山区">
+					<a href="javascript:dingwei();" id="dingwei" class="sfbtn sfbtn-opt3 text-c f-13 w-70">定位</a>
+					<a href="javascript:gather();" class="sfbtn sfbtn-opt3 text-c f-13 w-70 ml-10">确定</a>
+				</div>
+				<div class="addrMap" id="map-container">
+					<!-- 地图部分 -->
+				</div>
+			</div>
+		</div>
+
+	</div>
+</div>
+
+<div class="popupBox w-320 vipPromptBox">
+	<h2 class="popupHead">
+		提示
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain text-c pt-30 pb-20">
+			<div class="">
+				<i class="iconType iconType2"></i>
+				<strong class="f-16">VIP会员功能</strong>
+			</div>
+			<p class="c-666 lh-26">
+				抱歉，此功能需要<span class="c-bb3906">开通VIP会员</span>后才能使用！
+			</p>
+			<div class="text-c mt-30">
+				<%-- <a  href="#" onclick="jumpToVIP();return false;" class="sfbtn sfbtn-opt3 w-100">开通VIP会员</a>--%>
+				<span class="sfbtn sfbtn-opt3 w-100" onclick="jumpToVIP();">开通VIP会员</span>
+			</div>
+		</div>
+	</div>
+</div>
+<script type="text/javascript" src="http://webapi.amap.com/maps?v=1.3&key=727b25e7366ab5015225754e8ee00fef"></script>
+<script type="text/javascript">
+var id = '${headerData.id}';						//服务商表格的ID
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var defaultId = '${headerData.defaultId}';			//系统表格的ID
+
+
+/*是否有数据*/
+var gridHadData=true;
+
+var a = true;
+var marker;
+AMap.service('AMap.Geocoder', function () {//回调函数
+    //实例化Geocoder
+    geocoder = new AMap.Geocoder();
+});
+
+$(function(){
+ 	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	initSfGrid();
+    $.setGridSize();
+
+    $.post("${ctx}/goods/sitePlatformGoods/distinct",function(result){
+        if(result=="showPopup"){
+            $(".vipPromptBox").popup();
+            $('#Hui-article-box',window.top.document).css({'z-index':'9'});
+        }
+    });
+
+    $('.dropdown-sin-2').dropdown({
+        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+        choice: function() {
+        }
+    });
+});
+
+var norepeat=false;
+function save(){
+    if(norepeat){
+        return;
+	}
+    var workingTime = $(".addwork").find("input[name='workdatemax']").val();
+    var offWorkingTime = $(".addwork").find("input[name='afterdatemax']").val();
+    var signPoint = $(".addwork").find("input[name='signPoint']").val();//打卡地点
+    var signRange = $(".addwork").find("select[name='signRange']").val();//打卡范围
+    var latitude = $(".addwork").find("input[name='latitude']").val();
+    var longitude = $(".addwork").find("input[name='longitude']").val();
+    var employeIds = $(".addwork").find("select[name='employeIds']").val();
+
+    var empIds="";
+    if(!isBlank(signRange)){
+        if(isBlank(signPoint)){
+            layer.msg("请设置打卡地点！");
+            return;
+        }
+    }
+
+    if($.trim(workingTime)==null || $.trim(workingTime)==""){
+        layer.msg("请填写上班时间！");
+    }
+    if($.trim(offWorkingTime)==null || $.trim(offWorkingTime)==""){
+        layer.msg("请填写下班时间！");
+    }
+    if(offWorkingTime<workingTime){
+        layer.msg("下班时间要求大于上班时间！");
+    } else {
+        hadData();
+
+        if(gridHadData){
+            if(isBlank(employeIds) || employeIds.length<0){
+                layer.msg("请选择关联的服务工程师！");
+                return;
+            }else{
+                empIds=employeIds.join(",");
+            }
+        }
+
+        norepeat=true;
+        var d = new Date();
+        var workingTime1 = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate() + " " + workingTime;
+        var offWorkingTime1 = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate() + " " + offWorkingTime;
+        $.ajax({
+            type: "POST",
+            url: "${ctx}/operate/employeDailySign/saveSign",
+            data: {
+                workingTime: workingTime1,
+                offWorkingTime: offWorkingTime1,
+                signPoint: signPoint,
+                signRange: signRange,
+                latitude: latitude,
+                longitude: longitude,
+                employeIds: empIds
+            },
+            dataType: 'json',
+            success: function (result) {
+                if (result == "200") {
+                    $.closeDiv($(".addwork"));
+                    layer.msg("添加成功！");
+                    $("#table-waitdispatch").trigger("reloadGrid");
+                }else if(result == "201"){
+                    layer.msg("添加失败，您选择的工程师中有已设置过的历史记录！");
+				} else {
+                    layer.msg("添加失败，请检查！");
+                }
+            },complete:function(){
+                norepeat=false;
+			}
+        })
+    }
+}
+
+
+var noRepeatSub=false;
+function updateSign(){//修改
+    if(noRepeatSub){
+        return;
+	}
+    var signId = $(".updateWork").find("input[name='signId']").val();
+    var workingTime = $(".updateWork").find("input[name='workdatemax']").val();
+    var offWorkingTime = $(".updateWork").find("input[name='afterdatemax']").val();
+    var signPoint = $(".updateWork").find("input[name='signPoint']").val();//打卡地点
+    var signRange = $(".updateWork").find("select[name='signRange']").val();//打卡范围
+    var latitude = $(".updateWork").find("input[name='latitude']").val();
+    var longitude = $(".updateWork").find("input[name='longitude']").val();
+    var employeIds = $(".updateWork").find("select[name='employeIds']").val();
+    var type = $(".updateWork").find("input[name='type']").val();
+
+    if(!isBlank(signRange)){
+        if(isBlank(signPoint)){
+            layer.msg("请设置打卡地点！");
+            return;
+        }
+    }
+
+    hadData();
+    var empIds="";
+    if(gridHadData && type=='1'){
+        if(isBlank(employeIds) || employeIds.length<0){
+            layer.msg("请选择关联的服务工程师！");
+            return;
+        }else{
+            empIds=employeIds.join(",");
+        }
+    }
+
+    if($.trim(workingTime)==null || $.trim(workingTime)==""){
+        layer.msg("请填写上班时间！");
+        return;
+    }
+    if($.trim(offWorkingTime)==null || $.trim(offWorkingTime)==""){
+        layer.msg("请填写下班时间！");
+        return;
+    }
+    if(offWorkingTime<workingTime){
+        layer.msg("下班时间要求大于上班时间！");
+        return;
+    }else{
+        noRepeatSub=true;
+
+        var d = new Date();
+        var workingTime1 = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+" "+workingTime;
+        var offWorkingTime1 = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+" "+offWorkingTime;
+        $.ajax({
+            type:"POST",
+            url:"${ctx}/operate/employeDailySign/saveSignEdit",
+            data:{
+                workingTime:workingTime1,
+                offWorkingTime:offWorkingTime1,
+                signPoint:signPoint,
+                signRange:signRange,
+                latitude:latitude,
+                longitude:longitude,
+                signId:signId,
+                employeIds:empIds
+            },
+            dataType:'json',
+            success:function(result){
+                if(result=="200"){
+                    resetTwo();
+                    layer.msg("修改成功！");
+                    $.closeDiv($(".updateWork"));
+                    $("#table-waitdispatch").trigger("reloadGrid");
+                }else if(result == "201"){
+                    layer.msg("添加失败，您选择的工程师中有已设置过的历史记录！");
+                }else{
+                    layer.msg("修改失败，请检查！");
+                }
+            },complete:function(){
+                noRepeatSub=false;
+			}
+        })
+    }
+}
+
+function hadData(){
+    $.ajax({
+        type: "POST",
+        url: "${ctx}/operate/employeDailySign/getSignInfos",
+        data: {},
+        dataType: 'json',
+        success: function (result) {
+			if(result.length>0){
+                gridHadData=true;
+			}else{
+                gridHadData=false;
+			}
+        }
+    })
+}
+
+//点击显示“地址定位”弹出框
+function curmaskAddr(){
+    initAddrmap();
+    if(!isBlank($(".signPoint").val())) {
+        $("#dingweidizhi").val($(".signPoint").val());
+    }
+    if(a) {
+        map.plugin(["AMap.ToolBar"],function(){
+            var tool = new AMap.ToolBar();
+            tool.setOffset(new AMap.Pixel(10,52));
+            map.addControl(tool);
+        });
+        a = false;
+    }
+    $('.plocation').popup();
+}
+
+function initAddrmap(){
+    var addrMap = $('#addrMap');
+    var hAddr = addrMap.height();
+    var hWin = $(window).height()/2 ;
+    addrMap.height( hWin < 394 ? 394:hWin );
+    map = new AMap.Map('map-container', {
+        zoom: 10
+    });
+    mark = new AMap.Marker({
+        map:map,
+        draggable:true
+    });
+    mark.setMap(map);
+    mark.on('dragend',function(e){
+        geocoder.getAddress(mark.getPosition(),function(status,result){
+            if(status=='complete'){
+                $('#dingweidizhi').val(result.regeocode.formattedAddress);
+                $(".customerLnglat").val(mark.getPosition());
+                $(".latitude ").val(mark.getPosition().lat);
+                $(".longitude").val(mark.getPosition().lng);
+            }else{
+                layer.msg('无法获取地址');
+            }
+        })
+    });
+}
+
+function dingwei(){//定位
+    var slnglat;
+    var address = $('#dingweidizhi').val();
+    if($('#dingweidizhi').val() == ""){
+        layer.msg("请输入地址定位");
+    }else{
+        mark.setMap(null);
+        geocoder.getLocation(address, function (status, result) {
+            if(marker!=null){
+                marker.setMap(null);
+                marker = null;
+            }
+            if (status === 'complete' && result.info === 'OK') {
+                if (result.resultNum && result.resultNum > 0) {
+                    var location = result.geocodes[0].location;
+                    slnglat = location.lng+","+location.lat
+                    $(".customerLnglat").val(slnglat);
+                    map.panTo(new AMap.LngLat(location.lng, location.lat));
+                    map.setZoom(13);
+                    $(".latitude ").val(location.lat);
+                    $(".longitude").val(location.lng);
+                    if (marker == null) {
+                        marker = new AMap.Marker({
+                            position: [location.lng, location.lat],
+                            map: map,
+                            draggable:true
+                        });
+                        marker.setMap(map);
+                        marker.on('dragend',function(e){
+                            geocoder.getAddress(marker.getPosition(),function(status,result){
+                                if(status=='complete'){
+                                    $('#dingweidizhi').val(result.regeocode.formattedAddress);
+                                    $(".latitude ").val(marker.getPosition()[0]);
+                                    $(".longitude").val(marker.getPosition()[1]);
+                                    $(".customerLnglat").val(marker.getPosition());
+                                }else{
+                                    layer.msg('无法获取地址');
+                                }
+                            })
+                        });
+                    } else {
+                        marker.setPosition(location.lng, location.lat);
+                    }
+                }
+            } else {
+            }
+        });
+
+    }
+}
+
+function gather(){
+    if($('#dingweidizhi').val() == ""){
+        layer.msg("请输入地址定位");
+    }else if(isBlank($(".customerLnglat").val())) {
+        layer.msg('请定位');
+    }else{
+        $(".signPoint").val($('#dingweidizhi').val());
+        $(".signPoint").focus();
+        $.closeDiv($('.plocation'));
+        $('#dingweidizhi').val("");
+        $(".customerAddress").blur();
+    }
+}
+
+function isBlank(val) {
+	if(val==null || $.trim(val)=='' || val == undefined) {
+		return true;
+	}
+	return false;
+}
+
+function initSfGrid(){
+	$("#table-waitdispatch").sfGrid({
+		url : '${ctx}/operate/employeDailySign/getSignSetList',
+		sfHeader: defaultHeader,
+		sfSortColumns: sortHeader,
+        multiselect:false,
+		rownumbers:true,
+ 		loadComplete: function() {
+ 			_order_comm.gridNum();
+            var re_records = $("#table-waitdispatch").getGridParam('records');
+            if(re_records == 0 || re_records == null){
+                gridHadData=false;
+            }
+		}
+	});
+}
+
+function fmtOperation(rowData){
+    if(rowData.type=='0'){
+        return "<span><a  href=javascript:updateMsg('"+rowData.id+"','"+rowData.type+"') style='color:blue'>修改</a></span>";
+    }else{
+        return "<span><a href=javascript:updateMsg('"+rowData.id+"','"+rowData.type+"') style='color:blue'>修改</a></span>&nbsp;&nbsp;<span><a style='color:blue' href=javascript:deleteMsg('"+rowData.id+"')>删除</a></span>";
+	}
+}
+
+function updateMsg(id,type){
+    if(type=='0'){
+        $(".relaEmp").addClass("hide");
+    }else{
+        $(".relaEmp").removeClass("hide");
+    }
+    $.ajax({
+        type: "POST",
+        url: "${ctx}/operate/employeDailySign/getSignInfo",
+        data: {
+            id: id
+        },
+        dataType: 'json',
+        success: function (result) {
+            if(result!=null){
+                $(".updateWork").find("input[name='workdatemax']").val(result.columns.workingTime);
+                $(".updateWork").find("input[name='afterdatemax']").val(result.columns.offWorkingTime);
+                $(".updateWork").find("input[name='signPoint']").val(result.columns.sign_point);//打卡地点
+                $(".updateWork").find("select[name='signRange']").val(result.columns.sign_range);//打卡范围
+                $(".updateWork").find("input[name='latitude']").val(result.columns.latitude);
+                $(".updateWork").find("input[name='longitude']").val(result.columns.longitude);
+                $(".updateWork").find("input[name='signId']").val(result.columns.id);
+                $(".updateWork").find("input[name='type']").val(result.columns.type);
+
+                if (result.columns.employe_id != null && result.columns.employe_id != "") {
+					var employeIds=result.columns.employe_id.split(",");
+					for(var i=0;i<employeIds.length;i++){
+					    $(".updateWork").find("select[name='employeIds']").find("option").each(function(){
+							var id=$(this).val();
+							if(employeIds[i]==id){
+								$(this).attr("selected",true);
+							}
+						});
+                    }
+                }
+
+				/*if($(".dropdown-display").length>1){
+                    $(".dropdown-display").remove();
+				}*/
+                $('.dropdown-sin-3').dropdown();
+            }
+        }
+    })
+    $(".updateWork").popup();
+}
+function deleteMsg(id){
+    $('body').popup({
+        level: '3',
+        type: 2,
+        content: '确认要删除该记录吗？',
+        closeSelfOnly: true,
+        fnConfirm: function () {
+            $.ajax({
+                type: "POST",
+                url: "${ctx}/operate/employeDailySign/deleteSign",
+                data: {
+                    id: id
+                },
+                dataType: 'json',
+                success: function (result) {
+					layer.msg("删除成功！");
+                    $("#table-waitdispatch").trigger("reloadGrid");
+                }
+            })
+        },
+        fnCancel: function () {
+        }
+    });
+}
+
+function addNew(){
+    reset();
+
+    hadData();
+
+    if(!gridHadData){
+        $(".relaEmp").addClass("hide");
+    }else{
+        $(".relaEmp").removeClass("hide");
+    }
+
+    $(".addwork").popup();
+}
+
+$(".updateBox").on('click',function(){
+    resetTwo();
+})
+
+function reset(){
+    var html='';
+    html+='<span class="w-300 dropdown-sin-2" >';
+    html+='<select class="select-box w-300"  multiple name="employeIds"  style="width:300px">';
+    html+='<c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">';
+    html+='<option value="${emp.columns.id }">${emp.columns.name }</option>';
+    html+='</c:forEach></select> </span>';
+
+    $(".reloadDropDown").empty().append(html);
+    $('.dropdown-sin-2').dropdown({
+        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+        choice: function() {
+        }
+    });
+
+
+    var html3='';
+    html3+='<span class="w-300 dropdown-sin-3" >';
+    html3+='<select class="select-box w-300" multiple name="employeIds"  style="width:300px">';
+    html3+='<c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">';
+    html3+='<option value="${emp.columns.id }">${emp.columns.name }</option>';
+    html3+='</c:forEach></select> </span>';
+
+    $(".reloadDropDown3").empty().append(html3);
+}
+
+
+function resetTwo(){
+    var html3='';
+    html3+='<span class="w-300 dropdown-sin-3" >';
+    html3+='<select class="select-box w-300" multiple name="employeIds"  style="width:300px">';
+    html3+='<c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">';
+    html3+='<option value="${emp.columns.id }">${emp.columns.name }</option>';
+    html3+='</c:forEach></select> </span>';
+
+    $(".reloadDropDown3").empty().append(html3);
+}
+</script>
+	
+</body>
+</html>

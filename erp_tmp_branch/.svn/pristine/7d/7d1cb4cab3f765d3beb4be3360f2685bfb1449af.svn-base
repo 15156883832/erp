@@ -1,0 +1,331 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<title>二级网点设置</title>
+<meta name="decorator" content="base" />
+<script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+  <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/easyui.css"/> 
+<script type="text/javascript" src="${ctxPlugin}/lib/select/jquery.easyui.min.js"></script> 
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+</head>
+<body>
+<div class="sfpagebg bk-gray">
+<div class="sfpage table-header-settable">
+<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabCon">
+			<div class="pt-10 pb-5 cl">
+				<div class="f-l">
+					<sfTags:pagePermission authFlag="SYSSETTLE_SECONDSET_ADDSECONDSITE_BTN" html='<a href="javascript:;" class="sfbtn sfbtn-opt" onclick="addNewSite();" id="btnAddnew"><i class="sficon sficon-add"></i>添加二级网点</a>'></sfTags:pagePermission>
+					<sfTags:pagePermission authFlag="SYSSETTLE_SECONDSET_DELSECONDSITE_BTN" html='<a href="javascript:delSecondSite();" class="sfbtn sfbtn-opt"  id="directpg"><i class="sficon sficon-del"></i>解绑二级网点</a>'></sfTags:pagePermission>
+				</div>
+			</div>
+			<div>
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<table id="table-waitdispatch" class="table"></table>
+					<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+			</div>
+		</div>
+	</div>
+</div>
+</div>
+</div>
+<!-- 表头设置 -->
+<div class="">
+	<div>
+		<h2></h2>
+	</div>
+</div>
+
+<div class="popupBox w-600 addSecondSite" >
+	<h2 class="popupHead">
+		添加二级网点
+		<a href="javascript:;" class="sficon closePopup" onclick="closes()"></a>
+	</h2>
+	<div class="popupContainer"  >
+		<div class="popupMain pl-15 pr-15 pt-15 pb-50 pos-r" style="height:240px">
+			<!-- <div class="pcontent"  style="width:00px;height:500px;" > -->
+				<p class="mb-10 lh-24 f-14 c-f55025" style="padding-left:10px">说明：所添加的二级网点需要先在思方系统内注册账号。</p>
+				<!-- //提示：添加已注册的思方网点账号作为二级网点 -->
+				<div class="cl mb-10 " >
+					<label class="f-l w-160"><em class="mark">*</em>系统内已注册的网点名称：</label>
+					<input type="text" class="input-text w-300 f-l  labelname" maxlength="50" placeholder="请填写思方系统内注册的网点名称"   id="newSiteName"/>
+				</div>
+				<div class="cl mb-10 ">
+					<label class="f-l w-160"><em class="mark">*</em>二级网点经理人手机号码：</label>
+					<input type="text" class="input-text w-300 f-l  labelsort" maxlength="20" placeholder="请填写所绑定二级网点经理人的手机号码"  id="newSiteMobile" /> 
+				</div>
+				<div class="cl mb-10 " >
+					<label class="f-l w-160"><em class="mark">*</em>短信验证码：</label>
+					<input type="text" class="f-l w-190 input-text" placeholder="请输入短信验证码" id="mobileMsg"/>
+					<input type="button" id="btnClickSendMsg" value="获取验证码" class="f-l ml-10 w-100 btn-getCode2 sfbtn"/>  
+					<input type="hidden" id="sendMobile" />  
+				</div>
+			</div>
+			<div class="text-c btnWrap">
+				<a class="sfbtn sfbtn-opt3 w-70 mr-5" onclick="saveSiteSet()">确定</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt w-70 mr-5"  onclick="closes()">取消</a>
+			</div>
+		
+	</div>
+</div>
+
+<script type="text/javascript" src="http://webapi.amap.com/maps?v=1.3&key=727b25e7366ab5015225754e8ee00fef"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+<script type="text/javascript">
+var id = '${headerData.id}';						//服务商表格的ID
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var defaultId = '${headerData.defaultId}';
+var clickMark='0';
+var setTimeMark='0';
+$(function(){
+	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	initSfGrid();
+})
+
+function initSfGrid(){
+	$("#table-waitdispatch").sfGrid({
+		url : '${ctx}/operate/site/secondSiteList',
+		sfHeader: defaultHeader,
+		sfSortColumns: sortHeader,
+		shrinkToFit:true,
+		rownumbers:true,
+		gridComplete:function(){
+			_order_comm.gridNum();
+		}
+	});
+}
+
+function fmtOper(rowData){
+	var hh = rowData.versionMark;
+	if(hh=='0'){
+		return '<span class="oState state-freeVersion">免费版</span>';
+		
+	}
+	if(hh=='1'){
+		return '<span class="oState state-paidVersion">付费版</span>';
+	}
+	return hh;
+}
+
+function closes(){
+	$("#btnClickSendMsg").val('获取验证码');
+	$("#btnClickSendMsg").removeAttr("disabled");
+	$.closeDiv($(".addSecondSite"));
+	$("#newSiteName").val('');
+	$("#newSiteMobile").val('');
+	$("#mobileMsg").val('');
+	clickMark='0';
+	setTimeMark='1';
+	
+}
+
+function addNewSite(){
+	$(".addSecondSite").popup();
+}
+
+var sss=false;
+function saveSiteSet(){
+	if(sss){
+		return;
+	}
+	if(clickMark=='0'){
+		layer.msg("请先点击发送验证码！");
+		return;
+	}
+	var siteName = $("#newSiteName").val();
+	var siteMobile = $("#newSiteMobile").val();
+	var sendMobile = $("#sendMobile").val();
+	var mobileMsg = $("#mobileMsg").val();
+	if(isBlank(siteName)){
+		layer.msg("请填写二级网点名称！");
+		$("#newSiteName").focus();
+		return ;
+	}
+	if(isBlank(siteMobile)){
+		layer.msg("请输入手机号！");
+		$("#newSiteMobile").focus();
+		return ;
+	}
+	if(siteMobile.length!=11 || !(/^1[3|4|5|7|8|9][0-9]\d{4,8}$/.test(siteMobile))){
+		layer.msg("请输入正确的手机号！");
+		$("#newSiteMobile").focus();
+		return ;
+	}
+	if(sendMobile!=siteMobile){
+		layer.msg("发送短信验证码前后的手机号不一致！");
+		return ;
+	}
+	if(isBlank(mobileMsg)){
+		layer.msg("请输入验证码！");
+		$("#mobileMsg").focus();
+		return ;
+	}
+	sss=true;
+	$.ajax({
+		type:"post",
+		url:"${ctx}/operate/site/addSecondSiteConfirm",
+		data:{siteName:siteName,siteMobile:siteMobile,mobileMsg:mobileMsg},
+		success:function(result){
+			if(result=='200'){
+				parent.layer.msg("添加成功！");
+				closes();
+				search();
+			}else if(result=='420'){
+				layer.msg("验证码错误！");
+			}else if(result=='421'){
+				layer.msg("不存在服务商名称为"+siteName+"的二级网点！");
+			}else if(result=='422'){
+				layer.msg("不存在手机号为"+siteMobile+"的经理人账号，请再次确认！");
+			}else if(result=='423'){
+				layer.msg("服务商名称与经理人注册的的手机号不相符请再次确认！");
+			}else if(result=='424'){
+				layer.msg("您不是一级网点，不能添加二级网点！");
+			}else if(result=='425'){
+				layer.msg("已绑定该网点为二级网点，请不要重复绑定！");
+			}else{
+				layer.msg("添加失败，请检查！");
+			}
+			sss=false;
+			return;
+		}
+	})
+	
+}
+
+function search(){
+	var pageSize = $("#pageSize").val();
+	if($.trim(pageSize)=='' || pageSize==null){
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch({
+        postData: $("#searchForm").serializeJson()
+    });
+}
+$("#btnClickSendMsg").bind('click',function(){
+	var ff = this;
+	var siteName = $("#newSiteName").val();
+	var siteMobile = $("#newSiteMobile").val();
+	if(isBlank(siteMobile)){
+		layer.msg("请输入手机号！");
+		$("#newSiteMobile").focus();
+		return ;
+	}
+	if(siteMobile.length==11 && (/^1[3|4|5|7|8|9][0-9]\d{4,8}$/.test(siteMobile))){//点击发送短信验证码
+    	$.ajax({
+    		type:"post",
+    		url:"${ctx}/operate/site/sendMsgSdSite",
+    		data:{mobile:siteMobile},
+    		success:function(result){
+    			if(result=="200"){
+    				layer.msg("发送成功！");
+    				$("#sendMobile").val(siteMobile);
+    				clickMark='1';
+    				setTimeMark='0';
+    				time(ff);
+    			}else if(result=="420"){
+    				layer.msg("短信数量不足，请先购买！");
+    				return ;
+    			}else if(result=="421"){
+    				layer.msg("发送失败，不存在手机号为"+siteMobile+"的经理人账号，请再次确认！");
+    				return ;
+    			}else if(result=="422"){
+    				layer.msg("发送失败，注册手机号为"+siteMobile+"的服务商已被添加为二级网点！");
+    				return ;
+    			}else if(result=="423"){
+    				layer.msg("发送失败，注册手机号为"+siteMobile+"的服务商为一级网点，不能被添加为二级网点！");
+    				return ;
+    			}else{
+    				layer.msg("发送失败，请检查！");
+    				return ;
+    			}
+    		}
+    	})
+	}else{
+		layer.msg("请输入正确的手机号！");
+		$("#newSiteMobile").focus();
+		return ;
+	}
+})
+function isBlank(num){
+	if(num==null || $.trim(num)=='' || num==undefined){
+		return true;
+	}
+	return false;
+}
+
+var wait=60; 
+function time(o) { 
+	if(setTimeMark=='1'){
+		return ;
+	}
+	 if (wait == 0) { 
+		 o.removeAttribute("disabled");            
+            o.value="获取验证码";  
+            wait = 60;
+        } else {  
+            o.setAttribute("disabled", true);  
+            o.value="重新发送(" + wait + ")";  
+            wait--;  
+            setTimeout(function() {  
+                time(o)  
+            },  
+            1000)  
+        }  
+}  
+
+function delSecondSite(){
+	var idArr =  $('#table-waitdispatch').jqGrid("getGridParam", "selarrrow");
+	if(idArr.length < 1){
+		layer.msg("请先选择数据");
+		return;
+	}
+	var ids = '';
+	for(var i=0;i<idArr.length;i++){
+		 var rowData = $('#table-waitdispatch').jqGrid('getRowData', idArr[i]);
+		 if(isBlank(ids)){
+			 ids=rowData.relId;
+		 }else{
+			 ids=ids+','+rowData.relId;
+		 }
+	}
+	$('body').popup({
+         level: '3',
+         type: 2,  // 提示是否进行某种操作
+         content: '您确定要解绑这'+idArr.length+'个二级网点吗？',
+         fnConfirm: function () {
+            $.ajax({
+            	type:"post",
+            	url:"${ctx}/operate/site/delSecondSite",
+            	data:{ids:ids},
+            	success:function(result){
+            		if(result=="200"){
+            			parent.layer.msg("解绑成功！");
+            			search();
+            		}else if(result=="420"){
+            			layer.msg("解绑失败，请刷新后重新选择数据！");
+            		}else{
+            			layer.msg("解绑失败，请联系管理员！");
+            		}
+            		return ;
+            	}
+            })
+         },
+         fnCancel: function () {
+        	 
+         }
+     });
+}
+</script>
+
+</body>
+</html>

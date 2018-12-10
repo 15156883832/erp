@@ -1,0 +1,284 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+	<title>标记工单设置</title>
+	<meta name="decorator" content="base"/>
+	<script type="text/javascript" src="${ctxPlugin}/lib/Validform/5.3.2/Validform.min.js"></script>
+</head>
+<body>
+<div class="sfpagebg">
+	<div class="sfpage bk-gray table-header-settable">
+		<div class="page-orderWait">
+			<div id="tab-system" class="HuiTab">
+				<div class="tabBar cl mb-10">
+					<sfTags:pagePermission authFlag="SYSFLAGSET_FLAGSET_FLAGGATE_TAB" html='<a class="btn-tabBar current" href="${ctx}/order/orderMarkSet">标记类型设置</a>'/>
+
+					<p class="f-r btnWrap">
+						<%--
+						<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICECATE_PLDELETE_BTN" html='<a onclick="delMore()" class="sfbtn sfbtn-opt"><i class="sficon sficon-reset"></i>批量删除</a> '></sfTags:pagePermission>
+						--%>
+						<a onclick="delMore()" class="sfbtn sfbtn-opt"><i class="sficon sficon-rubbish"></i>批量删除</a>
+						<a onclick="addMore()" class="sfbtn sfbtn-opt" ><i class="sficon sficon-add"></i>添加</a>
+					</p>
+				</div>
+				<div class="tabCon" style="display: block;">
+					<form id="searchForm">
+						<input type="hidden" name="page" id="pageNo" value="1">
+						<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+						<div>
+							<table id="table-waitdispatch" class="table"></table>
+							<!-- pagination -->
+							<div class="cl pt-10">
+								<div class="f-r">
+									<div class="pagination"></div>
+								</div>
+							</div>
+							<!-- pagination -->
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+	</div>
+</div>
+
+
+<!-- 修改 -->
+<div class="popupBox w-580 modflag">
+	<h2 class="popupHead">
+		修改
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer pt-20 pb-15">
+		<form id="order_mark_mod_form">
+		<div class="popupMain " id="flagboxMod" style="max-height: 500px;overflow: auto;">
+			<div class="cl mb-10">
+				<input type="hidden" id="flagId" name="id" class="input-text w-140 f-l mustfill">
+				<label class="f-l w-100"><em class="mark">*</em>类型名称：</label>
+				<input type="text" id="flagName" name="name" class="input-text w-140 f-l mustfill" datatype="*" maxlength="10" nullmsg="类型名称不能为空" errormsg="类型名称不能为空">
+				<label class="f-l w-80">排序：</label>
+				<input type="text" id="flagSort" name="sort" class="input-text w-140 f-l mustfill" datatype="n1-3" maxlength="3" errormsg="排序只能为数字" ignore="ignore">
+				<a class="f-l mt-3 ml-10 sficon sficon-reduce2" style="display: none;"></a>
+			</div>
+		</div>
+		<div class="text-c pt-15">
+			<a href="javascript:;" class="sfbtn sfbtn-opt3 w-70 mr-5" id="saveModBtn">保存</a>
+			<a href="javascript:;" class="sfbtn sfbtn-opt w-70 mr-5" onclick="$.closeDiv($('.modflag'));">取消</a>
+		</div>
+		</form>
+	</div>
+</div>
+
+<!-- 添加 -->
+<div class="popupBox w-580 addflag">
+	<h2 class="popupHead">
+		添加
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer pt-20 pb-15">
+		<form id="order_mark_form">
+			<div class="popupMain " id="flagbox" style="max-height: 500px;overflow: auto;">
+			</div>
+			<div class="text-c pt-15">
+				<a href="javascript:;" class="sfbtn sfbtn-opt3 w-70 mr-5" id="saveBtn">保存</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt w-70 mr-5" onclick="$.closeDiv($('.addflag'));">取消</a>
+			</div>
+		</form>
+	</div>
+</div>
+
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+<script type="text/javascript">
+    var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+	var validform;
+	var validModForm;
+
+    $(function () {
+        initGrid();
+
+        validform = $('#order_mark_form').Validform({
+            tiptype: function (msg, o, cssctl) {
+                if (o.type === 3) {
+                    layer.msg(msg);
+                }
+            },
+            btnSubmit:"#saveBtn",
+            tipSweep: true,
+            postonce: true,
+            showAllError: false,
+            callback: function (form) {
+                $.ajax({
+                    url: "${ctx}/order/orderMarkSet/save",
+                    type: "POST",
+                    data: form.serialize(),
+                    success: function (data) {
+                        layer.msg('保存成功');
+                        search();
+                        $.closeDiv($('.addflag'));
+                    }
+                });
+                return false;
+            }
+        });
+
+        validModForm = $('#order_mark_mod_form').Validform({
+            tiptype: function (msg, o, cssctl) {
+                if (o.type === 3) {
+                    layer.msg(msg);
+                }
+            },
+            btnSubmit:"#saveModBtn",
+            tipSweep: true,
+            postonce: true,
+            showAllError: false,
+            callback: function (form) {
+                $.ajax({
+                    url: '${ctx}/order/orderMarkSet/edit',
+                    type: 'post',
+                    data: $("#order_mark_mod_form").serialize(),
+                    success: function (data) {
+                        if (data) {
+                            layer.msg("修改成功");
+                            search();
+                            $.closeDiv($('.modflag'));
+                        }
+                    },
+                    error: function () {
+                    },
+                    complete: function () {
+                    }
+                });
+                return false;
+            }
+        });
+    });
+
+    function initGrid() {
+        $("#table-waitdispatch").sfGrid({
+            url: '${ctx}/order/orderMarkSet/orderMarkGrid',
+            sfHeader: defaultHeader,
+            multiselect: true,
+            shrinkToFit: true,
+            rownumbers : true,
+     		gridComplete:function(){
+     			_order_comm.gridNum();
+     		}
+        });
+    }
+
+    function addFlag(obj) {
+        $('#flagbox').append('<div class="cl mb-10">' +
+            '<label class="f-l w-100"><em class="mark">*</em>类型名称：</label>' +
+            '<input type="text" name="name" class="input-text w-140 f-l mustfill" datatype="*" maxlength="10" nullmsg="类型名称不能为空" errormsg="类型名称不能为空">' +
+            '<label class="f-l w-80">排序：</label>' +
+            '<input type="text" name="sort" class="input-text w-140 f-l mustfill" datatype="n1-3" maxlength="3" errormsg="排序只能为数字" ignore="ignore">' +
+            '<a class="f-l mt-3 ml-10 sficon sficon-reduce2 " onclick="delFlag(this)"></a>' +
+            '<a class="f-l mt-3 ml-10 sficon sficon-add2" onclick="addFlag(this)"></a>' +
+            '</div>');
+        $(obj).prev().show();
+        $(obj).hide();
+
+        $.setPos($('.addflag'));
+    }
+
+    function delFlag(obj) {
+        var flagBox = $('#flagbox');
+        $(obj).closest('div').remove();
+        flagBox.children('div').last().find('.sficon-add2').show();
+        var divSize = flagBox.children('div').size();
+        if (divSize === 1) {
+            $('#flagbox').children('div').find('.sficon-reduce2').hide();
+        }
+        $.setPos($('.addflag'));
+    }
+
+    function resetPopup() {
+        var htm = '<div class="cl mb-10">'+
+            '<label class="f-l w-100"><em class="mark">*</em>类型名称：</label>'+
+            '<input type="text" name="name" class="input-text w-140 f-l mustfill" datatype="*" maxlength="10" nullmsg="类型名称不能为空" errormsg="类型名称不能为空">'+
+            '<label class="f-l w-80">排序：</label>'+
+            '<input type="text" name="sort" class="input-text w-140 f-l mustfill" datatype="n1-3" maxlength="3" errormsg="排序只能为数字" ignore="ignore">'+
+            '<a class="f-l mt-3 ml-10 sficon sficon-reduce2 " onclick="delFlag(this)" style="display: none;"></a>'+
+            '<a class="f-l mt-3 ml-10 sficon sficon-add2" onclick="addFlag(this)"></a>'+
+            '</div>';
+        $("#flagbox").html(htm);
+        validform.resetForm();
+	}
+
+    function addMore() {
+        resetPopup();
+        $('.addflag').popup();
+	}
+
+	var posting = false;
+    function delMore() {
+        if (posting) {
+            return;
+        }
+
+        $('body').popup({
+            level: '3',
+            type: 2,
+            content: "您确定要删除选中的标记类型吗？",
+            fnConfirm: function () {
+                var idArr = $('#table-waitdispatch').jqGrid('getGridParam', 'selarrrow');
+                if (idArr.length <= 0) {
+                    layer.msg("请先勾选需要删除的标记类型");
+                    return;
+                }
+
+                posting = true;
+                $.ajax({
+                    url: '${ctx}/order/orderMarkSet/del',
+                    type: 'post',
+                    data: {
+                        "ids": idArr
+                    },
+                    success: function (data) {
+                        layer.msg("删除成功");
+                        search();
+                    },
+                    error: function () {
+                    },
+                    complete: function () {
+                        posting = false;
+                    }
+                });
+            }
+        });
+    }
+
+    function fmtOper(rowData) { //列表操作
+        return '<a href="javascript:modOrderMark(\''+rowData.id+'\');" class="c-0383dc"><i class="sficon sficon-edit"></i>修改</a>';
+    }
+
+    function modOrderMark(id) { //列表操作
+        validModForm.resetForm();
+        $.ajax({
+            url: '${ctx}/order/orderMarkSet/show?id=' + id,
+            type: 'GET',
+            success: function (data) {
+                if (data) {
+                    $("#flagName").val(data.name);
+                    $("#flagSort").val(data.sort);
+                    $("#flagId").val(id);
+                    $(".modflag").popup();
+                }
+            }
+        });
+    }
+
+    function search(){
+    	var pageSize = $("#pageSize").val();
+    	if ($.trim(pageSize) == '' || pageSize == null) {
+    		$("#pageSize").val(20);
+    	}
+        $("#table-waitdispatch").sfGridSearch({
+            postData: $("#searchForm").serializeJson()
+        });
+    }
+</script>
+</body>
+</html>

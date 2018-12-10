@@ -1,0 +1,199 @@
+@charset "utf-8";
+
+.navbar .logo{ background-color: #0e8ee7 ;}
+/* 导航栏-续费文本 */
+.navbar-userbar .btn_renew{color: #0e8ee7 ;}
+
+/*菜单收缩切换*/
+.dislpayArrow a{background-position: 5px 0; }
+.dislpayArrow a.open{ background-position:0 -49px}
+.dislpayArrow a:hover{ text-decoration:none; background-position:-13px 0px}
+.dislpayArrow a.open:hover{background-position:-18px -49px}
+
+/*选项卡导航*/
+.Hui-tabNav .acrossTab li{ background-position: 0 0;}
+.acrossTab li em{background-position: right -30px; }
+.acrossTab li:hover,
+.acrossTab li.active{background-position:0 -60px;}
+.acrossTab li:hover em,
+.acrossTab li.active em{background-position:right -90px}
+
+/* sifang icon css */
+.sficon{ background-image: url(../images/icons.png) ;}
+
+/* 复选框 */
+.label-cbox,
+.label-cbox2,
+.label-cbox3,
+.radiobox,
+.label-cbox4{ 
+	background-image: url(../images/icons.png) ;	
+}
+
+/* 按钮 */
+.sfbtn {
+	color: #005aab;		
+}
+.sfbtn-opt2{border: 1px solid #fff;}
+.sfbtn-opt,
+.sfbtn-opt2:hover,
+.btn-count{	
+	border: 1px solid #6ac1e4;
+	background: -webkit-linear-gradient(top,#e2f0fd,#cce2fa);
+	background: -moz-linear-gradient(top,#e2f0fd,#cce2fa);
+	background: -ms-linear-gradient(top,#e2f0fd,#cce2fa);
+	background: linear-gradient(top,#e2f0fd,#cce2fa);
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#e2f0fd', endColorstr='#cce2fa',GradientType=0 );
+}
+.sfbtn-opt3,
+.sfbtn-opt:hover,
+.sfbtn-active{
+	background: #0e8ee7;
+	border: 1px solid #0e8ee7;
+	color: #fff;
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#0e8ee7', endColorstr='#0e8ee7',GradientType=0 );
+}
+.sfbtn-disabled,
+.sfbtn-disabled:hover {
+	cursor:not-allowed;
+	border: 1px solid #ccc;
+	background: #eee;
+	color: #888888;
+}
+/* 发送短信的按钮 */
+.sfbtn-green{
+	color: #fff;
+	background: #0e8ee7;
+}
+/* 导航栏部分 */
+/*.navbar-sf{
+	background-color: #0e8ee7;
+}
+.menu_dropdown .sfnav{
+	background-image: url(../images/icon-navbar.png) ;
+}
+.navbar-sfbar a:hover,
+.navbar-sfbar .current{
+	color: #2f7baf;
+}*/
+
+/* 左侧菜单栏 */
+.Hui-aside .menu_dropdown .current,
+.Hui-aside .menu_dropdown a:hover{
+	background-color: #0e8ee7;
+}
+.sfnav2 .aside-menu{ background-image: url(../images/menu-orders.png) ;} /* 工单管理 */
+.sfnav3 .aside-menu{ background-image: url(../images/menu-beijian.png) ;}
+.sfnav4 .aside-menu{ background-image: url(../images/menu-commodityF.png) ;} /* 商品管理 */
+.sfnav5 .aside-menu{ background-image: url(../images/menu-syssetS.png) ;} /* 服务商权限下的 */
+.sfnav6 .aside-menu{ background-image: url(../images/menu-order2.png) ;}   /* 订单管理 */
+.sfnav7 .aside-menu{ background-image: url(../images/menu-operative.png) ;}   /* 运营管理 */
+.sfnav8 .aside-menu{ background-image: url(../images/menu-finance.png) ;}   /* 财务管理 */
+.sfnav9 .aside-menu{ background-image: url(../images/menu-statistic.png) ;}   /* 统计分析 */
+
+/* 表格 */
+.table-sdrk th,
+.table2 th{
+	color: #005aab;
+}
+/* jQgrid */
+.ui-jqgrid label{
+	background-image: url(../images/icons.png);
+}
+.ui-jqgrid-htable th.ui-state-default {   
+    color: #005aab;
+}
+.ui-state-highlight, 
+.ui-widget-content .ui-state-highlight, 
+.ui-widget-header .ui-state-highlight  {
+	background: #b1e1f5; 
+}
+
+/* 选项卡 */
+.tabBar a.current{
+	border-bottom: #009ada 2px solid;
+	color: #009ada;
+}
+
+/* 弹出框 */
+.popupBox{	
+	background: #52b7fd;
+	border: 1px solid #0b88bc;	
+}
+.popupBox .popupHead{	
+	color: #005aab;	
+	background: url(../images/bg-pupuphead.png) repeat-x;
+}
+.popupBox .popupHead .closePopup{
+	background-position: -120px -140px;
+}
+.popupContainer{
+	border: 1px solid #0b88bc;	
+}
+.btnMenubox{
+	border: 1px dotted #00b7ee;
+	background-color: #e4f6fe;
+}
+.modelHead{
+	color: #005aab;
+	border-bottom: 1px solid #009ada;
+}
+.modelHead:before{
+	background: #009ada;
+}
+
+/* 弹出框中的选项卡 */
+.tabBarP{
+	border-bottom: 1px solid #009ada;
+}
+.tabBarP .current{
+	background-color: #0e8ee7;
+}
+
+.homepage .boxHeader,
+.homepage .boxHeader2{
+	background: -webkit-linear-gradient(left, #239ae9,#3eaef9);
+	background: -moz-linear-gradient(left, #239ae9,#3eaef9);
+	background: -ms-linear-gradient(left, #239ae9,#3eaef9);
+	background: linear-gradient(left, #239ae9,#3eaef9);
+	filter: progid:DXImageTransform.Microsoft.gradient(startcolorstr=#239ae9,endcolorstr=#3eaef9,gradientType=1);
+}
+.tabBarP2 .tabswitch{ background: #1f87cd;}
+.tabBarP2 .tabswitch.current{
+	color: #249bea;
+}
+
+/* 冒泡提示 */
+.tooltipLink{
+	border: 1px solid #52b7fd;
+	background: #def0fd;
+}
+
+/* 新增角色 */
+.roleWrap .btn-addRole{
+	border: 1px dashed #0e8ee7;
+	background: #d2edff;
+	color: #005aab;
+}
+.roleWrap .roleList_edit .current{
+	background: #0e8ee7;
+	border-color: #0e8ee7;
+}
+
+.sysSetBox .sysLink:hover{ color: #0e8ee7;}
+
+.nav-logo{
+	background-color: #0e8ee7;
+}
+.nav-logo2{
+	background-color: #0e8ee7;
+}
+.navbar .logo {
+	background-color: #0e8ee7;
+}
+.logo{
+	background-color: #0e8ee7;
+}
+.logo:last-of-type{
+	background-color: #0e8ee7;
+}

@@ -1,0 +1,27 @@
+package com.jojowonet.modules.goods.service;
+
+import java.math.BigDecimal;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+
+import ivan.common.utils.UserUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fmss.utils.CrmUtils;
+import com.jojowonet.modules.goods.dao.GoodsPlatformOrderNandaoDao;
+
+@Component
+@Transactional(readOnly = true)
+public class GoodsPlatformOrderNandaoService extends BaseService {
+        @Autowired
+        private GoodsPlatformOrderNandaoDao goodsPlatformOrderNandaoDao;
+        @Autowired
+		private SitePlatformGoodsService sitePlatformGoodsService;
+	
+
+}

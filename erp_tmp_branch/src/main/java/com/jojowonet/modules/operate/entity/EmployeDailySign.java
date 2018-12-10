@@ -1,0 +1,174 @@
+package com.jojowonet.modules.operate.entity;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Date;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.GenericGenerator;
+
+/**
+ * 员工每日签到记录表Entity
+ * 
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Entity
+@Table(name = "crm_employe_daily_sign")
+// @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class EmployeDailySign implements Serializable {
+
+	private static final long serialVersionUID = 1L;
+	private String id;
+	private Date date;
+	private String signAddress;
+	private BigDecimal signLongitude;
+	private BigDecimal signLatitude;
+	private String signType;
+	private Date signTime;
+	private Integer signSerial;
+	private Integer outTime;
+	private String signResult;
+	private String employeId;
+	private String employeName;
+	private Date createTime;
+	private String siteId;
+	private String status;
+	private String ruleType;
+
+	@Id
+	@GeneratedValue(generator = "idGenerator")
+	@GenericGenerator(name = "idGenerator", strategy = "uuid")
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public Date getDate() {
+		return date;
+	}
+
+	public void setDate(Date date) {
+		this.date = date;
+	}
+
+	public String getSignAddress() {
+		return signAddress;
+	}
+
+	public void setSignAddress(String signAddress) {
+		this.signAddress = signAddress;
+	}
+
+	public BigDecimal getSignLongitude() {
+		return signLongitude;
+	}
+
+	public void setSignLongitude(BigDecimal signLongitude) {
+		this.signLongitude = signLongitude;
+	}
+
+	public BigDecimal getSignLatitude() {
+		return signLatitude;
+	}
+
+	public void setSignLatitude(BigDecimal signLatitude) {
+		this.signLatitude = signLatitude;
+	}
+
+	public String getSignType() {
+		return signType;
+	}
+
+	public void setSignType(String signType) {
+		this.signType = signType;
+	}
+
+	public Date getSignTime() {
+		return signTime;
+	}
+
+	public void setSignTime(Date signTime) {
+		this.signTime = signTime;
+	}
+
+	public Integer getOutTime() {
+		return outTime;
+	}
+
+	public void setOutTime(Integer outTime) {
+		this.outTime = outTime;
+	}
+
+	public String getSignResult() {
+		return signResult;
+	}
+
+	public void setSignResult(String signResult) {
+		this.signResult = signResult;
+	}
+
+	public String getEmployeId() {
+		return employeId;
+	}
+
+	public void setEmployeId(String employeId) {
+		this.employeId = employeId;
+	}
+
+	public String getEmployeName() {
+		return employeName;
+	}
+
+	public void setEmployeName(String employeName) {
+		this.employeName = employeName;
+	}
+
+	public Date getCreateTime() {
+		return createTime;
+	}
+
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+
+	public String getSiteId() {
+		return siteId;
+	}
+
+	public void setSiteId(String siteId) {
+		this.siteId = siteId;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public Integer getSignSerial() {
+		return signSerial;
+	}
+
+	public void setSignSerial(Integer signSerial) {
+		this.signSerial = signSerial;
+	}
+
+	public String getRuleType() {
+		return ruleType;
+	}
+
+	public void setRuleType(String ruleType) {
+		this.ruleType = ruleType;
+	}
+
+}

@@ -1,0 +1,502 @@
+package com.jojowonet.modules.order.utils.excelExt;
+
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.hssf.usermodel.HSSFCell;
+import org.apache.poi.hssf.usermodel.HSSFDateUtil;
+import org.apache.poi.hssf.usermodel.HSSFFormulaEvaluator;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellValue;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.Test;
+
+import com.jojowonet.modules.order.utils.excelExt.handler.ExcelItemDefaultHandler;
+import com.jojowonet.modules.order.utils.excelExt.handler.ExcelItemHandler;
+import com.jojowonet.modules.order.utils.excelExt.pojo.ExcelResult;
+
+public class ExcelReader {
+
+	protected static final String dateTimeFmtPattern = "yyyy-MM-dd HH:mm:ss";
+	protected static final String dateFmtPattern = "yyyy-MM-dd";
+	protected static final DataFormatter formatter = new DataFormatter();
+	
+	/*工作簿格式*/
+	private FormulaEvaluator formulaEvaluator;
+	
+	public static void main(String[] args) {
+//		JFinalHelper.initJfinal();
+		ExcelReader er = new ExcelReader();
+		try {
+			er.testReader();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	@Test
+	public void testReader() throws Exception {
+		long st = System.currentTimeMillis();
+		ExcelItemDefaultHandler handler = new ExcelItemDefaultHandler();
+		handler.setExcelTemplate("1");
+		//ExcelResult er = readExcel("/home/ivan/Desktop/test/tt.xls", handler);
+		ExcelResult er = readExcel("/home/ivan/Desktop/test/tt.xlsx", handler);
+		System.out.println(" cost:" + (System.currentTimeMillis() - st) + "," + er.getDataList().size());
+		System.out.println(" ------ end ------ ");
+	}
+
+	/**
+	 * 读取excel文件（同时支持2003和2007格式）
+	 *
+	 * @param fileName
+	 *            文件名，绝对路径
+	 * @return list中的map的key是列的序号
+	 * @throws Exception
+	 *             io异常等
+	 */
+	public ExcelResult readExcel(String fileName, ExcelItemHandler handler) throws Exception {
+		FileInputStream fis = null;
+		Workbook wb = null;
+		ExcelResult obj = null;
+		try {
+			String extension = fileName.substring(fileName.indexOf(".")+1, fileName.length());
+			fis = new FileInputStream(fileName);
+			obj = read(fis, extension, handler);
+			return obj;
+		} finally {
+			if (null != wb) {
+				wb = null;
+			}
+			if (null != fis) {
+				fis.close();
+			}
+		}
+	}
+	
+	public void readExcel(InputStream in, String fileName, ExcelItemHandler handler) throws Exception {
+		Workbook wb = null;
+		try {
+			String extension = fileName.substring(fileName.lastIndexOf(".")+1, fileName.length());
+			read(in, extension, handler); 
+		} finally {
+			if (null != wb) {
+				wb = null;
+			}
+			if (null != in) {
+				in.close();
+			}
+		}
+	}
+	
+	public void checkExcel(InputStream in, String fileName, ExcelItemHandler handler) throws Exception {
+		Workbook wb = null;
+		try {
+			String extension = fileName.substring(fileName.indexOf(".")+1, fileName.length());
+			check(in, extension, handler);
+		} finally {
+			if (null != wb) {
+				wb = null;
+			}
+			if (null != in) {
+				in.close();
+			}
+		}
+	}
+	
+	/**** 验证excel模板 ****/
+	public ExcelResult checkExcelTemplate(InputStream in, String excelFileName, ExcelItemHandler handler) throws Exception{
+		ExcelResult obj = null;
+		Workbook wb = null;
+		try {
+			String extension = excelFileName.substring(excelFileName.indexOf(".")+1, excelFileName.length());
+			wb = getExcelWorkbook(in, extension);
+			obj = doCheckExcelTemplate(wb, handler);
+		}catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (null != wb) {
+				wb = null;
+			}
+			if (null != in) {
+				in.close();
+			}
+		}
+		return obj;
+	}
+	
+	/**** 验证excel模板 ****/
+	public ExcelResult checkExcelTemplate(String excelFileName, ExcelItemHandler handler) throws Exception{
+		FileInputStream fis = null;
+		ExcelResult obj = null;
+		Workbook wb = null;
+		try {
+			String extension = excelFileName.substring(excelFileName.indexOf(".")+1, excelFileName.length());
+			fis = new FileInputStream(excelFileName);
+			wb = getExcelWorkbook(fis, extension);
+			obj = doCheckExcelTemplate(wb, handler);
+		}catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (null != wb) {
+				wb = null;
+			}
+			if (null != fis) {
+				fis.close();
+			}
+		}
+		return obj;
+	}
+
+	public ExcelResult doCheckExcelTemplate(Workbook wb, ExcelItemHandler handler) throws Exception {
+		ExcelResult er = new ExcelResult();
+
+		Map<String, Object> excelTemplate = handler.getExcelTemplate();
+		
+		Sheet sheet = wb.getSheetAt(handler.getStartSheet()-1);
+		int rows = sheet.getPhysicalNumberOfRows();
+
+		int startline = handler.getStartRow();
+		
+		StringBuilder sb = new StringBuilder("");
+		try{
+			for (int r = 0; r < rows; r++) {
+				if(r + 1 <= startline){
+					if((r + 1) == (startline -1)){
+						//判断title是否和数据库的一致
+						Row row = sheet.getRow(r);
+						if(row != null){
+							int cells = row.getPhysicalNumberOfCells();
+							for (int c = 0; c < cells; c++) {
+								Cell cell = row.getCell(c);
+								if (cell == null) {
+									continue;
+								}
+								Object value = getCellValue(cell);
+								sb.append(",").append(String.valueOf(value));
+							}
+							break;
+						}
+					}else{
+						continue;
+					}
+				}
+			}
+			if(StringUtils.isNotBlank(sb.toString())){
+				er.setResult(String.valueOf(excelTemplate.get("title_name")).equals(sb.toString().substring(1)));
+			}else{
+				er.setResult(false);
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+			er.setResult(false);
+		}
+		return er;
+	}
+	
+	/**
+	 * 读取excel文件（同时支持2003和2007格式）
+	 *
+	 * @param fis
+	 *            文件输入流
+	 * @param extension
+	 *            文件名扩展名: xls 或 xlsx 不区分大小写
+	 * @param handler 
+	 * @return list中的map的key是列的序号
+	 * @throws Exception
+	 *             io异常等
+	 */
+	public ExcelResult read(InputStream fis, String extension, ExcelItemHandler handler) throws Exception {
+		Workbook wb = getExcelWorkbook(fis, extension);
+		ExcelResult obj = null;
+		Method method = getHandlerMethod(handler.getClass());
+		obj = readWorkbook(wb, handler, method);
+		return obj;
+	}
+	
+	public ExcelResult check(InputStream fis, String extension, ExcelItemHandler handler) throws Exception {
+		Workbook wb = getExcelWorkbook(fis, extension);
+		ExcelResult obj = null;
+		Method method = getCheckHandlerMethod(handler.getClass());
+		obj = readWorkbook(wb, handler, method);
+		return obj;
+	}
+	
+	public Workbook getExcelWorkbook(InputStream fis, String extension){
+		Workbook wb = null;
+		try{
+			if ("xls".equalsIgnoreCase(extension)) {
+				wb = new HSSFWorkbook(fis);
+				this.formulaEvaluator = new HSSFFormulaEvaluator((HSSFWorkbook) wb);
+			} else if ("xlsx".equalsIgnoreCase(extension)) {
+				wb = new XSSFWorkbook(fis);
+				XSSFWorkbook xssfWb = (XSSFWorkbook) wb;
+				/*工作簿格式*/
+				this.formulaEvaluator =new XSSFFormulaEvaluator(xssfWb);
+			} else {
+				throw new Exception("file is not office excel");
+			}
+		}catch (Exception e) {
+			e.getSuppressed();
+		}
+		return wb;
+	}
+
+	protected Method getHandlerMethod(Class<?> clazz){
+		Method[] methods = clazz.getDeclaredMethods();
+		Method method = null;
+		for(Method m : methods){
+			if("handler".equalsIgnoreCase(m.getName())){
+				method = m;
+				break;
+			}
+		}
+		return method;
+	}
+	
+	protected Method getCheckHandlerMethod(Class<?> clazz){
+		Method[] methods = clazz.getDeclaredMethods();
+		Method method = null;
+		for(Method m : methods){
+			if("checkExcel".equalsIgnoreCase(m.getName())){
+				method = m;
+				break;
+			}
+		}
+		return method;
+	}
+	
+	protected ExcelResult readWorkbook(Workbook wb, ExcelItemHandler handler, Method method) throws Exception {
+		ExcelResult er = new ExcelResult();
+
+		//for (int k = 0; k < wb.getNumberOfSheets(); k++) {
+		Sheet sheet = wb.getSheetAt(handler.getStartSheet() - 1);
+		int rows = sheet.getPhysicalNumberOfRows();
+
+		int startline = handler.getStartRow();
+		try{
+			int cellNum = sheet.getRow(startline-1).getLastCellNum();//.getPhysicalNumberOfCells();
+			String methodName = method.getName();
+			for (int r = 0; r < rows; r++) {
+				if(methodName.indexOf("check") != -1){//检查excel的时候需要从startline-1开始
+					if(r + 1 < (startline-1)){
+						continue;
+					}
+				}else{
+					if(r + 1 < startline){//如果正常解析每一行数据的话需要判断从startline开始的
+						continue;
+					}
+				}
+				Row row = sheet.getRow(r);
+				if (row == null || (row.getPhysicalNumberOfCells() == 1 
+						&& (StringUtils.isBlank(String.valueOf((getCellValue(row.getCell(0)))))
+						|| "null".equalsIgnoreCase(String.valueOf((getCellValue(row.getCell(0)))))))) {
+					continue;
+				}
+				TreeMap<String, Object> map = new TreeMap<String, Object>();
+				//int cells = row.getPhysicalNumberOfCells();
+				for (int c = 0; c < cellNum; c++) {
+					Cell cell = row.getCell(c);
+					if (cell == null) {
+	//					continue;
+						map.put(String.valueOf(c+1), null);
+					}else{
+						Object value = getCellValue(cell);
+						map.put(String.valueOf(cell.getColumnIndex()+1), value);
+					}
+				}
+				
+				Boolean ret = (Boolean) method.invoke(handler, map, r);
+				if(!ret){
+					break;
+				}
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("TEMPLATEERROR");
+		}
+		return er;
+	}
+
+	public Object getCellValue(Cell cell){
+		Object val = "";
+		try{
+			if (cell != null){
+				if (cell.getCellType() == Cell.CELL_TYPE_NUMERIC){
+				    //val = new DecimalFormat("0.00").format(cell.getNumericCellValue());
+					if (HSSFDateUtil.isCellDateFormatted(cell)) {
+						SimpleDateFormat sdf = new SimpleDateFormat(dateTimeFmtPattern);
+						val=sdf.format(cell.getDateCellValue());
+					}else{
+						val = cell.getNumericCellValue();
+					}
+				}else if (cell.getCellType() == Cell.CELL_TYPE_STRING){
+					val = cell.getStringCellValue();
+				}else if (cell.getCellType() == Cell.CELL_TYPE_FORMULA){
+					try{
+						if(cell.getClass().isAssignableFrom(XSSFCell.class)){
+							XSSFCell xssfCell = (XSSFCell) cell;
+							val = getFormulaValue(xssfCell, formulaEvaluator);
+						}else if (cell.getCellType() == Cell.CELL_TYPE_FORMULA) {
+							val= String.valueOf(formulaEvaluator.evaluate(cell).getNumberValue());
+				        }else{
+							val = cell.getRichStringCellValue();
+						}
+					}catch (Exception e) {
+						val = cell.getCellFormula();
+					}
+				}else if (cell.getCellType() == Cell.CELL_TYPE_BOOLEAN){
+					val = cell.getBooleanCellValue();
+				}else if (cell.getCellType() == Cell.CELL_TYPE_ERROR){
+					val = cell.getErrorCellValue();
+				}
+			}
+		}catch (Exception e) {
+			return val;
+		}
+		return val;
+	}
+	
+	public String getFormulaValue(XSSFCell cell,FormulaEvaluator evaluator) {   
+        
+        String value = "";  
+        switch (cell.getCellType()) {  
+            case HSSFCell.CELL_TYPE_NUMERIC:                        //数值型  
+                if (HSSFDateUtil.isCellDateFormatted(cell)) {       //如果是时间类型  
+                    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");  
+                    value = format.format(cell.getDateCellValue());  
+                } else {                                            //纯数字  
+                    value = String.valueOf(cell.getNumericCellValue());  
+                }  
+                break;  
+            case HSSFCell.CELL_TYPE_STRING:                         //字符串型  
+                value = cell.getStringCellValue();  
+                break;  
+            case HSSFCell.CELL_TYPE_BOOLEAN:                        //布尔  
+                value = " " + cell.getBooleanCellValue();  
+                break;  
+            case HSSFCell.CELL_TYPE_BLANK:                          //空值  
+                value = "";  
+                break;  
+            case HSSFCell.CELL_TYPE_ERROR:                          //故障  
+                value = "";  
+                break;  
+            case HSSFCell.CELL_TYPE_FORMULA:                        //公式型  
+                try {  
+                    CellValue cellValue;  
+                    cellValue = evaluator.evaluate(cell);  
+                    switch (cellValue.getCellType()) {              //判断公式类型  
+                        case Cell.CELL_TYPE_BOOLEAN:  
+                            value  = String.valueOf(cellValue.getBooleanValue());  
+                            break;  
+                        case Cell.CELL_TYPE_NUMERIC:  
+                            // 处理日期    
+                            if (DateUtil.isCellDateFormatted(cell)) {    
+                               SimpleDateFormat format = new SimpleDateFormat("yyyy/MM/dd");    
+                               Date date = cell.getDateCellValue();    
+                               value = format.format(date);  
+                            } else {    
+                               value  = String.valueOf(cellValue.getNumberValue());  
+                            }  
+                            break;  
+                        case Cell.CELL_TYPE_STRING:  
+                            value  = cellValue.getStringValue();  
+                            break;  
+                        case Cell.CELL_TYPE_BLANK:  
+                            value = "";  
+                            break;  
+                        case Cell.CELL_TYPE_ERROR:  
+                            value = "";  
+                            break;  
+                        case Cell.CELL_TYPE_FORMULA:  
+                            value = "";  
+                            break;  
+                    }  
+                } catch (Exception e) {  
+                    value = cell.getStringCellValue().toString();  
+                    cell.getCellFormula();  
+                }  
+                break;  
+            default:  
+                value = cell.getStringCellValue().toString();  
+                break;  
+        }  
+        return value;  
+    }  
+	
+	protected String getCellValue2(Cell cell) {
+		String value = null;
+
+		switch (cell.getCellType()) {
+		case Cell.CELL_TYPE_FORMULA: // 公式
+		case Cell.CELL_TYPE_NUMERIC: // 数字
+
+			double doubleVal = cell.getNumericCellValue();
+			short format = cell.getCellStyle().getDataFormat();
+			String formatString = cell.getCellStyle().getDataFormatString();
+
+			if (format == 14 || format == 31 || format == 57 || format == 58 || (format >= 176 && format <= 183)) {
+				// 日期
+				Date date = DateUtil.getJavaDate(doubleVal);
+				value = formatDate(date, dateFmtPattern);
+			} else if (format == 20 || format == 32 || (format >= 184 && format <= 187)) {
+				// 时间
+				Date date = DateUtil.getJavaDate(doubleVal);
+				value = formatDate(date, "HH:mm");
+			} else {
+				value = String.valueOf(doubleVal);
+			}
+
+			break;
+		case Cell.CELL_TYPE_STRING: // 字符串
+			value = cell.getStringCellValue();
+
+			break;
+		case Cell.CELL_TYPE_BLANK: // 空白
+			value = "";
+			break;
+		case Cell.CELL_TYPE_BOOLEAN: // Boolean
+			value = String.valueOf(cell.getBooleanCellValue());
+			break;
+		case Cell.CELL_TYPE_ERROR: // Error，返回错误码
+			value = String.valueOf(cell.getErrorCellValue());
+			break;
+		default:
+			value = "";
+			break;
+		}
+		return value;
+	}
+
+	@SuppressWarnings("deprecation")
+	private String formatDate(Date d, String sdf) {
+		String value = null;
+
+		if (d.getSeconds() == 0 && d.getMinutes() == 0 && d.getHours() == 0) {
+			// value = DateTimeUtil.getFormatedDate(d, dateFmtPattern);
+		} else {
+			// value = DateTimeUtil.getFormatedDate(d, sdf);
+
+		}
+
+		return value;
+	}
+
+}

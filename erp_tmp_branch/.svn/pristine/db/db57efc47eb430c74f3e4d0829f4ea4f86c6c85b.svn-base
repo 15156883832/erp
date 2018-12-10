@@ -1,0 +1,211 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+    <title>请求统计</title>
+    <meta name="decorator" content="base"/>
+    <meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+    <style>
+        .hour {
+            width: 200px;
+        }
+        .avg-time {
+            border-bottom: 1px solid #ccc;
+            text-align: left;
+        }
+        .row-active {
+            background-color: #df8505;
+        }
+        .td-active {
+            background-color: #5db8ec;
+        }
+    </style>
+</head>
+<body>
+<div class="sfpagebg bk-gray">
+    <div class="sfpage">
+        <div class="page-orderWait">
+            <div class="tabBar cl mb-10">
+                <a class="btn-tabBar current" href="#">分时统计</a>
+                <a class="btn-tabBar" href="${ctx}/sys/actionStats/statlist">次数统计</a>
+                <a class="btn-tabBar" href="${ctx}/sys/actionStats/statlist?s=a">平均时长统计</a>
+                <a class="btn-tabBar" href="${ctx}/sys/actionStats/statlist?slow">慢请求统计</a>
+                <a class="btn-tabBar" href="${ctx}/sys/actionStats/countmap">请求分布图</a>
+                <p class="f-r btnWrap">
+                    登录网点数：${sites}
+                </p>
+            </div>
+
+            <div class="mt-10 text-c tableWrap1 pr-5" style="overflow-x: scroll;">
+                <div class="tableLabel"  id="boxWrapHead" style="max-height: 700px;">
+                    <table class="table table-bg table-bordered table-sdrk" style="border-bottom: 0;">
+                        <thead>
+                        <tr>
+                            <th style="width: 300px;text-align: center;" rowspan="2">链接名</th>
+
+                            <th class="hour" colspan="2">0</th>
+                            <th class="hour" colspan="2">1</th>
+                            <th class="hour" colspan="2">2</th>
+                            <th class="hour" colspan="2">3</th>
+                            <th class="hour" colspan="2">4</th>
+                            <th class="hour" colspan="2">5</th>
+                            <th class="hour" colspan="2">6</th>
+                            <th class="hour" colspan="2">7</th>
+                            <th class="hour" colspan="2">8</th>
+                            <th class="hour" colspan="2">9</th>
+                            <th class="hour" colspan="2">10</th>
+                            <th class="hour" colspan="2">11</th>
+                            <th class="hour" colspan="2">12</th>
+                            <th class="hour" colspan="2">13</th>
+                            <th class="hour" colspan="2">14</th>
+                            <th class="hour" colspan="2">15</th>
+                            <th class="hour" colspan="2">16</th>
+                            <th class="hour" colspan="2">17</th>
+                            <th class="hour" colspan="2">18</th>
+                            <th class="hour" colspan="2">19</th>
+                            <th class="hour" colspan="2">20</th>
+                            <th class="hour" colspan="2">21</th>
+                            <th class="hour" colspan="2">22</th>
+                            <th class="hour" colspan="2">23</th>
+                        </tr>
+                        <tr>
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+                        </tr>
+
+
+                        </thead>
+                        <tbody class="">
+                        <c:forEach var="map" items="${actionmap}">
+                            <tr class="action-stat-row">
+                                <td style="border-bottom: 1px solid #ccc; text-align: left">${map.key}</td>
+                                <c:forEach items="${map.value.invokeTimes}" var="it" varStatus="status">
+                                    <td style="border-bottom: 1px solid #ccc" class="hour-${status.index} stat-cell">${it}</td>
+                                    <c:choose>
+                                        <c:when test="${empty map.value.performConsumed[status.index]||map.value.performConsumed[status.index]==0}">
+                                            <td class="hour-${status.index} avg-time stat-cell">0</td>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <td class="hour-${status.index} avg-time stat-cell">
+                                                <fmt:formatNumber type="number" value="${map.value.performConsumed[status.index]/it}" pattern="0.00" maxFractionDigits="2"/>
+                                            </td>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </c:forEach>
+                            </tr>
+                        </c:forEach>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(function () {
+        var rows = $(".action-stat-row");
+        rows.on('click', function () {
+            rows.removeClass('row-active');
+            $(this).addClass("row-active");
+        });
+
+        $(document).keyup(function (e) {
+            var lastActive = $(".row-active");
+            var nextRow;
+            switch (e.keyCode) {
+                case 13: // Enter
+                    break;
+                case 38: // up
+                    nextRow = lastActive.prev();
+                    break;
+                case 40: // down
+                    nextRow = lastActive.next();
+                    break;
+            }
+            if (nextRow && nextRow.size() > 0) {
+                rows.removeClass('row-active');
+                nextRow.addClass('row-active');
+            }
+        });
+
+        var cells = $(".stat-cell");
+        cells.dblclick(function() {
+            var classNames = $(this).attr('class');
+            var sameHourTds = classNames.split(" ")[0];
+            $(".td-active").removeClass('td-active');
+            $('.' + sameHourTds).addClass('td-active');
+        });
+    });
+</script>
+</body>
+</html>

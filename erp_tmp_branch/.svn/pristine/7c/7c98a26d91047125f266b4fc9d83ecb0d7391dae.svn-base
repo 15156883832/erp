@@ -1,0 +1,87 @@
+.data-con{ 
+	position: relative; 
+	margin: 0 auto; 
+	width: 300px;
+}
+.data-header{ line-height: 30px;}
+.data-con .prev-mon,
+.data-con .next-mon{ 
+	width: 20px; 
+	height: 30px;
+	position: relative;
+	cursor: pointer;
+}
+.data-con .prev-mon:before,
+.data-con .next-mon:before{
+	content: '';
+	position: absolute;	
+	top: 50%;
+	margin-top: -7px;
+	width: 0;
+	height: 0;
+	border-width: 7px;
+}
+.data-con .prev-mon:before{
+	left: 0;
+	border-style: dashed solid dashed dashed;
+	border-color: transparent #0e8ee7 transparent transparent;
+}
+.data-con .next-mon:before{
+	right: 0;
+	border-style: dashed dashed dashed solid;
+	border-color: transparent transparent transparent #0e8ee7;
+}
+
+.data-con .current-mon{ 
+	font-size: 14px;
+	text-align: center;
+}
+.data-con .current-mon span{ font-size: 14px; }
+
+.data-con table{ 
+	width: 100%;
+	border-spacing: 12px 0px;
+    border-collapse: separate;
+}
+.data-con th{  
+	line-height: 30px; 
+	text-align: center;
+}
+.data-con td{
+	/*height: 35px;*/
+	text-align: center;
+	color: #2a2a2a;
+	cursor: pointer;
+}
+.data-con td p.text{
+	height: 20px;
+	line-height: 18px;
+	border: 1px solid #fff;
+}
+.data-con p.note{ 
+	height: 15px;
+	line-height: 15px;
+	color: #fff;
+}
+.data-con .noteBg{background: #0E8EE7;}
+.data-con .current .text{
+	border: 1px solid #ef6d6d;
+}
+.data-con .current .noteBg{
+	background: #ef6d6d;
+}
+.data-con td:hover{ 
+	/*background-color:#4e84ff; 
+	color: #fff; */
+	cursor: pointer;
+}
+.data-con td.disable{ 
+	color: #cccccc; 
+	background-color: #fff;
+}
+.data-con td.disable:hover{ 
+	background-color:#fff; 
+	color: #999; 
+	cursor:default;
+}
+.data-con .added-event{ display: none;}

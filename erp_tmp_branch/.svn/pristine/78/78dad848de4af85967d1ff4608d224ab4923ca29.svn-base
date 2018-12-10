@@ -1,0 +1,147 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="decorator" content="base"/>
+<title>服务工程师库存</title>
+</head>
+<body>
+<div class="sfpagebg bk-gray"><div class="sfpage">
+		<div class="page-orderWait">
+			<div id="tab-system" class="HuiTab">
+				<div class="tabBar cl mb-10">
+				<sfTags:pagePermission authFlag="FITTINGMGM_FITSTOCK_COMPANYSTOCK_TAB" html='<a class="btn-tabBar "  href="${ctx }/fitting/stock/index">公司库存</a>'></sfTags:pagePermission>
+				<sfTags:pagePermission authFlag="FITTINGMGM_FITSTOCK_ENIGNEERSTOCK_TAB" html='<a class="btn-tabBar current"  href="${ctx }/fitting/stock/empFitting">工程师库存</a>'></sfTags:pagePermission>
+				<sfTags:pagePermission authFlag="FITTINGMGM_FITSTOCK_WAITERETURN_TAB" html='<a class="btn-tabBar"  href="${ctx }/fitting/stock/waitReturn">工程师返还<sup  id="tab_c1">0</sup></a>'></sfTags:pagePermission>
+				</div>
+				<div class="mt-10">
+					<a href="javascript:showEmployeAllFitting();" class="sfbtn sfbtn-opt">工程师库存明细</a>
+					
+				</div>
+				<div class="mt-10">
+					<div class="text-c">
+						<div class="" id="dthead">
+							<table class="table table-bg  table-bordered table-sdrk">
+								<thead>	<tr>
+									<th style="width: 33%;">工程师</th>
+									<th style="width: 33%;">备件种类</th>
+									<th style="width: 33%;">备件库存量</th>
+									<th style="width: 33%;">待核销数</th>
+								</tr></thead>
+							</table>
+						</div>
+						<div class="tablebox" id="dtbody">
+							<table class="table table-border table-bordered table-sdrk" style="border-top: 0 ;">
+								<c:forEach var="empItem" items="${empFittings}">
+									<tr>
+										<td style="width: 33%;"><a href="javascript:showEmpItem('${empItem.columns.employe_id}');" class="c-0e8ee7">${empItem.columns.name}</a></td>
+										<td style="width: 33%;" class="autoCt">${empItem.columns.ct}</td>
+										<td style="width: 33%;" class="autoSum">${empItem.columns.su}</td>
+										<td style="width: 33%;" class="autoNumber">${empItem.columns.employe_number}</td>
+									</tr>
+								</c:forEach>
+							</table>
+						</div>
+						<div id="dtfood">
+							<table class="table table-border table-bordered " style="border-top: 0 ;">
+								<tfoot>
+									<tr>
+									<input type="hidden" name="code" value="s"/>
+									<input type="hidden" name="name" value="s"/>
+									<input type="hidden" name="category" value="s"/>
+										<td style="width: 33%;">合计</td>
+										<td style="width: 33%;"><a href="javascript:showEmployeAllFitting();" class="c-0e8ee7 totalCt">0</a></td>
+										<td style="width: 33%;"><a href="javascript:showEmployeAllFitting();" class="c-0e8ee7 totalSum">0</a></td>
+										<td style="width: 33%;"><a href="javascript:showEmployeAllFitting();" class="c-0e8ee7 totalempnum">0</a></td>
+									</tr>
+								</tfoot>
+							</table>
+						</div>
+					</div>
+				</div>
+				
+			</div>
+		</div>
+	</div>
+</div>
+	
+<script type="text/javascript">
+$(function(){
+	$.post("${ctx}/fitting/stock/getWaitReturnCount1",function(result){
+		$("#tab_c1").text(result[0].count);
+	});
+	initTabelH();
+	calcCt();
+	calcSum();
+    calcempnum();
+});
+
+function calcCt(){
+	var total = 0;
+	$(".autoCt").each(function (){
+		total += $(this).text()*1;
+	});
+	$(".totalCt").text(total);
+}
+function calcSum(){
+	var total = 0;
+	$(".autoSum").each(function (){
+		total += $(this).text()*1;
+	});
+	$(".totalSum").text(total);
+}
+function calcempnum(){
+    var total = 0;
+    $(".autoNumber").each(function (){
+        total += $(this).text()*1;
+    });
+    $(".totalempnum").text(total);
+}
+
+function showEmpItem(id){
+	layer.open({
+		type : 2,
+		content:'${ctx}/fitting/stock/empFittingItem?id='+id,
+		title:false,
+		area: ['100%','100%'],
+		closeBtn:0,
+		shade:0,
+		anim:-1 
+	});
+}
+
+function showEmployeAllFitting(){
+	layer.open({
+		type : 2,
+		content:'${ctx}/fitting/stock/empFittingItem?id=all',
+		title:false,
+		area: ['100%','100%'],
+		closeBtn:0,
+		shade:0,
+		anim:-1 
+	});
+}
+function fmtFitType(rowDate){
+	if(rowDate.type==1){
+		return '配件';
+	}else if(rowDate.type==2){
+		return "耗材";
+	}else{
+		return "--";
+	}
+}
+
+function initTabelH(){
+	var thead = $('#dthead');
+	var tbody = $('#dtbody');
+	var tfood = $('#dtfood');
+	var tableH = parseInt(tbody.find('table').height());
+	if(tableH >600){
+		thead.css({'padding-right':'17px'});
+		tfood.css({'padding-right':'17px'});
+	}
+}
+</script>
+</body>
+</html>

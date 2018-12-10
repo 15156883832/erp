@@ -1,0 +1,338 @@
+/**
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ */
+package com.jojowonet.modules.sys.web;
+
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.jojowonet.modules.sys.util.care.site.SiteDailyRecorder;
+import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.authz.annotation.RequiresUser;
+import org.apache.shiro.session.Session;
+import org.apache.shiro.session.mgt.eis.SessionDAO;
+import org.apache.shiro.web.filter.authc.FormAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.UserCustomDao;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.service.GiftPackService;
+import com.jojowonet.modules.sys.service.SystemService;
+import com.jojowonet.modules.sys.util.AuthUtils;
+import com.jojowonet.modules.sys.util.FreeOrVipUtils;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.utils.CacheUtils;
+import ivan.common.utils.CookieUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+/**
+ * 登录Controller
+ * @version 2013-5-31
+ */
+@Controller
+public class LoginController extends BaseController{
+
+	@Autowired
+	SiteService siteService;
+	
+	@Autowired
+	private SessionDAO sessionDAO;
+	@Autowired
+	private SystemService systemService;
+
+	@Autowired
+	private NonServicemanService nonServicemanService;
+	@Autowired
+	UserCustomDao userCustomDao;
+	@Autowired
+	GiftPackService giftPackService;
+	@Autowired
+	SiteDailyRecorder siteDailyRecorder;
+	/**
+	 * 管理登录
+	 */
+	@RequestMapping(value = "${adminPath}/login", method = RequestMethod.GET)
+	public String login(HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		// 如果已经登录，则跳转到管理首页
+		if(user.getId() != null){
+			return "redirect:"+Global.getAdminPath();
+		}
+		return "modules/base/login";
+	}
+
+	/**
+	 * 登录失败，真正登录的POST请求由Filter完成
+	 */
+	@RequestMapping(value = "${adminPath}/login", method = RequestMethod.POST)
+	public String login(@RequestParam(FormAuthenticationFilter.DEFAULT_USERNAME_PARAM) String username,
+			HttpServletRequest request, HttpServletResponse response, Model model,String password) {
+		String origin = request.getParameter("origin");
+		model.addAttribute(FormAuthenticationFilter.DEFAULT_USERNAME_PARAM, username);
+		String errMsg = String.valueOf(request.getAttribute(FormAuthenticationFilter.DEFAULT_ERROR_KEY_ATTRIBUTE_NAME));
+		if(errMsg.indexOf("UnknownAccountException") != -1){
+			model.addAttribute("msg", "notfind");
+			model.addAttribute("username", "");
+			//model.addAttribute("username", username);
+		}else if(errMsg.indexOf("IncorrectCredentialsException") != -1){
+			model.addAttribute("errormessage", "error");
+			model.addAttribute("username", username);
+		}else if(errMsg.indexOf("CaptchaException") != -1){
+			//验证码错误
+		}else if(errMsg.indexOf("NotVertifyException") != -1){
+			//该账号正在审核中， 不允许登陆!
+		}else if(errMsg.indexOf("FailVertifyException") != -1){
+			//该账号审核未通过，不允许登陆!
+		}else if(errMsg.indexOf("FailVertifyException") != -1){
+			//该账号被禁用，不允许登陆!
+		}
+
+		User user = UserUtils.getUser();
+		if (StringUtil.isNotBlank(user.getId())) {
+			return "redirect:" + Global.getAdminPath();
+		}
+
+		if("jdxh".equals(origin)){
+			return "modules/base/partner/login";
+		}
+		return "modules/base/login";
+	}
+
+	/**如果登陆成功那么进入测试文件**/
+	@RequestMapping(value = "${adminPath}")
+	public String index(HttpServletRequest request, HttpServletResponse response, Model model){
+		User user = UserUtils.getUser();
+		if(user.getId() == null){
+			return "redirect" + Global.getAdminPath() + "/login";
+		}
+		
+		systemService.updateLoginTime(user.getId());
+		
+		request.getSession().setAttribute("skin", userCustomDao.getSkin(user));
+		//密码器清零
+		model.addAttribute("dict", FreeOrVipUtils.freeVip());
+		if(User.USER_TYPE_SYS.equals(user.getUserType())){//超级管理员
+			model.addAttribute("siteId", "__");
+			model.addAttribute("userId", user.getId());
+			model.addAttribute("userType", user.getUserType());
+			model.addAttribute("userName", UserUtils.getUser().getLoginName());
+			model.addAttribute("usertype", CrmUtils.getUserType());
+			return "modules/base/suindex";// 正常登陆
+		}else if(User.USER_TYPE_YYS.equals(user.getUserType())){//运营
+			model.addAttribute("siteId", "__");
+			model.addAttribute("userId", user.getId());
+			model.addAttribute("userType", user.getUserType());
+			model.addAttribute("userName", UserUtils.getUser().getLoginName());
+			model.addAttribute("usertype", CrmUtils.getUserType());
+			//model.addAttribute("sysMenus", AuthUtils.getSysMenus(user.getLoginName()));
+			return "modules/base/sys/index";// 正常登陆
+		}else if(User.USER_TYPE_SIT.equals(user.getUserType())){//网点
+			Site site = siteService.getUserSite(user.getId());
+			siteDailyRecorder.recordActiveSite(site);
+			String areaCode = siteService.getAreaCode(user.getId());
+			model.addAttribute("xufeiRemind", siteService.xufeiRemind(site.getId())); // 是否提示指定网点
+			model.addAttribute("xufeiInfo", siteService.getSiteXuFeiInfo(site)); // 获取网点的续费信息
+			model.addAttribute("xufeiRemindDock", siteService.xufeiRemindDock(site.getId())); // 获取网点的续费信息
+			model.addAttribute("giftCount", giftPackService.giftAvailable(site.getId()));
+			model.addAttribute("detailInfoDone", "1".equals(site.getCheckFlag()));
+			model.addAttribute("siteId", site.getId());
+			model.addAttribute("site", site);
+			model.addAttribute("mark", siteService.compareDueTime(site.getId()));
+			model.addAttribute("userType", user.getUserType());
+			model.addAttribute("userId", user.getId());
+			model.addAttribute("userName", site.getName());
+			model.addAttribute("usertype", CrmUtils.getUserType());
+			model.addAttribute("areaCode", areaCode);
+			model.addAttribute("bangshou", siteService.checkSiteBangshou(site.getId()));
+			Map<String, Object> levelMap = siteService.getSiteLevel(site.getId());
+			model.addAttribute("level", levelMap);
+			return "modules/base/index";// 正常登陆
+		}else if(User.USER_TYPE_XXY.equals(user.getUserType())){//网点
+			user.setPermission(StringUtil.mapKey2Str(nonServicemanService.getUserPermissions(user.getId())));
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Site site = siteService.get(siteId);
+			siteDailyRecorder.recordActiveSite(site);
+			model.addAttribute("detailInfoDone", "1".equals(site.getCheckFlag()));
+			model.addAttribute("giftCount", giftPackService.giftAvailable(site.getId()));
+			model.addAttribute("siteId", site.getId());
+			model.addAttribute("site", site);
+			model.addAttribute("mark", siteService.compareDueTime(site.getId()));
+			model.addAttribute("bangshou", siteService.checkSiteBangshou(site.getId()));
+			model.addAttribute("userType", user.getUserType());
+			model.addAttribute("userId", user.getId());
+			model.addAttribute("permissions", user.getPermission());
+			if (StringUtils.isNotBlank(user.getId())) {
+				String sql = "select * from crm_non_serviceman where user_id='" + user.getId() + "' ";
+				Record re = Db.findFirst(sql);
+				if (re != null) {
+					model.addAttribute("userName", re.getStr("name"));//人员姓名
+				}
+			}
+			//model.addAttribute("userName", UserUtils.getUser().getLoginName());
+			
+			model.addAttribute("usertype", CrmUtils.getUserType());
+			return "modules/base/index";// 正常登陆
+		}else if(User.USER_TYPE_ADVISOR.equals(user.getUserType())){
+			model.addAttribute("siteId", "__");
+			model.addAttribute("userId", user.getId());
+			model.addAttribute("userType", user.getUserType());
+			if(StringUtils.isNotBlank(user.getId())){
+				String sql="select * from crm_supplier where user_id='"+user.getId()+"' ";
+				Record re=Db.findFirst(sql);
+				if(re!=null){
+					model.addAttribute("userName",re.getStr("name"));//人员姓名
+				}
+			}
+			//model.addAttribute("userName", UserUtils.getUser().getLoginName());
+			
+			
+			model.addAttribute("usertype", CrmUtils.getUserType());
+			return "modules/base/supplier/index";
+		}else if(User.USER_TYPE_HUI.equals(user.getUserType())){
+			model.addAttribute("siteId", "__");
+			model.addAttribute("userId", user.getId());
+			model.addAttribute("userType", user.getUserType());
+			if(StringUtils.isNotBlank(user.getId())){
+				String sql="select name from crm_area_manager where user_id='"+user.getId()+"' ";
+				String name =Db.queryStr(sql);
+				model.addAttribute("userName",name);//人员姓名
+			}
+			model.addAttribute("usertype", CrmUtils.getUserType());
+			return "modules/base/supplier/index";
+		}
+
+		return "redirect:" + Global.getAdminPath() + "/logout";
+
+	}
+
+	/**如果登陆成功那么进入测试文件**/
+	@RequestMapping(value = "${adminPath}/index")
+	public String crmIndex(HttpServletRequest request, HttpServletResponse response, Model model){
+		User user = UserUtils.getUser();
+		if(user.getId() == null){
+			//return "redirect" + Global.getAdminPath() + "/login";
+		}
+		//密码器清零
+		//isValidateCodeLogin(user.getLoginName(), false, true);
+		return "modules/jojowonet/index";
+	}
+
+	@RequestMapping(value = "${adminPath}/indexFrame")
+	public String indexFrame(){
+		return "";
+	}
+
+
+	@RequiresUser
+	@RequestMapping(value = "${adminPath}/portal")
+	public String portal() {
+		return "modules/portal/portal" + UserUtils.getUser().getUserType();
+	}
+
+	/**
+	 * 获取主题方案
+	 */
+	@RequestMapping(value = "/theme/{theme}")
+	public String getThemeInCookie(@PathVariable String theme, HttpServletRequest request, HttpServletResponse response){
+		if (StringUtils.isNotBlank(theme)){
+			CookieUtils.setCookie(response, "theme", theme);
+		}else{
+			theme = CookieUtils.getCookie(request, "theme");
+		}
+		return "redirect:"+request.getParameter("url");
+	}
+
+	/**
+	 * 是否是验证码登录
+	 * @param useruame 用户名
+	 * @param isFail 计数加1
+	 * @param clean 计数清零
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static boolean isValidateCodeLogin(String useruame, boolean isFail, boolean clean){
+		Map<String, Integer> loginFailMap = (Map<String, Integer>)CacheUtils.get("loginFailMap");
+		if (loginFailMap==null){
+			loginFailMap = Maps.newHashMap();
+			CacheUtils.put("loginFailMap", loginFailMap);
+		}
+		Integer loginFailNum = loginFailMap.get(useruame);
+		if (loginFailNum==null){
+			loginFailNum = 0;
+		}
+		if (isFail){
+			loginFailNum++;
+			loginFailMap.put(useruame, loginFailNum);
+		}
+		if (clean){
+			loginFailMap.remove(useruame);
+		}
+		return loginFailNum >= 3;
+	}
+
+
+	@SuppressWarnings("resource")
+	@RequestMapping("${adminPath}/download")
+	public String download(@RequestParam String filePath,HttpServletResponse response) {
+		File file = new File(filePath);
+		InputStream inputStream;
+		try {
+			inputStream = new FileInputStream(filePath);
+			response.reset();
+			response.setContentType("application/octet-stream;charset=UTF-8");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
+			OutputStream outputStream = new BufferedOutputStream(
+					response.getOutputStream());
+			byte data[] = new byte[1024];
+			while (inputStream.read(data, 0, 1024) >= 0) {
+				outputStream.write(data);
+			}
+			outputStream.flush();
+			outputStream.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	@RequestMapping(value = "${adminPath}/redirect/logout")
+    public String logout() {
+	    /*User user = UserUtils.getUser();
+        if(user != null && StringUtils.isNotBlank(user.getId())){
+            Db.update(" UPDATE crm_onlines SET is_online = '0', logout_time = ? WHERE user_id = ? ", new Date(), user.getId());
+            logger.info(" userId:"+user.getId()+" logout at:"+new Date()+"... ");
+        }*/
+	    Session session = SecurityUtils.getSubject().getSession();
+	    SecurityUtils.getSubject().logout();
+	    sessionDAO.delete(session);
+	    return "redirect:" + Global.getAdminPath() + "/logout";
+    }
+}

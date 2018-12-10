@@ -1,0 +1,4 @@
+## 小厂家同步服务的配置
+# 第一个参数为外网ip,逗号后面的为内网ip(内网可选)
+sync.server.host.default=http://localhost:8061
+sync.server.host.order400=http://localhost:8400

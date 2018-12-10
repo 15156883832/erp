@@ -1,0 +1,55 @@
+package com.jojowonet.modules.order.utils.caches;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.utils.SimpleCache;
+import com.jojowonet.modules.order.utils.StringUtil;
+import org.apache.log4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class CityCache extends SimpleCache<List<Record>> {
+
+    private static final CityCache cityCache = new CityCache();
+
+    private final List<String> provinceNames = new ArrayList<>();
+    private static Logger logger = Logger.getLogger(CityCache.class);
+
+    private CityCache() {
+        List<Record> pros = Db.find("select ProvinceName from s_province");
+        for (Record r : pros) {
+            provinceNames.add(r.getStr("ProvinceName"));
+        }
+    }
+
+    public static CityCache getInstance() {
+        return cityCache;
+    }
+
+    @Override
+    protected List<Record> getCacheableObject(String key) {
+        logger.info("get cities for province: " + key);
+        StringBuilder sf = new StringBuilder();
+        sf.append("SELECT * FROM s_city c ");
+        sf.append(" LEFT JOIN s_province p ON p.ProvinceID=c.ProvinceId ");
+        sf.append(" WHERE p.ProvinceName=? ");
+        return Db.find(sf.toString(), key);
+    }
+
+    @Override
+    public List<Record> get(final String key) {
+        if (StringUtil.isBlank(key)) {
+            return new ArrayList<>();
+        }
+        if (!provinceNames.contains(key)) {
+            logger.info(String.format("attempt to get cities for [%s] declined for province name invalid", key));
+            return new ArrayList<>();
+        }
+        return super.get(key);
+    }
+
+    protected int cacheSize() {
+        return 100;
+    }
+}

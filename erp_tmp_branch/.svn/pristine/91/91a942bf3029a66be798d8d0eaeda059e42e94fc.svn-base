@@ -1,0 +1,172 @@
+package com.jojowonet.modules.order.entity;
+
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import java.io.Serializable;
+
+@Entity
+@Table(name = "crm_order_settlement_detail_2017")
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class CrmOrderSettlementDetail2017 implements Serializable {
+  private static final long serialVersionUID = 1L;
+  private String id;
+  private String settlementId;
+  private String orderId;
+  private String type;
+  private java.sql.Date settlementTime;
+  private java.sql.Timestamp createTime;
+  private String createName;
+  private String employeId;
+  private String employeName;
+  private double sumMoney;
+  private String remarks;
+  private String serviceMeasures;
+  private String costDetail;
+  private String siteId;
+  private double ratio;
+
+  @Id
+  @GeneratedValue(generator = "idGenerator")
+  @GenericGenerator(name ="idGenerator" , strategy ="uuid")
+  public String getId() {
+    return id;
+  }
+
+  public void setId(String id) {
+    this.id = id;
+  }
+
+
+  public String getSettlementId() {
+    return settlementId;
+  }
+
+  public void setSettlementId(String settlementId) {
+    this.settlementId = settlementId;
+  }
+
+
+  public String getOrderId() {
+    return orderId;
+  }
+
+  public void setOrderId(String orderId) {
+    this.orderId = orderId;
+  }
+
+
+  public String getType() {
+    return type;
+  }
+
+  public void setType(String type) {
+    this.type = type;
+  }
+
+
+  public java.sql.Date getSettlementTime() {
+    return settlementTime;
+  }
+
+  public void setSettlementTime(java.sql.Date settlementTime) {
+    this.settlementTime = settlementTime;
+  }
+
+
+  public java.sql.Timestamp getCreateTime() {
+    return createTime;
+  }
+
+  public void setCreateTime(java.sql.Timestamp createTime) {
+    this.createTime = createTime;
+  }
+
+
+  public String getCreateName() {
+    return createName;
+  }
+
+  public void setCreateName(String createName) {
+    this.createName = createName;
+  }
+
+
+  public String getEmployeId() {
+    return employeId;
+  }
+
+  public void setEmployeId(String employeId) {
+    this.employeId = employeId;
+  }
+
+
+  public String getEmployeName() {
+    return employeName;
+  }
+
+  public void setEmployeName(String employeName) {
+    this.employeName = employeName;
+  }
+
+
+  public double getSumMoney() {
+    return sumMoney;
+  }
+
+  public void setSumMoney(double sumMoney) {
+    this.sumMoney = sumMoney;
+  }
+
+
+  public String getRemarks() {
+    return remarks;
+  }
+
+  public void setRemarks(String remarks) {
+    this.remarks = remarks;
+  }
+
+
+  public String getServiceMeasures() {
+    return serviceMeasures;
+  }
+
+  public void setServiceMeasures(String serviceMeasures) {
+    this.serviceMeasures = serviceMeasures;
+  }
+
+
+  public String getCostDetail() {
+    return costDetail;
+  }
+
+  public void setCostDetail(String costDetail) {
+    this.costDetail = costDetail;
+  }
+
+
+  public String getSiteId() {
+    return siteId;
+  }
+
+  public void setSiteId(String siteId) {
+    this.siteId = siteId;
+  }
+
+
+  public double getRatio() {
+    return ratio;
+  }
+
+  public void setRatio(double ratio) {
+    this.ratio = ratio;
+  }
+
+}

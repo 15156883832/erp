@@ -1,0 +1,96 @@
+/* 打印页面 */
+*{
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+}
+/* body{ font-size:14px}  */
+p,h2{ margin: 0; padding: 0;}
+span{ display: inline-block;}
+.text-c{ text-align: center;}
+.text-r{ text-align: left;}
+.cl{ overflow: hidden;}
+.f-l{ float: left;}
+.f-r{ float: right;}
+.hide{ display:none;}
+.pd-5{ padding:5px;}
+.mb-15{ margin-bottom:15px;}
+.pl-50{ padding-left:50px;}
+.mb-5{ margin-bottom:5px;}
+.pos-r{ position:relative;}
+.pos{
+	position:absolute;
+	left:0;
+	top:0;
+}
+.w-50{ width:50px;}
+.lh-20{ line-height:20px;min-height:20px;}
+.lh-22{ line-height:22px;min-height:22px;}
+.h-40{ height:40px;}
+
+.printpage{min-width: 1000px;margin: 0 auto;font-size: 12px;}
+.printpage .title{
+	height: 26px;
+	line-height: 26px;
+	font-size: 16px;
+	font-weight: 600;
+	text-align: center;
+}
+.printpage .print-header .ordernum{float: right;font-size: 14px;}
+.printpage .table-title{
+	margin-top: 5px;
+	height: 28px;
+	line-height: 28px;
+	font-size: 16px;
+}
+.printpage table{
+	border:1px solid #000;
+	border-collapse: 
+	collapse;
+	width: 100%;
+	margin-top: 5px;
+}
+.printpage table td{
+	text-align: left;
+	border:1px solid #000;
+	position: relative;
+	padding: 5px 5px;
+	line-height: 20px;
+	font-size: 18px;
+}
+.sficon{
+    display: inline-block;
+    vertical-align: middle;
+    width: 22px;
+    height: 20px;
+    background: url(../images/icons.png) no-repeat;
+    position: relative;
+    bottom: 1px;
+}
+.sficon-help{ background-position: 0 -180px;}  /* 帮助中心 */
+.btnHelplink{
+    position: absolute;
+    padding:0 8px;
+    height: 28px;
+    line-height: 26px;
+    width: 80px;
+    color: #2A2A2A;
+    border: 1px solid #ccc;
+    background: #eeeeee;
+}
+.printpage table caption{
+	text-align: left;
+	font-size: 16px;
+}
+.printpage2 table td{
+	line-height: 24px;
+}
+.codeBox{
+	position:relative;
+	padding:10px 10px 10px 130px;
+}
+.codeimgBox{
+	position:absolute;
+	top:10px;
+	left:10px;
+}

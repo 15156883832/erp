@@ -1,0 +1,33 @@
+package com.jojowonet.modules.order.service;
+
+import ivan.common.service.BaseService;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 
+ * @author yc
+ * 短信签名service
+ *
+ */
+@Component
+@Transactional(readOnly = true)
+public class SmsSignSetService extends BaseService{
+
+	public Record getSiteSmsSign(String siteId){
+		String sql="SELECT * FROM crm_site WHERE id='"+siteId+"'";
+		return Db.findFirst(sql);
+	}
+//更新签名
+	public int updateSiteSign(String siteId, String smsPhone, String smsSign) {
+		String sql="UPDATE crm_site SET sms_phone=? , sms_sign=? WHERE id='"+siteId+"'";
+		return Db.update(sql, smsPhone,smsSign);
+		
+	}
+	
+
+}

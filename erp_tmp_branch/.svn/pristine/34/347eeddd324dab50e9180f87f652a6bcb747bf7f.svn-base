@@ -1,0 +1,428 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+	<title>来源管理</title>
+	<meta name="decorator" content="base"/>
+</head>
+<body>
+<div class="sfpagebg bk-gray">
+<div class="sfpage table-header-settable">
+<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+		<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICECATE_TAB" html='<a class="btn-tabBar current" href="${ctx}/order/category/headerList">服务品类</a> '></sfTags:pagePermission>
+		<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICEBRAND_TAB" html='<a class="btn-tabBar" href="${ctx}/order/category/siteBrandRelList">服务品牌</a> '></sfTags:pagePermission>
+		<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_MSGORIGIN_TAB" html='<a class="btn-tabBar" href="${ctx}/order/orderOrigin">信息来源</a> '></sfTags:pagePermission>
+	<%-- 	<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_MALTIONTYPE_TAB" html='<a class="btn-tabBar" href="${ctx}/order/malfunction">故障类型</a>'></sfTags:pagePermission>  --%>
+			<a class="btn-tabBar" href="${ctx}/order/printdesign">工单打印模板</a>
+			<a class="btn-tabBar" href="${ctx}/order/orderMustFill/getMustFillInfo">工单必填项设置</a>
+			<a class="btn-tabBar " href="${ctx}/order/township">乡镇设置</a>
+			<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_MSGMALL_TAB" html='<a class="btn-tabBar " href="${ctx}/order/orderMall">购机商场</a>'></sfTags:pagePermission>
+			<p class="f-r btnWrap">
+						<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICECATE_PLDELETE_BTN" html='<a onclick="delMore()" class="sfbtn sfbtn-opt"><i class="sficon sficon-rubbish"></i>批量删除</a> '></sfTags:pagePermission>
+						<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICECATE_ADDXTCATE_BTN" html='<a onclick="addMoresys()" class="sfbtn sfbtn-opt" ><i class="sficon sficon-add"></i>添加系统品类</a>'></sfTags:pagePermission>
+						<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICECATE_ADDZDYCATE_BTN" html='<a onclick="addMore()" class="sfbtn sfbtn-opt" ><i class="sficon sficon-add"></i>添加自定义品类</a>'></sfTags:pagePermission>
+			</p>
+		</div>
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<div>
+					<table id="table-waitdispatch" class="table"></table>
+					<!-- pagination -->
+					<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+					<!-- pagination -->
+				</div>
+			</form>
+		</div>
+	</div>
+</div>
+
+</div>
+</div>
+
+<!-- 新增信息来源 -->
+<div class="popupBox porigin addOrigin">
+	<h2 class="popupHead">
+		添加
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer pos-r">
+		<div class="popupMain">
+			<div class="pcontent" id="originbox" >
+				<div class="cl mb-10">
+					<label class="f-l w-70"><em class="mark">*</em>品类名称：</label>
+					<input type="text" class="input-text w-140 f-l mustfill Validform_error" name="name" maxlength="10"/>
+					<label class="f-l w-90 ">排序：</label>
+					<input type="text" class="input-text w-140 f-l mustfill Validform_error" name="sort"/>
+					<a href="javascript:;" class="sficon sficon-reduce2 f-l mt-3 ml-5" onclick="delCategory(this)"  style="display: none;" ></a>
+					<a href="javascript:;" class="sficon sficon-add2 f-l mt-3 ml-5 " onclick="addCategory(this)"></a>
+				</div>
+				
+			</div>	
+		</div>
+		<div class="text-c btnWrap">
+			<a href="javascript:;" onclick="addMore1()" class="sfbtn sfbtn-opt3 w-70 mr-5">保存</a>
+			<a href="javascript:;" class="sfbtn sfbtn-opt w-70 mr-5" id="btn-add-cancel">取消</a>
+		</div>
+	</div>
+</div>
+
+
+
+<!-- 修改信息来源 -->
+<div class="popupBox porigin editOrigin">
+	<h2 class="popupHead">
+		修改
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<form action="#"  class="form-add-malfunction" method="post">
+		<div class="popupContainer pos-r">
+			<div class="popupMain">
+				<div class="pcontent maskbox-gzlb" id="editBox">
+				</div>
+				<div class="text-c mt-25 pt-20">
+					<a onclick="editSave()" class="sfbtn sfbtn-opt3 w-70 mr-5" id=" btn-edit-save" >保存</a>
+					<a href="javascript:;" class="sfbtn sfbtn-opt w-70 mr-5" id="btn-edit-cancel">取消</a>
+				</div>
+			</div>
+		</div>
+	</form>
+</div>
+
+<script type="text/javascript">
+var sfGrid;
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var platformCategoryList = [];
+var rId;
+var namee="";
+var sortt="";
+var max="";
+
+$(function(){
+	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	
+	$.ajax({
+	type:"POST",
+	url:"${ctx}/order/category/defaultCategory",
+	data:{}, 
+	dataType:'json',
+	success:function(result){
+		platformCategoryList = result;
+		initSfGrid();
+	}
+});
+
+});
+
+$('#btn-add-cancel').on('click', function() {
+	//$(".addOrigin input[name='name']").value='';
+	//$('#originbox').empty();
+	/* $('#name').value='';originbox
+	$('#sort').value=''; */
+	$.closeDiv($('.addOrigin'));
+});
+
+$('#btn-edit-cancel').on('click', function() {
+	//$('#editBox').empty();
+	$.closeDiv($('.editOrigin'));
+});
+
+function addMore(){
+	$('.addOrigin').popup({fixedHeight:false});
+}
+
+
+
+function addCategory(obj){
+	
+	var oParent = $('#originbox');
+	
+	//判断值是否正确
+	
+	var html = '<div class="cl mb-10">'+
+					'<label class="f-l w-70"><em class="mark">*</em>品类名称：</label>'+
+					'<input type="text" class="input-text w-140 f-l mustfill Validform_error" id="name" name="name"/>'+
+					'<label class="f-l w-90">排序：</label>'+
+					'<input type="text" class="input-text w-140 f-l mustfill Validform_error" id="sort" name="sort"/>'+
+					'<a href="javascript:;" class="sficon sficon-reduce2 f-l mt-3 ml-5" onclick="delCategory(this)" ></a>'+
+					'<a href="javascript:;" class="sficon sficon-add2 f-l mt-3 ml-5 " onclick="addCategory(this)"></a>'+
+				'</div>';
+	oParent.append(html); 
+	$(obj).hide();
+	$(obj).prev('a.sficon-reduce2').show();
+	$.setPos($('.addOrigin'));	
+}
+
+function addMoresys(){
+	layer.open({
+		type : 2,
+		content:'${ctx}/order/category/addsyscate?max='+max,
+		title:false,
+		area: ['100%','100%'],
+		closeBtn:0,
+		shade:0,
+		anim:-1 
+	})
+}
+
+
+function delCategory(obj){
+	var oParent = $('#originbox');
+	$(obj).parent('div').remove();
+	
+	var childLenth = oParent.children().size();
+	oParent.children().eq(childLenth-1).find('a.sficon-add2').show();
+	
+	if( childLenth == 1){
+		oParent.children().eq(0).find('a.sficon-reduce2').hide();
+	}
+	$.setPos($('.addOrigin'));	
+}
+
+//初始化jqGrid表格，传递的参数按照说明
+function initSfGrid(){//headerList
+	sfGrid = $("#table-waitdispatch").sfGrid({
+		url : '${ctx}/order/category/siteCategoryGrid', 
+		sfHeader: defaultHeader,
+		sfSortColumns: sortHeader ,
+		shrinkToFit: true,
+		rownumbers : true,
+ 		rowattr: function (item) {
+			if (platformCategoryList.indexOf(item.id) != -1) {
+				return {"class": "ui-state-disabled ui-jqgrid-disablePointerEvents will-mark-hidden"};
+			}
+		},
+		beforeSelectRow: function (rowid, e) {
+			return !$(e.target).closest("tr.jqgrow").hasClass("ui-state-disabled");
+		},
+ 		gridComplete:function(){
+ 			_order_comm.gridNum();
+ 		},
+ 		loadComplete: function() {
+			$(".will-mark-hidden").find(".cbox").parent().hide();
+			 max=$("#table-waitdispatch").getCol("sort",false,"max");
+			
+			 //$("#table-waitdispatch").addRowData("1", {"factory_id":"合计","year":"----","month":"----","money":sum}, "last");
+		} 
+
+	});
+}
+
+function fmtOper(rowData){
+	var authFlage = '${fns:checkBtnPermission("SYSSETTLE_ORDERMSGSET_SERVICECATE_UPDATE_BTN")}';
+	var uphtml = ''; 
+	if(authFlage === 'true'){
+		uphtml +="<span ><a  onclick='editOne("+rowData.id+")' class='c-0383dc'><i class='sficon sficon-edit'></i>修改</a></span>";
+	}
+	if(platformCategoryList.indexOf(rowData.name) != -1){
+		return	"<span><a style='color:#545454'>修改</a></span>";
+	}else{
+		
+		return uphtml;
+	}
+}
+
+function editOne(rowId){
+	$('#editBox').empty();
+	$.ajax({
+			url:"${ctx}/order/category/byCategoryId",
+			data:{rowId:rowId}, 
+			dataType:'json',
+			async:false,
+			success:function(result){//.Validform_checktip 请输入用户姓名 html body div.popupBox.addNewOrder div.popupContainer div.popupMain.pos-r form#neworderForm div.pt-10.mb-15 div.cl div.f-l.pos-r.txtwrap1.mb-10 p.errorwran.Validform_checktip.Validform_wrong
+			    var parent = $('#editBox');
+			 	parent.append('<div class="cl">'+
+			 	'<label class="f-l w-70"><em class="mark">*</em>品类名称：</label>'+
+			 	'<input type="text" class="input-text w-140 f-l " id="namee" msnull="不为空" name="name" value="'+result.name+'"/>'+
+			 	'<label class="f-l w-90">排序：</label>'+
+			 	'<input type="text" class="input-text w-140 f-l paixu" id="sort" name="sortt"  value="'+result.sort+'"/>'+
+			     '</div>')
+			     rId=rowId;
+			 	name=result.name;
+			 	 $('.editOrigin').popup({fixedHeight:false});
+			}
+		});
+}
+
+function editSave(){
+	var sot = $("#sort").val();
+	var nam = $("#namee").val();
+	
+	if(platformCategoryList.indexOf(nam) != -1){
+		return layer.msg("品类无法修改为系统品类");
+	}
+	if($.trim(nam)==""|| $.trim(nam)==null){
+		layer.msg("“品类名称”不能为空！");
+	}else if((sot.length!=0)&&(sot.match(/\D/)||sot==0)){
+		layer.msg("排序请输入除0以外数字");
+		return;
+	}else{
+		$.ajax({
+			url:"${ctx}/order/category/saveEdit",
+			data:{rowId:rId,
+				  namee:nam,
+				  sortt:$("#sort").val()
+				 }, 
+			dataType:'json',
+			type: 'post',
+			success:function(result){
+				if(result){
+					$.closeDiv($(".editOrigin"));
+					window.location.reload(true);
+				}else{
+					layer.msg("品类名已存在");
+					return;
+				}
+		    
+			}
+		});
+	}
+	
+}
+
+function delMore(){
+	var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+	var gg = "" ;
+	if(idArr.length<1){
+		layer.msg("请选择数据！");
+	}else{
+		gg = idArr.join(",");
+		var content = "确认要删除该服务品类？";
+		//$("#decategory").val($("#tabswitchCurrent").text());
+		//$("#deserviceMeasures").val(_name);
+		$('body').popup({
+			level:3,
+			title:"删除",
+			content:content,
+			 fnConfirm :function(){
+					$.ajax({
+						type:"POST",
+						url:"${ctx}/order/category/deleteMore",
+						data:{gg:gg}, 
+						dataType:'json',
+						async:false,
+						success:function(result){
+							if(result=="0"){
+								layer.msg("删除成功！");
+								window.location.reload(true);
+							}else if(result=="1"){
+								layer.msg("包含系统默认品类，请重新选择!");
+							}else{
+								layer.msg("删除失败，请联系管理员！");
+							}
+						}
+					});
+			 }
+		})
+	}
+
+}
+
+var addMore1Posted = false;
+function addMore1(){
+	if(addMore1Posted) {
+		return;
+	}
+	var names = $(".addOrigin input[name='name']");
+	var sorts = $(".addOrigin input[name='sort']");
+	var namesVals = [];
+	var sortsVals = [];
+	names.each(function(index, el) {//js便利
+		namesVals[index] = $(el).val();
+		sortsVals[index] = sorts.eq(index).val();
+	});
+	for(var i=0;i<namesVals.length;i++){
+		if(platformCategoryList.indexOf(namesVals[i]) != -1){
+			return layer.msg("请在系统品类中添加"+namesVals[i]);
+		}
+	}
+	var numberflag = false;
+	var nameflag=false;
+	var repeatname=false;
+	names.each(function(indx,el) {
+		namesVals[indx] =$(el).val();
+		sortsVals[indx] = sorts.eq(indx).val();
+		if(namesVals[indx].length==0){
+			nameflag=true;
+			layer.msg("请输入品类名");
+		}
+		
+		if((sortsVals[indx].length!=0)&&(sortsVals[indx].match(/\D/)||sortsVals[indx]==0)){
+			numberflag = true;
+			layer.msg("排序请输入除0以外数字");
+		}
+	 
+	});	
+	   if(nameflag||numberflag){
+	         return;
+          }	
+	var s = namesVals.join(",")+",";
+	for(var i=0;i<namesVals.length;i++) {
+	if(s.replace(namesVals[i]+",","").indexOf(namesVals[i]+",")>-1) {
+  repeatname=true;
+  layer.msg("品类名有重复");
+	break;
+	}
+}	
+	if(repeatname){
+		return;
+	}
+	addMore1Posted = true;
+	$.ajax({
+		type:"POST",
+		traditional:true,
+		url:"${ctx}/order/category/addMore",
+		data:{sorts:sortsVals,names:namesVals}, 
+		//dataType:'json',
+		success:function(result){
+			 if($.inArray(result,namesVals )!=-1){
+				layer.msg(result+"已存在，不能重复添加！");
+			 }else if(result=="0"){
+				layer.msg("添加成功！");
+				$.closeDiv($(".addOrigin"));
+				window.location.reload(true);
+			}else if(result=="2"){
+				layer.msg("品类名称不能为空！");
+			}else{
+				layer.msg(result+"已存在，不能重复添加！");
+			}
+		},
+		error:function(){
+			layer.msg("添加失败，请重新添加");
+		},
+		complete: function() {
+			addMore1Posted = false;
+		}
+	});
+}
+
+function search(){
+	var pageSize = $("#pageSize").val();
+	if ($.trim(pageSize) == '' || pageSize == null) {
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch($("#searchForm").serializeJson());
+}
+
+function arrCheck(name,names){
+	var n = 0;
+	for(var i=0;i<names.length;i++){
+		if($.trim(name) == $.trim(names[i])){
+			n++;
+		}
+	}
+	 return n;
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+package com.jojowonet.modules.order.utils;
+
+import ivan.common.utils.DateUtils;
+
+import java.util.Collection;
+import java.util.Date;
+import java.util.Iterator;
+
+/**
+ * @author gaols
+ */
+public class SqlKit {
+    private StringBuilder builder = new StringBuilder();
+    private static final String SEP = " ";
+    private boolean forceMaster = false;
+    private boolean forceSlave = false;
+    private static final String SQL_FORCE_MASTER = "/*FORCE_MASTER*/";
+    private static final String SQL_FORCE_SLAVE = "/*FORCE_SLAVE*/";
+
+    /**
+     * Append a sql line to ensure it has a trailing whitespace.
+     *
+     * @param line The sql line to be appended
+     * @return The sql line with a trailing whitespace
+     */
+    public SqlKit append(String line) {
+        builder.append(line);
+        builder.append(SEP);
+        return this;
+    }
+
+    public SqlKit forceMaster() {
+        forceMaster = false;
+        return this;
+    }
+
+    public SqlKit forceSlave() {
+        forceSlave = true;
+        return this;
+    }
+
+    /**
+     * Append a sql line without a trailing space, normally, this is
+     * the last sql line you'd like to be appended.
+     *
+     * @param line The last sql line to be appended without trailing a whitespace
+     * @return The builder itself.
+     */
+    public SqlKit last(String line) {
+        builder.append(line);
+        return this;
+    }
+
+    /**
+     * Concatenate all appended sql line to build the last sql.
+     *
+     * @return Concatenated sql
+     */
+    public String build() {
+        return builder.toString();
+    }
+
+    @Override
+    public String toString() {
+        if (forceMaster && forceSlave) {
+            throw new IllegalStateException("I'm confused, you should not enable force master and slave simultaneously");
+        }
+
+        String sql = builder.toString();
+        if (forceMaster) {
+            sql = SQL_FORCE_MASTER + sql;
+        } else if (forceSlave) {
+            sql = SQL_FORCE_SLAVE + sql;
+        }
+        return sql;
+    }
+
+    public static String joinInSql(Collection<?> els) {
+        if (els == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        Iterator<?> it = els.iterator();
+        while (it.hasNext()) {
+            Object el = it.next();
+            if (el instanceof String) {
+                sb.append("'").append(el).append("'");
+            } else if (el instanceof Date) {
+                sb.append("'").append(DateUtils.formatDate((Date) el, "yyyy-MM-dd HH:mm:ss")).append("'");
+            } else {
+                sb.append("'").append(String.valueOf(el)).append("'");
+            }
+            sb.append(",");
+        }
+        String ret = sb.toString();
+        if (ret.endsWith(",")) {
+            ret = ret.substring(0, ret.length() - 1);
+        }
+        return ret;
+    }
+}

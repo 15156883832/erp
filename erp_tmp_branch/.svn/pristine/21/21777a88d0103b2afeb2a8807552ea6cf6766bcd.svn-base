@@ -1,0 +1,144 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+	<!--[if lt IE 9]>
+	<script type="text/javascript" src="lib/html5shiv.js"></script>
+	<script type="text/javascript" src="lib/respond.min.js"></script>
+	<![endif]-->
+	<meta name="decorator" content="base"/>
+
+<!--[if IE 6]>
+<script type="text/javascript" src="lib/DD_belatedPNG_0.0.8a-min.js" ></script>
+<script>DD_belatedPNG.fix('*');</script>
+<![endif]-->
+<title>系统设置</title>
+</head>
+<body >
+	<div class="sfpagebg bk-gray">
+		<div class=" pt-20 pb-20 pl-10 pr-10">
+			<div class="bk-gray mb-20">
+				<div class="bg-e7eff5 lh-40 pl-20"><strong class="c-0e8ee7 f-14">常规设置</strong></div>
+				<div class="cl pd-20">
+					<sfTags:pagePermission authFlag="NEWOPERATEMGM_NEWSITEMSG_NEWSITEMSG_TAB" html='<div class="col-5-1 f-l">
+						<div class="sysSetBox" >
+							<div class="sysSetWrap sysSetWrap1">
+
+								<a class="sysLink" data-href="${ctx}/operate/getSiteMsg/site" data-title="公司资料设置" href="javascript:void(0)"><strong class="lh-20">公司资料设置</strong></a>
+								<p class="c-888 lh-18">基础资料、无现金收款二维码</p>
+							</div>
+						</div>
+					</div>'></sfTags:pagePermission>
+
+					<sfTags:pagePermission authFlag="NEWOPERATEMSG_NEWEMPLOYEMSG_NEWMSGOPERATE_TAB" html='<div class="col-5-1 f-l">
+						<div class="sysSetBox" >
+							<div class="sysSetWrap sysSetWrap2">
+								<a class="sysLink" data-href="${ctx}/operate/nonServiceman/WholeServiceManHeader" data-title="员工信息设置" href="javascript:void(0)"><strong class="lh-20">员工信息设置</strong></a>
+								<p class="c-888 lh-18">员工账号、角色权限管理</p>
+							</div>
+						</div>
+					</div>'></sfTags:pagePermission>
+
+
+					<sfTags:pagePermission authFlag="NEWSYSSET_NEWORDERSET_SERVICECATE_TAB" html='	<div class="col-5-3 f-l">
+						<div class="sysSetBox" >
+							<div class="sysSetWrap sysSetWrap3">
+								<a class="sysLink" data-href="${ctx}/order/category/headerList" data-title="工单基础信息设置" ><em class="mark">*</em><strong class="lh-20">工单基础信息设置</strong></a>
+								<p class="c-888 lh-18 pl-10">品牌、品类、商场自定义、打印模板自定义、工单必填项自定义、乡镇设置、购机商场维护</p>
+							</div>
+						</div>
+					</div> '></sfTags:pagePermission>
+
+				</div>
+			</div>
+			
+			<div class="bk-gray mb-20">
+				<div class="bg-e7eff5 lh-40 pl-20"><strong class="c-0e8ee7 f-14">高级设置</strong></div>
+				<div class="cl pd-20 highSetBox">
+					<div class="col-5-1 f-l">
+						<div class="sysSetBox" >
+							<div class="sysSetWrap sysSetWrap3">
+								<strong class="lh-20">工单信息</strong>
+							</div>
+                           <sfTags:pagePermission authFlag="NEWSYSSET_NEWFACTORYMSG_NEWFACTORYMSG_TAB" html='<p><a class="sysLink" data-href="${ctx}/order/siteVenderAccount" data-title="厂家资料设置"><strong class="lh-20">厂家资料设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">400工单授权同步管理</p>'></sfTags:pagePermission>
+
+							<sfTags:pagePermission authFlag="NEWSYSSET_NEWSETTLEMENT_NEWSETTLEMENT_TAB" html='<p><a class="sysLink" data-href="${ctx}/order/settlementTemplate" data-title="结算信息设置"><strong class="lh-20">结算信息设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">结算方案、结算条件设置</p>'></sfTags:pagePermission>
+
+							<sfTags:pagePermission authFlag="NEWSMSMGM_NEWSIGN_NEWSET_TAB" html='<p><a class="sysLink" data-href="${ctx}/order/smsSignSet" data-title="短信设置"><strong class="lh-20">短信设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">自定义短信模板、短信签名、短信发送条件</p>'></sfTags:pagePermission>
+
+							<sfTags:pagePermission authFlag="NEWSYSFLAGSET_NEWFLAGSET_NEWFLAGGATE_TAB" html='<p><a class="sysLink" data-href="${ctx}/order/orderMarkSet" data-title="标记类型设置"><strong class="lh-20">标记类型设置</strong> </a></p>'></sfTags:pagePermission>
+						</div>
+					</div>
+					<div class="col-5-1 f-l">
+						<div class="sysSetBox" >
+							<div class="sysSetWrap sysSetWrap4">
+								<strong class="lh-20">备件信息</strong>
+							</div>
+							<sfTags:pagePermission authFlag="NEWSYSALAMSET_NEWALARMFITSET_NEWALAM_TAB" html='<p><a class="sysLink" data-href="${ctx}/operate/site/alarmSetting" data-title="备件预警设置"><strong class="lh-20">备件预警设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">缺件预警、库存预警</p>'></sfTags:pagePermission>
+
+							<%--<p><a class="sysLink"><strong class="lh-20">备件利润设置</strong> </a></p>--%>
+						</div>
+					</div>
+					<div class="col-5-1 f-l">
+						<div class="sysSetBox" >
+							<div class="sysSetWrap sysSetWrap5">
+								<strong class="lh-20">商品设置</strong>
+							</div>
+							<sfTags:pagePermission authFlag="NEWSYSSETTLE_NEWGOODMSGGSET_NEWGOODSSET_TAB" html='<p><a class="sysLink" data-href="${ctx}/order/goodscategory" data-title="商品信息设置"><strong class="lh-20">商品信息设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">自定义类别、利润计算公式</p>'></sfTags:pagePermission>
+						</div>
+					</div>
+					<div class="col-5-1 f-l">
+						<div class="sysSetBox" >
+							<div class="sysSetWrap sysSetWrap6">
+								<strong class="lh-20">其他设置</strong>
+							</div>
+							<sfTags:pagePermission authFlag="NEWSYSSET_NEWDAILYSIGNSET_NEWSIGNSET_TAB" html='<p><a class="sysLink" data-href="${ctx}/operate/employeDailySign/signSet" data-title="考勤信息设置"><strong class="lh-20">考勤信息设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">时间、地点及打卡范围</p>'></sfTags:pagePermission>
+							<sfTags:pagePermission authFlag="NEWSITE_NEWSYSTEMSET_NEWREPAIRPHONESET_TAB" html='<p><a class="sysLink" data-href="${ctx}/order/siteSet/repairPhoneSet" data-title="电子名片设置"><strong class="lh-20">电子名片设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">名片电话自定义</p>'></sfTags:pagePermission>
+							<sfTags:pagePermission authFlag="NEWSITESETTLE_NEWFAPIAOAPPLYSET_NEWFAPIAOAPPLY_TAB" html='<p><a class="sysLink" data-href="${ctx}/finance/invoiceMsg/invoiceManager" data-title="发票申请设置"><strong class="lh-20">发票申请设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">开票信息、寄送地址、记录查询</p>'></sfTags:pagePermission>
+							<sfTags:pagePermission authFlag="NEWSITESETTLE_NEWFAPIAOAPPLYSET_TEEDEFINEDSET_TAB" html='<p><a class="sysLink" data-href="${ctx}/finance/balanceManager/toExacctSiteSet" data-title="费用自定义设置"><strong class="lh-20">费用自定义设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">费用科目自定义</p>'></sfTags:pagePermission>
+						</div>
+					</div>
+					<div class="col-5-1 f-l">
+						<div class="sysSetBox" >
+							<div class="sysSetWrap sysSetWrap7">
+								<strong class="lh-20">思傅帮APP</strong>
+							</div>
+							<sfTags:pagePermission authFlag="NEWSYSSET_NEWSIFUBANGSET_NEWSIFUBANG_TAB" html='<p><a class="sysLink" data-href="${ctx}/order/orderMarkSet/appSetting" data-title="思傅帮显示设置"><strong class="lh-20">思傅帮显示设置</strong> </a></p>
+							<p class="c-888 lh-20 mb-10">工程师APP权限设置</p>'></sfTags:pagePermission>
+						</div>
+					</div>
+				</div>
+			</div>
+			
+		</div>
+	</div>
+
+
+<script type="text/javascript">
+   $(function(){
+       $('.sysSetBox').on('click','a', function(){
+            var href = $(this).attr('data-href'),
+                titleName = $(this).attr('data-title');
+            if(titleName!=null&&titleName!=""&&href!=null&&href!=""){
+                selectSettingsModuleOnFly(titleName,href);
+            }
+
+        })
+    })
+
+
+
+
+
+</script> 
+</body>
+</html>

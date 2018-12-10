@@ -1,0 +1,177 @@
+package com.jojowonet.modules.sys.util;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+
+import com.google.gson.Gson;
+import ivan.common.config.Global;
+import org.apache.commons.lang3.StringUtils;
+
+public class SfPushUtils {
+
+	private static final String token = "fcb8894146b747eeb893787f4c3d2b7b";// token
+	
+	public static final String EMPLOYE_APPNAME = "com.sferp.employe";
+	public static final String SITE_APPNAME = "com.sferp.site";
+
+	/**
+	 * 
+	 * @param title
+	 * @param content
+	 * @param registrationIds
+	 * @return
+	 */
+	public static boolean sendMsg(String title,String content,String registrationIds,String appName,String sound) {
+		try {
+			String result = doPost(title, content, "1", registrationIds, sound, appName);
+			System.out.println(result);
+			if(StringUtils.isNotBlank(result)){
+				Gson gson = new Gson();
+				Result re = gson.fromJson(result, Result.class);
+				if(re != null &&
+						"0".equals(re.getCode())){
+					return true;
+				}
+			}
+			return false;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	/**
+	 * 
+	 * @param title  通知消息的标题
+	 * @param content  通知消息的简要描述
+	 * @param type 消息类型 1、通知消息 2 透传消息
+	 * @param registrationIds 通知对象的类型。objectType 为1时 可不填（填了也会忽略）；为2 必填，多个设备用逗号隔开
+	 * @param alertParam  当alertType中包含1时，此出填写自定义铃声uri，格式android.resource://<package>/raw/<name>。不填写就使用系统默认铃声
+	 * @param packageName  应用的包名
+	 * @return
+	 * @throws Exception
+	 */
+	public static String doPost(String title,
+			String content, String type, String registrationIds,
+			String alertParam,String packageName) throws Exception {
+		NotificationMessage message = new NotificationMessage();
+		message.setTitle(title);
+		message.setDescription(content);
+		message.setObjectType(2);
+		message.setRegistrationIds(registrationIds);
+		message.setPackageName(packageName);
+		message.setAlertType("1");
+		message.setNextActionType(1);
+		message.setAlertParam(alertParam);
+		Gson gson = new Gson();
+		String msg = gson.toJson(message);
+		StringBuffer param = new StringBuffer();
+		param.append("message=" + msg);
+		param.append("&type=" + type);
+		param.append("&token=" + token);
+
+		URL localURL = new URL(Global.getConfig("push.server"));
+		URLConnection connection = localURL.openConnection();
+		HttpURLConnection httpURLConnection = (HttpURLConnection) connection;
+
+		httpURLConnection.setDoOutput(true);
+		httpURLConnection.setRequestMethod("POST");
+		httpURLConnection.setRequestProperty("Accept-Charset", "utf-8");
+		httpURLConnection.setRequestProperty("Content-Type",
+				"application/x-www-form-urlencoded;charset=utf-8");
+		httpURLConnection.setRequestProperty("Content-Length",
+				String.valueOf(param.length()));
+
+		OutputStream outputStream = null;
+		OutputStreamWriter outputStreamWriter = null;
+		InputStream inputStream = null;
+		InputStreamReader inputStreamReader = null;
+		BufferedReader reader = null;
+		String resultBuffer = "";
+
+		try {
+			outputStream = httpURLConnection.getOutputStream();
+			outputStreamWriter = new OutputStreamWriter(outputStream);
+
+			outputStreamWriter.write(param.toString());
+			outputStreamWriter.flush();
+
+			if (httpURLConnection.getResponseCode() >= 300) {
+				throw new Exception(
+						"HTTP Request is not success, Response code is "
+								+ httpURLConnection.getResponseCode());
+			}
+
+			inputStream = httpURLConnection.getInputStream();
+			resultBuffer = convertStreamToString(inputStream);
+			if(resultBuffer != null)
+			System.out.println(resultBuffer.toString());
+		} finally {
+
+			if (outputStreamWriter != null) {
+				outputStreamWriter.close();
+			}
+
+			if (outputStream != null) {
+				outputStream.close();
+			}
+
+			if (reader != null) {
+				reader.close();
+			}
+
+			if (inputStreamReader != null) {
+				inputStreamReader.close();
+			}
+
+			if (inputStream != null) {
+				inputStream.close();
+			}
+
+		}
+
+		return resultBuffer;
+	}
+
+	/**
+	 * 转换返回值类型为UTF-8格式.
+	 * 
+	 * @param is
+	 * @return
+	 */
+	public static String convertStreamToString(InputStream is) {
+		StringBuilder sb1 = new StringBuilder();
+		byte[] bytes = new byte[4096];
+		int size = 0;
+
+		try {
+			while ((size = is.read(bytes)) > 0) {
+				String str = new String(bytes, 0, size, "UTF-8");
+				sb1.append(str);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				is.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return sb1.toString();
+	}
+	
+	public static void main(String[] args) throws Exception {
+		// System.out.println(sendCode("7965", "13955174824"));
+		String content = "张三您好，捷城家用电器（13211111111）诚邀您回复数字对本次服务进行评!";
+		System.out.println(sendMsg("短信通知", content,"5ba7a8c0790c","com.sferp.employe","order_tip"));
+		
+	}
+}

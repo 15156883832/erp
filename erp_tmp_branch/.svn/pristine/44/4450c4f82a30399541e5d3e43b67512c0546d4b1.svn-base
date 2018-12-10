@@ -1,0 +1,52 @@
+package com.jojowonet.modules.order.utils;
+
+import java.math.BigDecimal;
+
+public class GPSUtil {
+
+	 public static final double R = 6371.004;  
+     
+	    /** 
+	     * 根据给定的两个经纬度计算两地之间的距离，单位km 
+	     * @param lon1  经度1 
+	     * @param lat1  纬度1 
+	     * @param lon2  经度2 
+	     * @param lat2  纬度2 
+	     * @return  两地距离 
+	     */  
+	    public static double getDistance(String lon11, String lat11, String lon21, String lat21)  
+	    {  
+	    	   Double lat1 = Double.parseDouble(lat11);
+	           Double lon1 = Double.parseDouble(lon11);
+	           Double lat2 = Double.parseDouble(lat21);
+	           Double lon2 = Double.parseDouble(lon21);
+	    	
+	        double x = changeToRad(lon1);  
+	        double y = changeToRad(lat1);  
+	        double a = changeToRad(lon2);  
+	        double b = changeToRad(lat2);  
+	        double rad = Math.acos(Math.cos(y) * Math.cos(b) * Math.cos(x - a) + Math.sin(y) * Math.sin(b));  
+	        if (rad > Math.PI)  
+	            rad = Math.PI * 2 - rad;  
+	        double d = R * rad ;
+	        BigDecimal bd =   new BigDecimal(d);  
+	        double   f1   =   bd.setScale(2,   BigDecimal.ROUND_HALF_UP).doubleValue();  
+	        return f1;  
+	    }  
+	      
+	    /** 
+	     * 将角度转化为弧度 
+	     * @param angle 角度 
+	     * @return  弧度 
+	     */  
+	    public static double changeToRad(double angle)  
+	    {  
+	        return angle / 180 * Math.PI;  
+	    }  
+	      
+	    public static void main(String[] args)  
+	    {  
+	    }
+
+
+}

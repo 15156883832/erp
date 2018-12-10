@@ -1,0 +1,283 @@
+package com.jojowonet.modules.order.service;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.dao.FittingDao;
+import com.jojowonet.modules.order.dao.CrmOrder400Dao;
+import com.jojowonet.modules.order.dao.OrderDao;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.service.BaseService;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.hibernate.SQLQuery;
+import org.hibernate.Session;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+/*
+ * 工单备件关联表
+ * */
+@Component
+@Transactional(readOnly = true)
+public class OrderFittingService extends BaseService {
+	@Autowired
+	FittingDao fittingDao;
+	@Autowired
+	OrderDao orderDao;
+	@Autowired
+	CrmOrder400Dao order400Dao;
+
+	// 配件关联工单
+	public List<Record> getPjMsg(List<Record> list, String orderNumber, String siteId, String remark) {
+		list = getPjMsg(orderNumber, siteId, remark);
+		return list;
+	}
+
+	// 配件关联400工单
+	public List<Record> getPjMsg400(List<Record> list, String orderId, String siteId, String remark) {
+		list = getPjMsg400(orderId, siteId, remark);
+		if ("SYMsg".equals(remark)) {
+			for (Record r : list) {
+				String useType = "";
+				String collectionFlag = r.getStr("collection_flag");
+				String type = r.getStr("type");
+				if ("1".equals(type)) {
+					// 工单使用
+					if ("0".equals(collectionFlag)) {
+						useType = "保内使用";
+					} else if ("1".equals(collectionFlag)) {
+						useType = "保外零售";
+					}
+				}
+				r.set("use_type", useType);
+			}
+		}
+		return list;
+	}
+
+	// TODO 工单详情中的配件信息
+	public List<Record> getPjMsg(String orderNumber, String siteId, String remark) {
+		StringBuffer sql = new StringBuffer();
+		if ("SYMsg".equals(remark)) {
+			sql.append(
+					"select a.id,a.fitting_code,a.fitting_id,a.fitting_version,b.site_price,b.employe_price,b.customer_price,a.fitting_name,a.used_num,a.status,a.used_time,a.collection_money,a.warranty_type,a.type,a.collection_flag");
+			sql.append(" from crm_site_fitting_used_record a   ");// type = 1 表示工单使用
+			sql.append(" left join crm_site_fitting b on b.id=a.fitting_id ");
+			sql.append(" where a.order_number= '" + orderNumber + "' and a.site_id= '" + siteId + "' and a.type = '1' ");
+
+		} else if ("SQMsg".equals(remark)) {
+			sql.append("select a.id ,a.fitting_code,a.fitting_version,a.fitting_name,a.fitting_img,a.audit_marks,a.status,a.fitting_apply_num,a.create_time");
+			sql.append(" from crm_site_fitting_apply a  ");
+			sql.append(" left join crm_site_fitting b on b.id=a.fitting_id ");
+			sql.append(" where a.order_number= '" + orderNumber + "' and a.site_id= '" + siteId + "' ");
+			sql.append(" and a.status <> '5' and a.status <> '6' and a.status <> '7' ");
+		}
+
+		return Db.find(sql.toString());
+	}
+
+	// TODO 400工单详情中的配件信息
+	public List<Record> getPjMsg400(String orderId, String siteId, String remark) {
+		StringBuffer sql = new StringBuffer();
+		if ("SYMsg".equals(remark)) {
+			sql.append(
+					"select a.fitting_code,a.fitting_version,b.site_price,b.employe_price,b.customer_price,a.fitting_name,a.used_num,a.status,a.used_time,a.collection_money,a.warranty_type,a.type,a.collection_flag");
+			sql.append(" from crm_site_fitting_used_record a   ");// type = 1 表示工单使用
+			sql.append(" left join crm_site_fitting b on b.id=a.fitting_id   ");// type = 1 表示工单使用
+			sql.append(" where a.order_id= '" + orderId + "' and a.site_id= '" + siteId + "' and a.type = '1'  ");// type = 1 表示工单使用
+		} else if ("SQMsg".equals(remark)) {
+			sql.append("select a.fitting_code,a.fitting_version,a.fitting_name,a.fitting_img,a.status,a.fitting_apply_num,a.create_time");
+			sql.append(" from crm_site_fitting_apply a where a.order_id= '" + orderId + "' and a.site_id= '" + siteId + "'  ");
+			sql.append(" and a.status <> '5' and a.status <> '6' and a.status <> '7' ");
+		}
+
+		return Db.find(sql.toString());
+	}
+
+	/**
+	 * 工单详情中查看旧件信息
+	 */
+	public List<Record> getOldFitting(String siteId, String orderNumber) {
+		String sql = " SELECT * FROM crm_site_old_fitting a WHERE a.order_number=? AND a.status != '2' AND a.site_id=? ";
+		List<Record> rds = Db.find(sql, orderNumber, siteId);
+		if (rds != null) {
+			for (Record rd : rds) {
+				Date date = rd.getDate("create_time");
+				rd.set("cateTime", date == null ? "" : DateUtils.formatDate(rd.getDate("create_time"), "yyyy-MM-dd HH:mm"));
+			}
+		}
+		return rds;
+	}
+
+	/**
+	 * 400工单详情中查看旧件信息
+	 */
+	public List<Record> getOldFitting400(String siteId, String orderId) {
+		String sql = " SELECT * FROM crm_site_old_fitting a WHERE a.order_id=? AND a.status != '2' AND a.site_id=? ";
+		List<Record> rds = Db.find(sql, orderId, siteId);
+		if (rds != null) {
+			for (Record rd : rds) {
+				Date date = rd.getDate("create_time");
+				rd.set("cateTime", date == null ? "" : DateUtils.formatDate(rd.getDate("create_time"), "yyyy-MM-dd HH:mm"));
+			}
+		}
+		return rds;
+	}
+
+	public Record getOrderOr400(String orderNumber, String siteId) {
+		if (StringUtil.isBlank(orderNumber)) {
+			return null;
+		}
+
+		Record rd = orderDao.findOrderByNumberIfHistory(orderNumber, siteId);
+		if (rd != null) {
+			return rd;
+		}
+		return order400Dao.findOrder400ByNumber(orderNumber, siteId);
+	}
+
+	public Record getOrderOr400Rd(String orderId, String siteId) {
+		Record rd = orderDao.findOrderByIdIfHistory(orderId, siteId);
+		if (rd != null) {
+			return rd;
+		}
+		return order400Dao.findOrder400ById(orderId, siteId);
+	}
+
+	@Transactional
+	public Object deleteOneFittingRecord(String id, String siteId) {
+		Result rt = new Result();
+		if (StringUtils.isBlank(siteId)) {
+			siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		}
+		Record rd = Db.findFirst("select a.* from crm_site_fitting_used_record a where a.id=? ", id);
+		if (rd != null) {
+			logger.info(String.format("[DF]about to delete fitting use record: %s", rd.getColumns()));
+		} else {
+			logger.info(String.format("[DF]about to delete fitting use record, but use record %s not found siteId %s ", id,siteId));
+		}
+		if (rd == null) {// 如果这条旧件信息不存在，好几个人同时操作出现的情况
+			rt.setCode("421");// 删除失败，使用记录有误
+			rt.setErrMsg("record not exist!");
+			return rt;
+		}
+		if (StringUtils.isBlank(rd.getStr("employe_id"))) {
+			rt.setCode("421");// 删除失败，使用记录有误
+			rt.setErrMsg("employe not exist!");
+			return rt;
+		}
+		if ("2".equals(rd.getStr("status"))) {
+			rt.setCode("422");// 该配件已核销,不能删除
+			rt.setErrMsg("already hx!");
+			return rt;
+		}
+		Record fitting = Db.findFirst("select a.* from crm_site_fitting a where a.id=?", rd.getStr("fitting_id"));
+		if (fitting == null) {
+			rt.setCode("423");// 删除失败，配件信息有误
+			rt.setErrMsg("fitting error");
+			return rd;
+		}
+		Record empl = Db.findFirst("select a.* from crm_employe a where a.status='0' and a.id=?", rd.getStr("employe_id"));
+		if (empl == null) {
+			rt.setCode("424");// 工程师不存在，不能删除
+			rt.setErrMsg("employe not exist!");
+			return rt;
+		}
+		Record empFit = Db.findFirst("select a.* from crm_employe_fitting a where a.site_id=? and a.status='1' and a.fitting_id=? and a.employe_id=?", siteId,
+				rd.getStr("fitting_id"), rd.getStr("employe_id"));
+		if (empFit == null) {
+			rt.setCode("425");// 工程师库存信息有误，不能删除
+			rt.setErrMsg("employeFitting not exist!");
+			return rt;
+		}
+
+		BigDecimal warning = empFit.getBigDecimal("warning");// 工程师库存数量
+		BigDecimal number = empFit.getBigDecimal("number");// 工程师已使用为核销数量
+		logger.info(String.format("[DF]before:warning=%s,number=%s,use record id=%s", empFit.getBigDecimal("warning"), empFit.getBigDecimal("number"), id));
+		BigDecimal num = number.subtract(rd.getBigDecimal("used_num"));// 工程师已使用为核销数量 减去 使用/归还/零售数量
+		BigDecimal num1 = warning.add(rd.getBigDecimal("used_num"));
+		if (num.doubleValue() < 0) {
+			rt.setCode("426");// 删除失败，当前工程师库存信息有误
+			rt.setErrMsg("employeFitting not exist!");
+			return rt;
+		}
+
+		List<Record> oldFitList = Db.find("select a.* from crm_site_old_fitting a where a.site_id=? and a.status='1' and a.used_record_id=? and a.employe_id=?", siteId,
+				rd.getStr("id"), rd.getStr("employe_id"));
+		List<Record> empKeepFitList = Db.find("select * from crm_employe_fitting_keep where fitting_id=? and order_id=? and employe_id=? and `amount`=? and site_id=?",
+				rd.getStr("fitting_id"), rd.getStr("order_id"), rd.getStr("employe_id"), rd.getBigDecimal("used_num"), siteId);
+		if (oldFitList != null && oldFitList.size() > 0) {
+			// 删除备件使用记录关联的旧件信息
+			// Db.update("delete from crm_site_old_fitting where `site_id`=? and
+			// `status`='1' and `used_record_id`=? and
+			// `employe_id`=?",siteId,rd.getStr("id"),rd.getStr("employe_id"));
+			SQLQuery sqlQuery = fittingDao.getSession()
+					.createSQLQuery("delete from crm_site_old_fitting where `site_id`=:sId and `status`='1' and `used_record_id`=:urId and `employe_id`=:eId");
+			sqlQuery.setParameter("sId", siteId);
+			sqlQuery.setParameter("urId", rd.getStr("id"));
+			sqlQuery.setParameter("eId", rd.getStr("employe_id"));
+			sqlQuery.executeUpdate();
+		}
+		if (empKeepFitList != null && empKeepFitList.size() > 0) {
+			// 删除备件使用记录关联的工程师出入库明细
+			// Db.update("delete from crm_employe_fitting_keep where fitting_id=? and
+			// order_id=? and employe_id=? and `amount`=? and
+			// site_id=?",rd.getStr("fitting_id"),rd.getStr("order_id"),rd.getStr("employe_id"),rd.getBigDecimal("used_num"),siteId);
+			SQLQuery sqlQuery = fittingDao.getSession().createSQLQuery("delete from crm_employe_fitting_keep where `id`=:efpId");
+			sqlQuery.setParameter("efpId", empKeepFitList.get(0).getStr("id"));
+			int count = sqlQuery.executeUpdate();
+			logger.info(String.format("[DF] delete emp fitting keep:%d,fitting keep=%s,fittingId=%s,siteId=%s,deleteTime=%s", count, empKeepFitList.get(0),rd.getStr("fitting_id"),siteId,DateUtils.getDateTime()));
+		}
+		// Db.update("update crm_employe_fitting a set a.number=?,a.warning=? where
+		// a.id=?",num,num1,empFit.getStr("id"));//更新工程师备件库存信息
+		SQLQuery sqlQuery1 = fittingDao.getSession().createSQLQuery("update crm_employe_fitting a set a.number=:num,a.warning=:wan where a.id=:eId");
+		sqlQuery1.setParameter("num", num);
+		sqlQuery1.setParameter("wan", num1);
+		sqlQuery1.setParameter("eId", empFit.getStr("id"));
+		int c1 = sqlQuery1.executeUpdate();
+		logger.info(String.format("[DF] update emp fitting, number=%s,warning=%s,use record id=%s,c=%s,fittingId=%s,siteId=%s,EmpFIttingId=%s", num, num1, id, c1,rd.getStr("fitting_id"),siteId,empFit.getStr("id")));
+
+		// Db.update("delete from crm_site_fitting_used_record where
+		// `id`=?",rd.getStr("id"));//删除备件使用记录
+		SQLQuery sqlQuery2 = fittingDao.getSession().createSQLQuery("delete from crm_site_fitting_used_record where `id`=:sfId");
+		sqlQuery2.setParameter("sfId", rd.getStr("id"));
+		int update = sqlQuery2.executeUpdate();
+		logger.info(String.format("[DF] deleted use record,c=%d,id=%s,fittingId=%s,siteId=%s,employe_id=%s", update, rd.getStr("id"),rd.getStr("fitting_id"),siteId,rd.getStr("employe_id")));
+
+		BigDecimal cost = sumFittingUseCostByOrder(siteId, rd.getStr("order_number"));
+		// Db.update("update crm_order a set a.auxiliary_cost=? where a.number=? and
+		// a.site_id=?",cost,rd.getStr("order_number"),siteId);//更新crm_order工程师输入的备件费
+		SQLQuery sqlQuery3 = fittingDao.getSession().createSQLQuery("update crm_order a set a.auxiliary_cost=:acost where a.number=:num and a.site_id=:sId");
+		sqlQuery3.setParameter("acost", cost);
+		sqlQuery3.setParameter("num", rd.getStr("order_number"));
+		sqlQuery3.setParameter("sId", siteId);
+		sqlQuery3.executeUpdate();
+		rt.setCode("200");
+		rt.setMsg("success");
+		logger.info("[DF] OK");
+
+		return rt;
+	}
+
+	public BigDecimal sumFittingUseCostByOrder(String siteId, String orderNumber) {
+		Session session = fittingDao.getSession();
+		StringBuffer sb = new StringBuffer();
+		sb.append("  SELECT  sum(a.collection_money) as mon  ");
+		sb.append("  FROM crm_site_fitting_used_record a    ");
+		sb.append("  INNER JOIN crm_site_fitting f 	   ");
+		sb.append("  ON f.`id` = a.`fitting_id` AND f.`site_id` = a.`site_id`   ");
+		sb.append("  WHERE a.`site_id` = '" + siteId + "' AND a.order_number = '" + orderNumber + "'       ");
+		SQLQuery sqlQuery = session.createSQLQuery(sb.toString());
+		Object result = sqlQuery.uniqueResult();
+		return result == null ? BigDecimal.valueOf(0) : (BigDecimal) result;
+	}
+
+}

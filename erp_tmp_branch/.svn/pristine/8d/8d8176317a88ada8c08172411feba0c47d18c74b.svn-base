@@ -1,0 +1,240 @@
+/**
+ */
+package com.jojowonet.modules.order.service;
+
+import java.text.ParseException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.google.common.collect.Lists;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.SiteManagerDao;
+import com.jojowonet.modules.order.entity.Statistics;
+import com.jojowonet.modules.order.dao.AreaManagerDao;
+import com.jojowonet.modules.order.dao.StatisticsDao;
+
+/**
+ * 统计信息Service
+ * @author Ivan
+ * @version 2018-01-03
+ */
+@Component
+@Transactional(readOnly = true)
+public class StatisticsService extends BaseService {
+
+	@Autowired
+	private StatisticsDao statisticsDao;
+	
+	@Autowired
+	private SiteManagerDao siteManagerDao;
+	@Autowired
+	private AreaManagerDao areaManagerDao;
+	
+	public Statistics get(String id) {
+		return statisticsDao.get(id);
+	}
+
+	@Transactional(readOnly = false)
+	public void save(Statistics statistics) {
+		statisticsDao.save(statistics);
+	}
+	
+	@Transactional(readOnly = false)
+	public void delete(String id) {
+		statisticsDao.deleteById(id);
+	}
+	
+
+	public Page<Record> findStatisticsList(Page<Record> page,Map<String,Object> map,String priname,String type){
+		List<Record> list=statisticsDao.getStatisticsDaoList(page, map,priname);
+		List<Record> lists= getRecordLists(list, type);
+		long count=statisticsDao.getStatisticsDaoCount(map,priname);
+		
+		page.setList(lists);
+		page.setCount(count);
+		return page;
+	}
+	public List<Record> getstatisticsList(Map<String,Object> map,String priname,String type){
+		List<Record> list=statisticsDao.getStatisticsDaoList(null, map,priname);
+		List<Record> lists= getRecordLists(list, type);
+		return lists;
+	}
+	
+	public List<Record> getRecordLists(List<Record> list ,String type){
+		Date now = new Date();
+		String sitename;
+		String parenttype;
+		for (Record rd : list) {
+			if("1".equals(type)){
+			if(StringUtils.isNotBlank(rd.getStr("share_code_site_parent_id"))){
+				if(siteManagerDao.querySiteByid(rd.getStr("share_code_site_parent_id"))!=null){
+					sitename=siteManagerDao.querySiteByid(rd.getStr("share_code_site_parent_id")).getStr("name");
+					parenttype="售后服务商";
+					rd.set("shareParentName", sitename);
+					rd.set("shareParenttype", parenttype);
+			       }
+
+				}else{
+					if(StringUtils.isNotBlank(rd.getStr("area_manager_id"))){
+						if(rd.getStr("area_manager_id")!=null){
+							sitename=areaManagerDao.getAreaManagerById(rd.getStr("area_manager_id")).getStr("name");
+							parenttype="区域管理员";
+							rd.set("shareParentName", sitename);
+							rd.set("shareParenttype", parenttype);
+						}
+					
+				}
+				
+			}
+			}
+			if (rd.getDate("due_time") == null) {
+				rd.set("version", "免费版");
+			} else {
+				if (rd.getDate("due_time").getTime() >= now.getTime()) {
+					rd.set("version", "收费版");
+				} else {
+					rd.set("version", "免费版");
+				}
+			}	
+		}
+		
+		return list;
+		
+	}
+	
+	public List<Record> getstatisticsDetailedList(String id){
+		return statisticsDao.getstatisticsDetailedList(id);
+	}
+	public Record getStatisticsById(String id){
+		Record rd= statisticsDao.getStatisticsById(id);
+		if(rd != null){
+			Date now = new Date();
+			if (rd.getDate("due_time") == null) {
+				rd.set("version", "免费版");
+			} else {
+				if (rd.getDate("due_time").getTime() >= now.getTime()) {
+					rd.set("version", "收费版");
+				} else {
+					rd.set("version", "免费版");
+				}
+			}
+		}
+		return rd;
+	}
+	
+	public void update(Statistics sta,String userId){
+		String ded ="1";
+		if(!statisticsDao.getCheck(sta.getSiteId())){
+			ded = "2";
+		}
+		statisticsDao.update(sta);
+		statisticsDao.insetoDet(userId, sta,ded);
+	}
+	//产品顾问绩效
+	public JSONArray getCountForms(String time){
+		List<Record> list = statisticsDao.getUserlogins(time);
+		if(list.size()<1){
+			list = statisticsDao.getUserLoginNames();
+		}
+		JSONArray arr = new JSONArray();
+		int curMonthDay = curMonthDay(time);
+		for(Record rd:list){
+			List<Record> lis = statisticsDao.getCountForms(time,rd.getStr("user_id"));
+			List<Integer> sta =getInte(lis,time,curMonthDay,"1");
+			JSONObject obj = new JSONObject();
+			obj.accumulate("name", rd.getStr("login_name"));
+			obj.accumulate("data", sta);
+			//obj.accumulate("point", "events:{click:function(){location.href='https://www.baidu.com'}}");
+			arr.add(obj);
+		}
+		System.out.println(arr);
+		return arr;
+	}
+	//产品顾问每天新增
+	public JSONArray getnewlyAddedCount(String time){
+		List<Record> list = statisticsDao.getUserlogins(time);
+		JSONArray arr = new JSONArray();
+		int curMonthDay = curMonthDay(time);
+		for(Record rd:list){
+			List<Record> lis = statisticsDao.getnewaddCountForms(time,rd.getStr("user_id"));
+			List<Integer> sta =getInte(lis,time,curMonthDay,"2");
+			JSONObject obj = new JSONObject();
+			obj.accumulate("name", rd.getStr("login_name"));
+			obj.accumulate("data", sta);
+			//obj.accumulate("point", "events:{click:function(){location.href='https://www.baidu.com'}}");
+			arr.add(obj);
+		}
+		return arr;
+	}
+	
+	public List<Integer> getInte(List<Record> lis,String time,int curMonthDay,String stat){
+		List<Integer> sta = Lists.newArrayList();
+		int hass = 0;
+		for(Record li :lis){
+			//遍历天数
+			for(int i =1;i<=curMonthDay;i++){
+				String month = time; 
+				if(i < 10){
+					month = month + "-" +  "0" + i;
+				}else{
+					month =  month + "-" + i;
+				}
+				String monthStr = DateUtils.formatDate(li.getDate("ctime"), "yyyy-MM-dd");
+				//判断日期是否和数据库查询的相等，否则赋值为0
+				if(month.equalsIgnoreCase(monthStr)){
+					hass =i;
+					if("2".equals(stat)){
+						sta.add(li.getBigDecimal("fwes").intValue());
+					}else{
+						sta.add(li.getLong("fwes").intValue());
+						
+					}
+					break;
+				}else if(hass<i){
+					sta.add(0);
+				}
+			}
+			
+		}
+		return sta;
+	} 
+	
+	public int curMonthDay(String time){
+		Date now = new Date();
+		String nowMonthStr = DateUtils.formatDate(now, "yyyy-MM");
+		String[] pattern = {"yyyy-MM"};
+		Date date = new Date();
+		try {
+			date = DateUtils.parseDate(time, pattern);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		Calendar cl = Calendar.getInstance();
+		cl.setTime(date);
+		int curMonthDay = 0;
+		if(nowMonthStr.equalsIgnoreCase(time)){//当前月，取当前天数
+			cl.setTime(now);
+			curMonthDay = cl.get(Calendar.DAY_OF_MONTH);
+		}else{
+			curMonthDay = cl.getActualMaximum(Calendar.DAY_OF_MONTH);			
+		}	
+		return curMonthDay;
+		}
+	
+	public List<Record> gettimes(){
+		return statisticsDao.gettimes();
+	}
+}

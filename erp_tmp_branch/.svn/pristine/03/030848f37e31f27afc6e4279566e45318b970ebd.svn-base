@@ -1,0 +1,92 @@
+package com.jojowonet.modules.operate.service;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jojowonet.modules.operate.utils.DateUtils;
+import ivan.common.persistence.Parameter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.SendedSmsDao;
+import com.jojowonet.modules.order.dao.OrderDao;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+
+
+@Component
+@Transactional(readOnly = true)
+public class SendedSmsService extends BaseService {
+	@Autowired
+	private OrderDao orderDao;
+	@Autowired
+	private SendedSmsDao sendedSmsDao;
+	//分页查询数据
+	public Page<Record> getSendedList(Page<Record> page ,String siteId,Map<String,Object> map){
+		List<Record> sendedList=sendedSmsDao.getSendedList(page, siteId, map);
+		/*for (Record rd : sendedList) {
+			String ordernum=orderDao.getorderNumById(rd.getStr("order_id"),siteId);//将order_id转换为order_num
+			rd.set("order_id", ordernum);	
+		}*/
+		long count=sendedSmsDao.getsendedcount(siteId, map);
+		page.setList(sendedList);
+		page.setCount(count);
+		return page;
+	}
+	//导出数据的不分页查询所有数据
+	public List<Record> getSendedListforexcel(Page<Record> page ,String siteId,Map<String,Object> map){
+		List<Record> sendedList=sendedSmsDao.getSendedListforexcel(siteId, map);
+		for (Record rd : sendedList) {
+			String ordernum=orderDao.getorderNumById(rd.getStr("order_id"),siteId);
+			rd.set("order_id", ordernum);	
+		}
+       return sendedList;
+	}
+
+	//短信回调接口（修改短信状态）
+	public void changeSendMsgStatus(Map<String, Object> map) {
+		String smUuid = map.get("smUuid").toString();//?不知道干吗用的
+		String deliverTime = map.get("deliverTime").toString();
+		String deliverResult = map.get("deliverResult").toString();//DELIVRD
+		String mobile = map.get("mobile").toString();
+		String batchId = map.get("batchId").toString();
+
+		Date time = DateUtils.parseDate(deliverTime, "yyyy-MM-dd HH:mm:ss");
+
+		if(!"DELIVRD".equals(deliverResult)){
+			logger.error("sms sended fail smUuid is:%s", smUuid);
+			return;
+		}
+
+		try {
+			String sql = "update crm_sended_sms a set a.status='2',a.receive_time='"+deliverTime+"' where a.sendid=? and a.mobile=?  ";
+			Db.update(sql, batchId, mobile);
+		}catch (Exception e){
+			e.printStackTrace();
+		}
+	}
+
+
+
+	//模板设置(新增、修改)回调
+	public void templeteSet(Map<String, Object> map) {
+		String type = map.get("type").toString();//1是模板，2是签名
+		String id = map.get("id").toString();//Type=1的时候，id指的是签名id，type=2的时候，id指的是模板id
+		String applyStatus = map.get("applyStatus").toString();//审核状态 1：未审核 2：审核通过 3：审核失败
+		String applyReply = map.get("applyReply").toString();//未审核/审核通过/审核失败
+
+		if("1".equals(type)){
+			String sql = "update crm_site_sms_template a set a.reviewsms_status=?,a.failed_reason=? where number=? and a.status='3' and a.reviewsms_status='0' ";
+			Db.update(sql, applyStatus, applyReply, id);
+		}else if("2".equals(type)){
+			String sql = "update crm_site_sms_sign a set a.reviewsms_status=?,a.failed_reason=?  where a.number=? and a.status='0' and a.reviewsms_status='0' ";
+			Db.update(sql, applyStatus, applyReply, id);
+		}
+	}
+
+}

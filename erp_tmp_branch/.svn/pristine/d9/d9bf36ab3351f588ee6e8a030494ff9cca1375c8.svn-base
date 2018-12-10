@@ -1,0 +1,635 @@
+;
+!function($) {
+	$.tabfold = function(obj, target,obj_type, Event) {
+		$(obj).on(Event,function() {
+			if( obj_type == 1){
+				if ($(target).is(":visible")) {
+						$(target).hide();
+						$(this).html('<i class="sficon sficon-moresearch"></i>更多查询');
+						$.setGridSize();
+						
+				} else {
+					$(target).show();
+					$(this).html('<i class="sficon sficon-moresearch"></i>收起');
+					$.setGridSize();
+				}
+			}
+		})
+	}
+	$.fn.serializeJson=function(){
+        var serializeObj={};
+        var array=this.serializeArray();
+        var str=this.serialize();
+        $(array).each(function(){
+            if(serializeObj[this.name]){
+                if($.isArray(serializeObj[this.name])){
+                    serializeObj[this.name].push(this.value);
+                }else{
+                    serializeObj[this.name]=[serializeObj[this.name],this.value];
+                }
+            }else{
+                serializeObj[this.name]=this.value;    
+            }
+        });
+        return serializeObj;
+    };
+    
+    $.fn.sfGridSearch = function(data){
+    	var selector = this.selector;
+    	var defaults = {rows:$("#pageSize").val(), page:$("#pageNo").val(), rowNum: $("#pageSize").val()};
+    	data = $.extend(defaults,data);
+    	$(selector).jqGrid('setGridParam',data).trigger("reloadGrid");
+    };
+    
+	
+	$.tabBarList = function(){
+		var $oUl = $('#tabswitch_list'),
+		tabBarNum = 0;
+        var w = $('#tabswitch_list li').width();
+		function tabtabBarPWidth(){
+			var taballWidth = 0,
+				$tabBarP = $('#tabBarP'),
+				$tabBarList = $('#tabswitch_list'),
+				$tabBaritem = $('#tabswitch_list li'),
+				$tabBarmore = $('#tabswitch_more');
+			$tabBaritem.each(function(index,element){
+				taballWidth += Number(parseFloat($(this).width()+5))
+			})
+			$tabBarList.width(taballWidth+10);
+			var w = $tabBarP.width();
+			if( $tabBarList.width()>w){
+				$tabBarmore.show();
+			}else{
+				$tabBarmore.hide();
+				$tabBarList.css({left:0});
+			}
+		}
+		tabtabBarPWidth();
+		function toTabnavPos(){
+			$oUl.stop().animate({'left':-tabBarNum*w},100);
+		}
+		$('#tabswitch-next').bind('click',function(){
+			tabBarNum == $oUl.find('li').length-3?tabBarNum=$oUl.find('li').length-3:tabBarNum++;
+			toTabnavPos();
+		})
+		$('#tabswitch-prev').bind('click',function(){
+			tabBarNum==0?tabBarNum=0:tabBarNum--;
+			toTabnavPos();
+		})
+	}
+	 
+    $.showLoading = function(){
+    	$('body').prepend('<div class="loadBg" id="loadBg"></div>');
+    }
+    $.hideLoading = function(){
+    	$('#loadBg').remove();
+    }
+} (window.jQuery);
+
+// 复选框选择
+!function($) {
+	$.selectCheck = function(name) {
+		$('input[name="'+name+'"]').on('click', function(){
+			if($(this).is(":checked")){
+				$(this).parent('label').addClass(' label-cbox2-selected');
+			}else{
+				$(this).parent('label').removeClass(' label-cbox2-selected');
+			}
+		});
+	}
+	
+	$.selectCheck2 = function(name) {
+		$('input[name="'+name+'"]').click(function(){
+			if($(this).is(":checked")){
+				$(this).parent('label').addClass(' label-cbox3-selected');
+				$(this).parent('label').parents('tr').addClass('checked');
+			}else{
+				$(this).parent('label').removeClass('label-cbox3-selected');
+				$(this).parent('label').parents('tr').removeClass('checked');
+			}
+		})
+	}
+	// 单选框
+	$.selectRadio = function( name ){
+		$('input[name="'+name+'"]').click(function(){
+			$('input[name="'+name+'"]').parent('label').removeClass('radiobox-selected')
+			$(this).parent('label').addClass('radiobox-selected');
+		});
+	}
+	
+	$.setIframe = function() {
+		var bodyHeight = $('body').height();
+		var h = Math.max(bodyHeight,990);
+		$('#jIframe',window.parent.document).height(h+24);
+		$('#iframeWrap',window.parent.document).height(h+24);
+	}
+	
+$.fn.goHelp = function( id ){
+	var $this = $(this);
+	
+	/*var $span = $('<span class=""></span>')*/
+	var $html = $('<a class="btnHelplink"  target="_blank"  ><i class="sficon sficon-help mr-5"></i>帮助</a>');
+	var oLeft = oTop = oWidth = oHeight = 0;
+	
+	
+	$this.on('mouseover', function(ev){		
+		var bType = $(this).attr('data-type');
+		/*$this.wrap($span);*/
+		oLeft = parseInt($(this).offset().left) ,
+		oTop = parseInt($(this).offset().top),
+		oWidth = $this.outerWidth(),
+		oHeight = $this.outerHeight();
+	
+		
+		$this.after($html);
+		if( bType == 'print'){
+			$html.css({'left':oLeft,'top':oTop-32});	
+		}else{
+			$html.css({'left':oLeft-210,'top':oTop-141});	
+		}
+		
+		
+		$(document).on('mousemove', function(ev){
+			var eLeft = ev.pageX,
+				eTop = ev.pageY;
+		
+			if( eLeft< oLeft || eLeft>(oLeft+oWidth) || eTop<(oTop-30) || eTop >(oTop+oHeight) ){
+				
+				$html.remove();
+			/*	$this.unwrap();*/
+				$(document).off('mousemove');
+			}
+		})
+		
+		$html.on('click', function(ev){
+			
+			ev.stopPropagation();
+			$(this).attr({'href':id});
+			$html.remove();
+		})
+	});
+
+	$this.find('i').on('mouseover', function(ev){
+		ev.stopPropagation()	
+	})
+}
+	
+	$.fn.showIcons = function( ){
+		var $this = $(this),
+			$wrap = $(this).parent('.iconsBoxWrap'),
+			$oBox = $(this).next('.iconsBox'),
+			$arrow = $oBox.find('.iconArrow');
+		
+		var oLeft = oTop = oWidth = 0,
+			wHeight = $(window).height(),
+			dHeight = $oBox.outerHeight();
+			
+		
+		$this.on('mouseover', function(ev){
+			ev.stopPropagation();
+			oTop = parseInt($wrap.offset().top),  //距离浏览器顶部的距离
+			oWidth = $this.outerWidth();
+			
+			/*if( oTop + (dHeight/2) > (wHeight-10) || oTop>(wHeight-10)){
+				$oBox.css({ 'bottom':'-12px','top':'auto' });
+				$arrow.css({ 'bottom':'16px','top':'auto' });
+				
+			}else{
+				$oBox.css({ 'top': -(dHeight/2)+11 +'px','bottom':'auto' });
+				$arrow.css({ 'top':'50%','bottom':'auto'  });
+			}*/
+			$oBox.css({ 'bottom':'-12px'});
+			$arrow.css({ 'bottom':'16px'});
+			$oBox.show();
+		});
+		
+		$this.on('mouseout',function(ev){
+			ev.stopPropagation();
+			$oBox.hide();
+		})
+	}
+	
+	$.setGridSize = function(){
+		if($("#table-waitdispatch").length>0){
+			var tableWidth = $('.sfpagebg').width()-30;
+			var tableHeight;
+			
+			var ordertjbox =0;
+			if($('.ordertjbox').length>0){
+				ordertjbox = $('.ordertjbox').outerHeight(true);
+			}
+			if($('.sfpagebg .tableBtns').length>0){
+                tableHeight = $('.sfpagebg').height()-$('.tabBar').outerHeight(true)-$('.table-search').parent().outerHeight(true)-$('.sfpagebg .tableBtns').outerHeight(true)-ordertjbox-100;
+			}else{
+                if($('.cautionWrapO').length >0){
+                    tableHeight= $('.sfpagebg').height()-$('.tabBar').outerHeight(true)-$('.table-search').parent().outerHeight(true)-$('.cautionWrapO').outerHeight(true)-ordertjbox -160;
+
+                }else{
+                    tableHeight = $('.sfpagebg').height()-$('.tabBar').outerHeight(true)-$('.table-search').parent().outerHeight(true)-ordertjbox-140;
+                }
+			}
+
+			$("#table-waitdispatch").setGridWidth(tableWidth);
+			$("#table-waitdispatch").setGridHeight(tableHeight);
+		}
+	}
+	
+} (window.jQuery);
+
+// 表头设置-上移下移
+!function($) {
+	$.shiftHeader = function(id) {
+		var $this = $('#'+id);
+		$this.children('li').hover(function(){
+			$(this).addClass('optselected');
+			
+		},function(){
+			$(this).removeClass('optselected');
+		});
+		
+		$this.find('a.sficon-arrowtop1').click(function(){
+			var $li = $(this).parents('li');
+			if($li.prev()){
+				$li.insertBefore($li.prev()); 
+			}
+		})
+		$this.find('a.sficon-arrowdown1').click(function(){
+			var $li = $(this).parents('li');
+			if($li.next()){
+				$li.insertAfter($li.next()); 
+			}
+		})
+		/*$this.find('a.sficon-delete1').click(function(){
+			$(this).parents('li').remove();
+		})*/
+		
+	}
+} (window.jQuery);
+
+//页面初始化是绑定相关方法
+$(function(){
+	initPageBtn();
+	$(".sficon-search").parent().click(function(){
+		$("#pageNo").val(1);
+	});
+	
+	  $(window).resize(function(){
+  		$.setGridSize();
+  	})
+});
+
+function testCash(money){
+	var reg = /(^[1-9]([0-9]+)?(\.[0-9]{1,2})?$)|(^(0){1}$)|(^[0-9]\.[0-9]([0-9])?$)/;
+    return reg.test(money); 
+}
+
+function isPhoneNo(phone) {
+    var pattern = /^1\d{10}$/;
+    return pattern.test(phone);
+}
+
+function isEmptyVal(val){
+	return $.trim(val).length == 0;
+}
+
+function checkFormSpecialChar(formId){
+	var result = true;
+	$(formId).find("input").each(function(){
+		var val = $(this).val();
+		if(!$(this).hasClass("ignoreSepcial") && hasSpecialChar(val)){
+			//alert(val);
+			$(this).addClass("mustfill");
+			result = false;
+		}else{
+			$(this).removeClass("mustfill");
+		}
+	});
+	return result;
+}
+
+function hasSpecialChar(val){
+	var pattern = /^[\u4E00-\u9FA5a-zA-Z0-9_-]{0,}$/;
+	return !pattern.test(val);
+}
+
+/**
+ * 加法运算，避免数据相加小数点后产生多位数和计算精度损失。
+ * @param num1加数1 | num2加数2
+ */
+function numAdd(num1, num2) {
+	var baseNum, baseNum1, baseNum2;
+	try {
+		baseNum1 = num1.toString().split(".")[1].length;
+	} catch (e) {
+		baseNum1 = 0;
+	}
+	try {
+		baseNum2 = num2.toString().split(".")[1].length;
+	} catch (e) {
+		baseNum2 = 0;
+	}
+	baseNum = Math.pow(10, Math.max(baseNum1, baseNum2));
+	return (num1 * baseNum + num2 * baseNum) / baseNum;
+}
+
+function goPage(pageSize){
+	$("#pageSize").val(pageSize);
+	//search();
+	page(1*$("#pageNo").val(), 1*pageSize);
+}
+
+function jumpPage(){
+	var pn = $("#jump_page_input").val();
+	var maxPageNo = $("#maxPageNo").val();
+	if(pn > maxPageNo){
+		pn = maxPageNo;
+	}
+	page(pn, $("#pageSize").val());
+}
+
+function page(pageNo, pageSize){
+	$("#pageNo").val(pageNo);
+	$("#pageSize").val(pageSize);
+	search();
+}
+
+function initPageBtn(){
+	$(".reloadPageBtn").on('click', function(){
+		window.location.reload();
+	});
+	$(".resetSearchBtn").on('click', function(){
+		document.getElementById("searchForm").reset(); 
+	});
+}
+
+function checkSitePermission(permissions, menuId) {
+    var arr = permissions.split(",");
+    for (var i = 0; i < arr.length; i++) {
+        if (arr[i].indexOf(menuId) !== -1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// 选中某个二级菜单
+function selectModule(module, subModule) {
+    var dropdownMenu = $(".menu_dropdown", $(window.top.document));
+    dropdownMenu.find(".menu-l1").each(function () {
+        if (module === $(this).text()) {
+            if (!$(this).hasClass("selected")) {
+                $(this).click();
+            }
+            $(this).parent().find(".menu-l2").each(function () {
+                if (subModule === $.trim($(this).text())) {
+                    $(this).parent().addClass("current");
+                    return false;
+                }
+            });
+            return false;
+        }
+    });
+}
+
+if (!String.prototype.xformat) {
+    String.prototype.xformat = function() {
+        var args = arguments;
+        return this.replace(/{(\d+)}/g, function(match, number) {
+            return typeof args[number] != 'undefined'
+                ? args[number]
+                : match
+                ;
+        });
+    };
+}
+
+function selectModuleOnFly(module, subModule, alterHref, href) {
+	var topDoc = $(window.top.document);
+    var dropdownMenu = $(".menu_dropdown", topDoc);
+    dropdownMenu.find(".menu-l1").each(function () {
+        if (module === $(this).text()) {
+            if (!$(this).hasClass("selected")) {
+                $(this).click();
+            }
+            $(this).parent().find(".menu-l2").each(function () {
+                if (subModule === $.trim($(this).text())) {
+                    $('.Hui-aside .menu_dropdown li', topDoc).removeClass('current');
+                    $(this).parent('li').addClass('current');
+                    $("#module_span", topDoc).text(module);
+                    $("#sub_module_span", topDoc).text(subModule);
+                    Hui_admin_tab('<a class="menu-l2" data-href="{0}" data-title="{1}" data-group="{2}" data-alter-href="{3}" href="#">x</a>'.xformat(href, subModule, module, alterHref));
+                    return false;
+                }
+            });
+            return false;
+        }
+    });
+}
+
+function selectSettingsModuleOnFly(title, href) {
+	var module = "系统设置";
+	var subModule = "设置面板";
+    var topDoc = $(window.top.document);
+    var dropdownMenu = $(".menu_dropdown", topDoc);
+    dropdownMenu.find(".menu-l1").each(function () {
+        if (module === $(this).text()) {
+            if (!$(this).hasClass("selected")) {
+                $(this).click();
+            }
+            $(this).parent().find(".menu-l2").each(function () {
+                if (subModule === $.trim($(this).text())) {
+                    $('.Hui-aside .menu_dropdown li', topDoc).removeClass('current');
+                    $(this).parent('li').addClass('current');
+                    $("#module_span", topDoc).text(module);
+                    $("#sub_module_span", topDoc).text(subModule);
+                    Hui_admin_tab('<a class="menu-l2" data-href="{0}" data-title="{1}" href="#">x</a>'.xformat(href, title));
+                    return false;
+                }
+            });
+            return false;
+        }
+    });
+}
+
+function refreshPushMsgBox(obj){
+	var msgType = obj.msgType;
+    var orderNo = obj.orderNo;
+    var serviceType = obj.serviceType;
+    var endTime = obj.endTime;
+    var empName = obj.empName;
+    if(serviceType != undefined && serviceType != null && serviceType != ""){
+    	serviceType = "/" + serviceType;
+    }
+    var itemFlag = "c-6571";
+    var html = '';
+    var itemHtml = '';
+    $("#msgNewOrderBox").show();
+    var jtHtml = '<span class="jianTou" onclick="clickPushJT(\''+orderNo+'\');"></span>';
+    if(msgType == '10'){//ERP拒单提醒
+    	var idx = orderNo.indexOf("@");
+    	var orderNoF = orderNo.substring(0, idx);
+    	var rejectDetail = orderNo.substring(idx+1, orderNo.length);
+    	if(idx != -1){
+    		orderNoF = orderNo.substring(0, idx);
+    		rejectDetail = orderNo.substring(idx+1, orderNo.length);
+    	}else{
+    		orderNoF = orderNo;
+    		rejectDetail = "";
+    	}
+        jtHtml = '<span class="jianTou" onclick="clickPushJT(\''+orderNoF+'\');"></span>';
+    	itemFlag = "msg-item-ejd";
+    	itemHtml += '<div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-13b6a1" style="color:#ff3400;">ERP工单拒接：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNoF +'</span>' + serviceType + ' / 工程师:' + empName + '<p>拒单原因:'+ rejectDetail +'</p>'+jtHtml+'</div></div>';
+    	html += '<div class="orderWrapS pos-r msg-item-ejd"><div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-13b6a1" style="color:#ff3400;">ERP工单拒接：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNoF +'</span>' + serviceType + '/工程师:' + empName + '<p>拒单原因:' + rejectDetail + '</p>'+jtHtml+'</div></div></div>';
+    	//html += '<div class="msg-item-ejd pb-10 pt-10 bb"><span class="c-13b6a1 f-14 va-t">ERP工单拒接：</span>'+orderNo + serviceType + '<p>拒单时间:'+endTime+'</p></div>';
+    }else if(msgType == '11'){//ERP完工提醒
+    	itemFlag = "msg-item-ewg";
+    	itemHtml += '<div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-13b6a1" style="color:#009966;">ERP工单完工：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNo+'</span>' + serviceType + ' / 工程师:' + empName +  '<p>完工时间:'+endTime+'</p>'+jtHtml+'</div></div>';
+    	html += '<div class="orderWrapS pos-r msg-item-ewg"><div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-13b6a1" style="color:#009966;">ERP工单完工：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNo +'</span>' + serviceType + ' / 工程师:' + empName + '<p>完工时间:'+endTime+'</p>'+jtHtml+'</div></div></div>';
+    	//html += '<div class="msg-item-ewg pb-10 pt-10 bb"><span class="c-13b6a1 f-14 va-t">ERP工单完工：</span>'+orderNo + serviceType + '<p>完工时间:'+endTime+'</p></div>';
+    }else if(msgType == '12'){//微信报单提醒
+    	itemFlag = "msg-item-wbd";
+    	itemHtml += '<div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-0e8ee7" style="color:#009966;">微信报单：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNo +'</span>' + serviceType + ' / 报单员:' + empName +  '<p>报单时间:'+endTime+'</p>'+jtHtml+'</div></div>';
+    	html += '<div class="orderWrapS pos-r msg-item-wbd"><div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-0e8ee7" style="color:#009966;">微信报单：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNo +'</span>' + serviceType + ' / 报单员:' + empName +  '<p>报单时间:'+endTime+'</p>'+jtHtml+'</div></div></div>';
+    	//html += '<div class="msg-item-wbd pb-10 pt-10 bb"><span class="c-0e8ee7 f-14 va-t">微信报单：</span>'+orderNo + serviceType + '<p>报单时间:'+endTime+'</p></div>';
+    }else if(msgType == '13'){//400改约
+    	itemFlag = "msg-item-4gy";
+    	itemHtml += '<div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-e2722f" style="color:#ffb500;">400工单改约：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNo +'</span>' + serviceType + ' / 工程师:' + empName +  '<p>最新改约时间:'+endTime+'</p>'+jtHtml+'</div></div>';
+    	html += '<div class="orderWrapS pos-r msg-item-4gy"><div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-e2722f" style="color:#ffb500;">400工单改约：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNo +'</span>' + serviceType + ' / 工程师:' + empName +  '<p>最新改约时间:'+endTime+'</p>'+jtHtml+'</div></div></div>';
+    	//html += '<div class="msg-item-4gy pb-10 pt-10 bb"><span class="c-e2722f f-14 va-t">400工单改约：</span>'+orderNo + serviceType + '<p>最新改约时间:'+endTime+'</p></div>';
+    }else if(msgType == '14'){//400完工
+    	itemFlag = "msg-item-4wg";
+    	itemHtml += '<div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-e2722f" style="color:#009966;">400工单完工：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNo +'</span>' + serviceType + ' / 工程师:' + empName +  '<p>完工时间:'+endTime+'</p>'+jtHtml+'</div></div>';
+    	html += '<div class="orderWrapS pos-r msg-item-4wg"><div class="orderWrap"><div class="bb  pb-5 pt-5"><span class="c-e2722f" style="color:#009966;">400工单完工：</span><span class="c-13b6a1" style="color:#0099ff;">'+orderNo +'</span>' + serviceType + ' / 工程师:' + empName +  '<p>完工时间:'+endTime+'</p>'+jtHtml+'</div></div></div>';
+    	//html += '<div class="msg-item-4wg pb-10 pt-10 bb"><span class="c-e2722f f-14 va-t">400工单完工：</span>'+orderNo + serviceType + '<p>完工时间:'+endTime+'</p></div>';
+    }
+    //var $newDom = $(html);
+    //refreshMsgTip($newDom);
+    //$("#msgNewOrderBox").find("." + itemFlag).remove();
+    //$("#msgNewOrderBox").find(".fixPrompt_main").append(html);
+    var oldItems = $("#msgNewOrderBox").find("." + itemFlag);
+    if(oldItems.length > 0){
+    	refreshMsgTip(itemFlag, itemHtml);
+    }else{
+    	$("#msgNewOrderBox").find(".fixPrompt_main").append(html);
+    	//$('.sysPrompt .'+itemFlag).append(html);
+    }
+    //refreshMsgTip(itemFlag, html);
+}
+
+function refreshMsgTip(tagClassName, html){
+	var tagNode = $('.sysPrompt .'+tagClassName);
+	tagNode.append(html);
+	/*tagNode.find('.orderWrap').eq(1).css({'left':'320px'});
+	tagNode.find('.orderWrap').eq(0).animate({'left':'-320px'},'slow');*/
+	tagNode.animate({'left':'-320px'},300,function(){
+		tagNode.find('.orderWrap').eq(0).remove();
+		tagNode.css({'left':'0px'});
+	});
+}
+
+/*工单必填项设置提醒
+* jurisdiction: 按一定顺序排列 (origin+","+promiseTime+","+promiseLimit+","+customerFeedbackJuris+","+remarks+","+applianceModel+","+applianceNum+","+applianceBarcode+","+applianceMachineCode+","+applianceBuyTime+","+pleaseReferMall+","+warrantyType+","+level;)
+* jurisdictionvalue： 按一定顺序排列 （与jurisdiction对应）
+* */
+function checkMustFill(jurisdiction,jurisdictionvalues){
+	var jurisdictions=jurisdiction.split(",");
+	//var jurisdictionvalues=jurisdictionvalue.split("(**..)");
+	if($.trim(jurisdictions[0])=='true'){
+		if(isBlank($.trim(jurisdictionvalues[0]))){
+            layer.msg("请选择信息来源");
+            return false;
+		}
+	}
+	if($.trim(jurisdictions[1])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[1]))){
+            layer.msg("请选择预约日期");
+            return false;
+        }
+    }
+    if($.trim(jurisdictions[2])=='true'){
+    	if(isBlank($.trim(jurisdictionvalues[2]))){
+            layer.msg("请选择时间要求");
+            return false;
+		}
+	}
+	if($.trim(jurisdictions[3])=='true'){
+    	if(isBlank($.trim(jurisdictionvalues[3]).replace(/(^\s*)|(\s*$)/g, ""))){
+            layer.msg("请输入服务描述");
+            return false;
+		}
+	}
+	if($.trim(jurisdictions[4])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[4]))){
+            layer.msg("请输入备注信息");
+            return false;
+        }
+    }
+    if($.trim(jurisdictions[5])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[5]))){
+            layer.msg("请输入产品型号");
+            return false;
+        }
+    }
+    if($.trim(jurisdictions[6])=='true'){
+    	var te=/^[0-9]{1,4}$/;
+        if(isBlank($.trim(jurisdictionvalues[6]))){
+            layer.msg("请输入产品数量");
+            return false;
+        }else if(!te.test($.trim(jurisdictionvalues[6]))){
+            layer.msg("产品数量格式不正确");
+            return false;
+		}
+    }
+    if($.trim(jurisdictions[7])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[7]))){
+            layer.msg("请输入内机条码");
+            return false;
+        }
+    }
+    if($.trim(jurisdictions[8])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[8]))){
+            layer.msg("请输入外机条码");
+            return false;
+        }
+    }
+    if($.trim(jurisdictions[9])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[9]))){
+            layer.msg("请选择购买日期");
+            return false;
+        }
+    }
+    if($.trim(jurisdictions[10])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[10]))){
+            layer.msg("请选择购机商场");
+            return false;
+        }
+    }
+    if($.trim(jurisdictions[11])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[11]))){
+            layer.msg("请选择保修类型");
+            return false;
+        }
+    }
+    if($.trim(jurisdictions[12])=='true'){
+        if(isBlank($.trim(jurisdictionvalues[12]))){
+            layer.msg("请选择重要程度");
+            return false;
+        }
+    }
+	return true;
+}
+
+
+/*添加必填项底色
+ jurisdiction：开关（是否为必填）
+* */
+function addMustFill(jurisdiction,str){
+    var jurisdictions=jurisdiction.split(",");
+    var strs=str.split(",");
+	for(var i=0;i<jurisdictions.length;i++){
+		if($.trim(jurisdictions[i])=='true'){
+            $("#"+strs[i]).addClass("mustfill");
+        }
+	}
+
+}

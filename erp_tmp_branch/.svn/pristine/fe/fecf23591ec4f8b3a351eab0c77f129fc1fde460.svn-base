@@ -1,0 +1,268 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+	<title>系统公告管理</title>
+	<meta name="decorator" content="base"/>
+	<script type="text/javascript" src="${ctxPlugin }/lib/Highcharts/4.1.7/js/highcharts.js"></script>
+	<script type="text/javascript" src="${ctxPlugin }/lib/Highcharts/4.1.7/js/modules/exporting.js"></script>
+</head>
+<body>
+<div class="sfpagebg bk-gray"><div class="sfpage">
+	<div class="page-orderWait">
+		<div class="tabBar cl mb-10">
+			<sfTags:pagePermission authFlag="STATISTIC_ORDERSTATISTIC_WHOLEORDERSTATISTIC_TAB" html='<a class="btn-tabBar current" href="${ctx}/statistic/orderIndex">全部工单统计</a>'></sfTags:pagePermission>
+			<sfTags:pagePermission authFlag="STATISTIC_ORDERSTATISTIC_YWCORDERSTATISTIC_TAB" html='<a class="btn-tabBar" href="${ctx}/statistic/orderCompleteIndex">已完成工单统计</a>'></sfTags:pagePermission>
+		</div>
+		<div class="cl mt-15">
+			<label class="f-l">查询年度：</label>
+			<select class="select w-140 f-l" id="year">
+				<option value="2018" <c:if test="${year == '2018' }">selected="selected"</c:if>>2018</option>
+				<option value="2017" <c:if test="${year == '2017' }">selected="selected"</c:if>>2017</option>
+				<option value="2016" <c:if test="${year == '2016' }">selected="selected"</c:if>>2016</option>
+				<option value="2015" <c:if test="${year == '2015' }">selected="selected"</c:if>>2015</option>
+				<option value="2014" <c:if test="${year == '2014' }">selected="selected"</c:if>>2014</option>
+				<option value="2013" <c:if test="${year == '2013' }">selected="selected"</c:if>>2013</option>
+			</select>
+			<p class="f-r">
+				<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt"><i class="sficon sficon-reset"></i>重置</a>
+			</p>
+		</div>
+		
+		<div class="mt-10 text-c boxWrap">
+			<table class="table table-bg table-border table-bordered table-sdrk">
+				<thead>
+					<tr>
+						<th style="width: 20%;">月份</th>
+						<th style="width: 20%;">工单总数</th>
+						<th style="width: 20%;">已完成工单数</th>
+						<th style="width: 20%;">平均完工用时（小时）</th>
+						<th style="width: 20%;">不满意工单数</th>
+					</tr>
+					<c:forEach var="item" items="${items }">
+						<tr>
+							<td>${item.columns.month}月</td>
+							<td>${item.columns.total}</td>
+							<td>${item.columns.ywc}</td>
+							<td>${item.columns.avgs}</td>
+							<td  ><a class="c-0383dc"   onclick="showgd(${item.columns.month})">${item.columns.bmyd }</a></td>
+						</tr>
+					</c:forEach>
+				</thead>
+			</table>	
+		</div>
+		<div class="mt-10">
+			<div id="barChart" class="chartBox" style=""></div>
+			
+		</div>
+	</div>
+</div></div>
+
+<div class="popupBox w-320 vipPromptBox">
+	<h2 class="popupHead">
+		提示
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain text-c pt-30 pb-20">
+			<div class="">
+				<i class="iconType iconType2"></i>
+				<strong class="f-16">VIP会员功能</strong>
+			</div>
+			<p class="c-666 lh-26">
+				抱歉，此功能需要<span class="c-bb3906">开通VIP会员</span>后才能使用！
+			</p>
+			<div class="text-c mt-30">
+				<%-- <a  href="#" onclick="jumpToVIP();return false;" class="sfbtn sfbtn-opt3 w-100">开通VIP会员</a>--%>
+				<span class="sfbtn sfbtn-opt3 w-100" onclick="jumpToVIP();">开通VIP会员</span>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript">
+	$(function(){
+		$.post("${ctx}/goods/sitePlatformGoods/distinct",function(result){
+			if(result=="showPopup"){
+				
+				$(".vipPromptBox").popup();
+				$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+			}
+		});
+		var cates = eval('${monthList}');
+		var totals = eval('${totalList}');
+		var year="${year}"
+		initTableH();
+		$('#barChart').highcharts({
+	        chart: {
+	            type: 'column',
+	            style:{
+	            	color:'#2a2a2a',
+	        		fontWeight:'400' ,
+	        		fontSize:'12px',
+	            }
+	        },
+	        credits:false,
+	        exporting:{
+	        	enabled: false
+	        },
+	        legend: {
+	        	itemWidth:50,
+	        	symbolRadius:0,
+	        	itemStyle: {
+	        		color:'#2a2a2a',
+	        		fontWeight:'400' 	
+	        	}
+	        },
+	        title: {
+	            text: year+'年工单数量统计',
+	            style:{
+	            	color:'#2a2a2a',
+	            	fontSize:'14px',
+	            	fontWeight:'600'
+	            }
+	        },
+	        colors:['#0e8ee7'],
+	        xAxis: {
+	            /* categories: [
+	                '1月',
+	                '2月',
+	                '3月',
+	                '4月',
+	                '5月',
+	                '6月',
+	                '7月',
+	                '8月',
+	                '9月',
+	                '10月',
+	                '11月',
+	                '12月'
+	            ], */
+	            categories:cates,
+	            labels:{
+	            	style:{
+	            		color:'#2a2a2a',
+	            		fontSize:'12px',
+	            	}
+	            },
+	            lineColor:'#0d75be',
+	            lineWidth: 2
+	        },
+	        yAxis: {
+	            min: 0,
+	            title: {text:''},
+	            labels:{
+	            	style:{
+	            		color:'#2a2a2a',
+	            		fontSize:'12px',
+	            	}
+	            },
+	            lineColor:'#0d75be',
+	            lineWidth: 2,
+	            gridLineColor:'#cccccc'
+	        },
+	        tooltip: {
+	            enabled:false,
+	        },
+	        plotOptions: {
+	            series: {
+	            	maxPointWidth: 80,  //  最大宽度 采用svg宽度
+	                dataLabels: {
+	                    enabled: true,
+	                    formatter:function(){
+	                   		return '<span style="color:#2a2a2a;font-size:12px;font-weight:400">'+this.y+'</span>';
+	                   	}
+	                }
+	            }
+	        },
+	        series: [{
+	            name: '工单总数',
+	            data: totals/* [{
+	            	y:1120
+	            },{
+	            	y:600
+	            },{
+	            	y:1002
+	            },{
+	            	y:600
+	            },{
+	            	y:520
+	            },{
+	            	y:575
+	            },{
+	            	y:1005
+	            },{
+	            	y:628
+	            },{
+	            	y:608
+	            },{
+	            	y:575
+	            },{
+	            	y:628
+	            },{
+	            	y:608
+	            }] */
+	
+	        }]
+    	});
+	});
+	
+	function initTableH(){
+		var tHeight = ($('.sfpagebg').height()-100)/2;
+		$('.boxWrap').css({
+			'height':tHeight,
+			'overflow':'auto',
+		})
+		$('.chartBox').height(tHeight-20);
+	}
+	
+	function search(){
+		var year = $('#year option:selected').val();
+		window.location.href="${ctx}/statistic/orderIndex?year="+year;
+	}
+	
+	function jumpToVIP(){
+		layer.open({
+			type : 2,
+			content:'${ctx}/goods/sitePlatformGoods/jumpVIP',
+			title:false,
+			area: ['100%','100%'],
+			closeBtn:0,
+			shade:0,
+			anim:-1 
+		});
+	}
+	
+	
+	function showgd(month){	
+		var year = $('#year option:selected').val();
+		layer.open({
+			type : 2,
+			content:'${ctx}/statistic/jumpbmygd?year='+year+'&&month='+month,
+			title:false,
+			area: ['100%','100%'],
+			closeBtn:0,
+			shade:0,
+			anim:-1 
+		});
+		
+	}
+	
+	(function(H) {
+        var each = H.each;
+        H.wrap(H.seriesTypes.column.prototype, 'drawPoints', function(proceed) {
+            var series = this;
+            if (series.data.length > 0) {
+                var width = series.barW > series.options.maxPointWidth ? series.options.maxPointWidth : series.barW;
+                each(this.data, function(point) {
+                    point.shapeArgs.x += (point.shapeArgs.width - width) / 2;
+                    point.shapeArgs.width = width;
+                });
+            }
+            proceed.call(this);
+        })
+    })(Highcharts)
+
+</script> 
+</body>
+</html>

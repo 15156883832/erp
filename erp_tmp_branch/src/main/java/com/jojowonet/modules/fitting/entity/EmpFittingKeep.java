@@ -1,0 +1,243 @@
+package com.jojowonet.modules.fitting.entity;
+
+import java.io.Serializable;
+import java.util.Date;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+@Entity
+@Table(name = "crm_employe_fitting_keep")
+//@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class EmpFittingKeep implements Serializable {
+	
+	private String id;
+
+	private String number;
+
+	private String type;
+
+	private String fittingId;
+
+	private String fittingCode;
+	
+	private String fittingName;
+	
+	private String orderId;//关联工单Id
+	
+	private double amount;
+	
+	private double price;
+	
+	private double employePrice;
+	
+	private double customerPrice;
+	
+	private String remarks;
+	
+	private Date createTime;
+	
+	private String employeName;
+	
+	private String employeId;
+	
+	private String siteId;
+	
+	private String createBy;
+	private String orderNumber;
+	private String warrantyType;
+	private String customerName;
+	private String customerMobile;
+	private String customerAddress;
+
+	public String getOrderNumber() {
+		return orderNumber;
+	}
+
+	public void setOrderNumber(String orderNumber) {
+		this.orderNumber = orderNumber;
+	}
+
+	public String getWarrantyType() {
+		return warrantyType;
+	}
+
+	public void setWarrantyType(String warrantyType) {
+		this.warrantyType = warrantyType;
+	}
+
+	public String getCustomerName() {
+		return customerName;
+	}
+
+	public void setCustomerName(String customerName) {
+		this.customerName = customerName;
+	}
+
+	public String getCustomerMobile() {
+		return customerMobile;
+	}
+
+	public void setCustomerMobile(String customerMobile) {
+		this.customerMobile = customerMobile;
+	}
+
+	public EmpFittingKeep() {
+		super();
+		this.createTime = new Date();
+	}
+
+	@Id
+	@GeneratedValue(generator="efk_id")
+	@GenericGenerator(name="efk_id",strategy="uuid")
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getNumber() {
+		return number;
+	}
+
+	public void setNumber(String number) {
+		this.number = number;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getFittingId() {
+		return fittingId;
+	}
+
+	public void setFittingId(String fittingId) {
+		this.fittingId = fittingId;
+	}
+
+	public String getFittingCode() {
+		return fittingCode;
+	}
+
+	public void setFittingCode(String fittingCode) {
+		this.fittingCode = fittingCode;
+	}
+
+	public String getFittingName() {
+		return fittingName;
+	}
+
+	public void setFittingName(String fittingName) {
+		this.fittingName = fittingName;
+	}
+
+	public String getOrderId() {
+		return orderId;
+	}
+
+	public void setOrderId(String orderId) {
+		this.orderId = orderId;
+	}
+
+	public double getAmount() {
+		return amount;
+	}
+
+	public void setAmount(double amount) {
+		this.amount = amount;
+	}
+
+	public double getPrice() {
+		return price;
+	}
+
+	public void setPrice(double price) {
+		this.price = price;
+	}
+
+	public double getEmployePrice() {
+		return employePrice;
+	}
+
+	public void setEmployePrice(double employePrice) {
+		this.employePrice = employePrice;
+	}
+
+	public double getCustomerPrice() {
+		return customerPrice;
+	}
+
+	public void setCustomerPrice(double customerPrice) {
+		this.customerPrice = customerPrice;
+	}
+
+	public String getRemarks() {
+		return remarks;
+	}
+
+	public void setRemarks(String remarks) {
+		this.remarks = remarks;
+	}
+
+	public Date getCreateTime() {
+		return createTime;
+	}
+
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+
+
+	public String getEmployeName() {
+		return employeName;
+	}
+
+	public void setEmployeName(String employeName) {
+		this.employeName = employeName;
+	}
+
+	public String getEmployeId() {
+		return employeId;
+	}
+
+	public void setEmployeId(String employeId) {
+		this.employeId = employeId;
+	}
+
+	public String getSiteId() {
+		return siteId;
+	}
+
+	public void setSiteId(String siteId) {
+		this.siteId = siteId;
+	}
+
+	public String getCreateBy() {
+		return createBy;
+	}
+
+	public void setCreateBy(String createBy) {
+		this.createBy = createBy;
+	}
+
+	public String getCustomerAddress() {
+		return customerAddress;
+	}
+
+	public void setCustomerAddress(String customerAddress) {
+		this.customerAddress = customerAddress;
+	}
+}

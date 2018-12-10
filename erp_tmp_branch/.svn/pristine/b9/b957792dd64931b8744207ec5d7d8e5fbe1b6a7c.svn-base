@@ -1,0 +1,116 @@
+package com.jojowonet.modules.order.utils;
+
+import com.google.common.base.Ticker;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import org.apache.log4j.Logger;
+
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+
+
+public class SFIMCache {
+
+    private static SFIMCache cache = new SFIMCache();
+    private final LoadingCache<String, Object> cacheImpl;
+    private static Logger logger = Logger.getLogger(SFIMCache.class);
+
+    private SFIMCache() {
+        this.cacheImpl = CacheBuilder.newBuilder()
+                .maximumSize(5000L)
+                .ticker(Ticker.systemTicker())
+                .build(new CacheLoader<String, Object>() {
+                    @Override
+                    public Object load(String key) throws Exception {
+                        if ("PL".equals(key)) { // promise limit
+                            logger.error("cache hit,key=PL");
+                            return Db.find("select distinct * from crm_promise_limit where status='0' order by sort asc");
+                        } else if ("SM".equals(key)) {
+                            String sql = "SELECT * FROM crm_service_mode a WHERE a.status ='0' ORDER BY a.sort ASC ";
+                            return Db.find(sql);
+                        } else if ("ST".equals(key)) {
+                            String sql = "SELECT * FROM crm_service_type a WHERE a.status='0' ORDER BY a.sort ASC ";
+                            return Db.find(sql);
+                        } else if ("SM_SET".equals(key)) {
+                            String sql = "SELECT * FROM crm_service_mode a WHERE a.status ='0'";
+                            List<Record> rds = Db.find(sql);
+                            Set<String> set = new HashSet<>();
+                            for (Record rd : rds) {
+                                set.add(rd.getStr("name"));
+                            }
+                            return set;
+                        } else if ("ST_SET".equals(key)) {
+                            String sql = "SELECT * FROM crm_service_type a WHERE a.status='0'";
+                            List<Record> rds = Db.find(sql);
+                            Set<String> set = new HashSet<>();
+                            for (Record rd : rds) {
+                                set.add(rd.getStr("name"));
+                            }
+                            return set;
+                        } else if ("L1SITE".equals(key)) {
+                            String sql = "SELECT * FROM sys_menu m WHERE m.status='0' and m.is_show='1' and m.`target`='L1SITE'";
+                            List<Record> rds = Db.find(sql);
+                            HashMap<String, Record> map = new HashMap<>();
+                            for (Record rd : rds) {
+                                map.put(rd.getStr("id"), rd);
+                            }
+                            return Collections.unmodifiableMap(map);
+                        } else if ("L2SITE".equals(key)) {
+                            String sql = "SELECT * FROM sys_menu m WHERE m.status='0' and m.is_show='1' and m.`target`='L2SITE'";
+                            List<Record> rds = Db.find(sql);
+                            HashMap<String, Record> map = new HashMap<>();
+                            for (Record rd : rds) {
+                                map.put(rd.getStr("id"), rd);
+                            }
+                            return Collections.unmodifiableMap(map);
+                        } else if ("micro_factory_binding_menu".equals(key)) {
+                            //N表示非小厂家菜单，C表示小厂家公共菜单，具体的id表示关联特定小厂家的菜单。
+                            String sql = "SELECT * FROM sys_menu m WHERE m.status='0' and m.is_show='1' and m.factory_id <>'N'";
+                            String sql2 = "select id from crm_micro_factory;";
+                            List<Record> factories = Db.find(sql2);
+                            Map<String, Map<String, Record>> factoryMenus = new HashMap<>();
+                            for (Record r : factories) {
+                                //map factory_id to factory related menu records
+                                factoryMenus.put(r.getStr("id"), new HashMap<String, Record>());
+                            }
+
+                            List<Record> rds = Db.find(sql);
+                            HashMap<String, Record> allMap = new HashMap<>();
+                            HashMap<String, Record> commonMap = new HashMap<>();
+                            for (Record rd : rds) {
+                                allMap.put(rd.getStr("id"), rd);
+                                String factoryId = rd.getStr("factory_id");
+                                Map<String, Record> menus = factoryMenus.get(factoryId);
+                                if (menus != null) {
+                                    menus.put(rd.getStr("id"), rd);
+                                }
+                                if ("C".equalsIgnoreCase(factoryId)) {
+                                    commonMap.put(rd.getStr("id"), rd);
+                                }
+                            }
+                            factoryMenus.put("all", allMap);
+                            factoryMenus.put("common", commonMap);
+                            return Collections.unmodifiableMap(factoryMenus);
+                        } else if("PROV_LIST".equals(key)) {
+                            String sql = " SELECT * FROM s_province";
+                            List<Record> ret = Db.find(sql);
+                            return Collections.unmodifiableList(ret);
+                        }
+
+                        return null;
+                    }
+                });
+    }
+
+    public static Object get(String key) {
+        try {
+            return cache.cacheImpl.get(key);
+        } catch (ExecutionException e) {
+            return null;
+        }
+    }
+
+}

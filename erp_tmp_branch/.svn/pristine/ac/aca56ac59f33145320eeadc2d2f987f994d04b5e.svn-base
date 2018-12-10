@@ -1,0 +1,117 @@
+/**
+ */
+package com.jojowonet.modules.fitting.dao;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.entity.SiteFittingKeep;
+import com.jojowonet.modules.sys.util.TrimMap;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 备件DAO接口
+ * @author Ivan
+ * @version 2017-05-20
+ */
+@Repository
+public class SiteFittingKeepDao extends BaseDao<SiteFittingKeep> {
+
+
+	public long getCountOfSiteFittingKeep(Page<Record> page,String siteId,Map<String,Object> map){
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select count(*) from crm_site_fitting_keep sfk ");
+		sql.append("inner join crm_site_fitting sf on sfk.fitting_id = sf.id ");
+		sql.append(" where sfk.site_id = ? and sfk.amount<>0" );
+		sql.append(getQuery(map));
+
+		return Db.queryLong(sql.toString(),siteId);
+	}
+
+	public List<Record> getListOfSiteFittingKeep(Page<Record> page, String siteId, Map<String, Object> map) {
+		StringBuilder sql = new StringBuilder("");//缺少明细,备件来源
+		sql.append("select concat(sfk.type,sfk.amount) as mx,sfk.fitting_code,sfk.fitting_name,sf.version,sfk.applicant,sfk.confirmor,sf.type,sfk.create_time, ");
+		sql.append("sf.brand,sf.suit_category,sfk.price,sf.supplier ");
+		sql.append("from crm_site_fitting_keep sfk ");
+		sql.append("inner join crm_site_fitting sf on sfk.fitting_id = sf.id ");
+		sql.append(" where sfk.site_id = ? and sfk.amount<>0 ");
+		sql.append(getQuery(map));
+		sql.append(createOrderBy(map, " order by sfk.create_time desc  "));
+		if (page != null) {
+			sql.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+
+		return Db.find(sql.toString(), siteId);
+	}
+
+	public List<Record> getListOfSiteFittingKeep2(Page<Record> page, String siteId, Map<String, Object> map) {
+		StringBuilder sql = new StringBuilder("");//缺少明细,备件来源
+		sql.append("select sfk.type as ktype,sfk.amount ,sfk.fitting_code,sfk.fitting_name,sf.version,sfk.applicant,sfk.confirmor,sf.type,sfk.create_time,sfk.remarks, ");
+		sql.append("sf.brand,sf.suit_category,sfk.price,sf.supplier ");
+		sql.append("from crm_site_fitting_keep sfk ");
+		sql.append("inner join crm_site_fitting sf on sfk.fitting_id = sf.id ");
+		sql.append(" where sfk.site_id = ? and sfk.amount<>0 ");
+		sql.append(getQuery(map));
+		sql.append(createOrderBy(map, " order by sfk.create_time desc  "));
+		if (page != null) {
+			sql.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+
+		return Db.find(sql.toString(), siteId);
+	}
+	//表头排序
+	private String createOrderBy(Map<String, Object> map, String defaultOrderBy) {
+		String sort = getParamValue(map, "sidx");
+		String dir = getParamValue(map, "sord");
+		return (StringUtils.isNotBlank(sort) && StringUtils.isNotBlank(dir)) ? ("order by '" + sort + "' " + dir) : defaultOrderBy;
+	}
+
+	private String getParamValue(Map<String, Object> map, String param) {
+		if(map instanceof TrimMap) {
+			Object value = map.get(param);
+			return value == null ? null : (String) value;
+		} else {
+			Object value = map.get(param);
+			return value == null ? null : ((String[]) map.get(param))[0];
+		}
+	}
+
+	public String getQuery(Map<String,Object> map){
+		StringBuffer sf = new StringBuffer();
+		if(map != null){
+			if(map.get("fitting_code") != null && StringUtils.isNotEmpty(map.get("fitting_code").toString())){
+				sf.append(" and sfk.fitting_code like '%"+map.get("fitting_code")+"%' ");
+			}
+			if (map.get("fitting_name") != null && StringUtils.isNotEmpty((map.get("fitting_name").toString()))){
+				sf.append(" and sfk.fitting_name like '%"+map.get("fitting_name")+"%' ");
+			}
+			if(map.get("mxtype") != null && StringUtils.isNotEmpty((map.get("mxtype").toString()))){
+				sf.append(" and sfk.type = '"+map.get("mxtype")+" ' ");
+			}
+			if(map.get("applicant") != null && StringUtils.isNotEmpty((map.get("applicant").toString()))){
+				sf.append(" and sfk.applicant  like '%"+map.get("applicant")+"%' ");
+			}
+			if(map.get("supplier") != null && StringUtils.isNotEmpty((map.get("supplier").toString()))){
+				sf.append(" and sf.supplier  like '%"+map.get("supplier")+"%' ");
+			}
+			if(map.get("brand") != null && StringUtils.isNotEmpty((map.get("brand").toString()))){
+				sf.append(" and sf.brand  like '%"+map.get("brand")+"%' ");
+			}
+			if(map.get("suit_category") != null && StringUtils.isNotEmpty((map.get("suit_category").toString()))){
+				sf.append(" and sf.suit_category = '"+map.get("suit_category")+"' ");
+			}
+			if(map.get("createTimeMin") != null && StringUtils.isNotEmpty((map.get("createTimeMin").toString()))){//接入时间
+				sf.append(" and sfk.create_time >= '"+map.get("createTimeMin")+" 00:00:00' ");
+			}
+			if(map.get("createTimeMax") != null && StringUtils.isNotEmpty((map.get("createTimeMax").toString()))){
+				sf.append(" and sfk.create_time <= '"+map.get("createTimeMax")+" 23:59:59' ");
+			}
+		}
+		return sf.toString();
+	}
+}

@@ -1,0 +1,10 @@
+package com.jojowonet.modules.order.dao;
+
+import com.jojowonet.modules.order.entity.CrmOrder2017;
+import com.jojowonet.modules.order.entity.Order;
+import ivan.common.persistence.BaseDao;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class Order2017Dao extends BaseDao<CrmOrder2017> {
+}

@@ -1,0 +1,11 @@
+package com.jojowonet.modules.order.service;
+
+import ivan.common.service.BaseService;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Component
+@Transactional(readOnly = false)
+public class Order2017Service extends BaseService {
+
+}

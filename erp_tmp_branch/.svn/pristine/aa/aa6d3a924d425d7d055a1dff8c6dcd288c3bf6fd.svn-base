@@ -1,0 +1,607 @@
+package com.jojowonet.modules.order.entity;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Date;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+@Entity
+@Table(name = "crm_order_400")
+//@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class CrmOrder400 implements Serializable{
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	private String id;
+
+    private String number;
+
+    private String orderType;
+
+    private Date createTime;
+
+    private Date repairTime;
+
+    private String createBy;
+
+    private String applianceBrand;
+
+    private String applianceCategory;
+
+    private String applianceModel;
+
+    private String applianceBarcode;
+
+    private Date applianceBuyTime;
+
+    private BigDecimal appliancePrice;
+
+    private Integer applianceNum;
+
+    private String applianceMachineCode;
+
+    private String customerName;
+
+    private String customerAddress;
+
+    private String customerAddress2;
+
+    private String customerMobile;
+
+    private String customerTelephone;
+
+    private String customerTelephone2;
+
+    private Date promiseTime;
+
+    private String promiseLimit;
+
+    private String customerFeedback;
+
+    private String remarks;
+
+    private String origin;
+
+    private String cServiceType;
+
+    private String cServiceMode;
+
+    private String serviceType;
+
+    private String serviceMode;
+
+    private String important;
+
+    private String level;
+
+    private String siteName;
+
+    private String employe1;
+
+    private String employe2;
+
+    private String employe3;
+
+    private Date dispatchTime;
+
+    private Date updateTime;
+
+    private String warrantyType;
+
+    private String malfunctionType;
+
+    private String malfunctionDescription;
+
+    private String malfunctionCause;
+
+    private String malfunctionCauseDescription;
+
+    private String measures;
+
+    private String measuresDescription;
+
+    private String siteId;
+
+    private String processDetail;
+
+    private Date endTime;
+
+    private String status;
+
+    private String orderId;
+
+    private String feedback;
+
+    private Date feedbackTime;
+
+    private String feedbackResult;
+
+    private String feedbackName;
+
+    private String isConvert;
+
+    private String flag;
+
+    private String flagDesc;
+
+    private Date flagAlertDate;
+
+    private Integer printTimes;
+    
+    @Id
+	@GeneratedValue(generator = "idGenerator")
+	@GenericGenerator(name ="idGenerator" , strategy ="uuid")
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getNumber() {
+        return number;
+    }
+
+    public void setNumber(String number) {
+        this.number = number;
+    }
+
+    public String getOrderType() {
+        return orderType;
+    }
+
+    public void setOrderType(String orderType) {
+        this.orderType = orderType;
+    }
+
+    public Date getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(Date createTime) {
+        this.createTime = createTime;
+    }
+
+    public Date getRepairTime() {
+        return repairTime;
+    }
+
+    public void setRepairTime(Date repairTime) {
+        this.repairTime = repairTime;
+    }
+
+    public String getCreateBy() {
+        return createBy;
+    }
+
+    public void setCreateBy(String createBy) {
+        this.createBy = createBy;
+    }
+
+    public String getApplianceBrand() {
+        return applianceBrand;
+    }
+
+    public void setApplianceBrand(String applianceBrand) {
+        this.applianceBrand = applianceBrand;
+    }
+
+    public String getApplianceCategory() {
+        return applianceCategory;
+    }
+
+    public void setApplianceCategory(String applianceCategory) {
+        this.applianceCategory = applianceCategory;
+    }
+
+    public String getApplianceModel() {
+        return applianceModel;
+    }
+
+    public void setApplianceModel(String applianceModel) {
+        this.applianceModel = applianceModel;
+    }
+
+    public String getApplianceBarcode() {
+        return applianceBarcode;
+    }
+
+    public void setApplianceBarcode(String applianceBarcode) {
+        this.applianceBarcode = applianceBarcode;
+    }
+
+    public Date getApplianceBuyTime() {
+        return applianceBuyTime;
+    }
+
+    public void setApplianceBuyTime(Date applianceBuyTime) {
+        this.applianceBuyTime = applianceBuyTime;
+    }
+
+    public BigDecimal getAppliancePrice() {
+        return appliancePrice;
+    }
+
+    public void setAppliancePrice(BigDecimal appliancePrice) {
+        this.appliancePrice = appliancePrice;
+    }
+
+    public Integer getApplianceNum() {
+        return applianceNum;
+    }
+
+    public void setApplianceNum(Integer applianceNum) {
+        this.applianceNum = applianceNum;
+    }
+
+    public String getApplianceMachineCode() {
+        return applianceMachineCode;
+    }
+
+    public void setApplianceMachineCode(String applianceMachineCode) {
+        this.applianceMachineCode = applianceMachineCode;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public String getCustomerAddress() {
+        return customerAddress;
+    }
+
+    public void setCustomerAddress(String customerAddress) {
+        this.customerAddress = customerAddress;
+    }
+
+    public String getCustomerAddress2() {
+        return customerAddress2;
+    }
+
+    public void setCustomerAddress2(String customerAddress2) {
+        this.customerAddress2 = customerAddress2;
+    }
+
+    public String getCustomerMobile() {
+        return customerMobile;
+    }
+
+    public void setCustomerMobile(String customerMobile) {
+        this.customerMobile = customerMobile;
+    }
+
+    public String getCustomerTelephone() {
+        return customerTelephone;
+    }
+
+    public void setCustomerTelephone(String customerTelephone) {
+        this.customerTelephone = customerTelephone;
+    }
+
+    public String getCustomerTelephone2() {
+        return customerTelephone2;
+    }
+
+    public void setCustomerTelephone2(String customerTelephone2) {
+        this.customerTelephone2 = customerTelephone2;
+    }
+
+    public Date getPromiseTime() {
+        return promiseTime;
+    }
+
+    public void setPromiseTime(Date promiseTime) {
+        this.promiseTime = promiseTime;
+    }
+
+    public String getPromiseLimit() {
+        return promiseLimit;
+    }
+
+    public void setPromiseLimit(String promiseLimit) {
+        this.promiseLimit = promiseLimit;
+    }
+
+    public String getCustomerFeedback() {
+        return customerFeedback;
+    }
+
+    public void setCustomerFeedback(String customerFeedback) {
+        this.customerFeedback = customerFeedback;
+    }
+
+    public String getRemarks() {
+        return remarks;
+    }
+
+    public void setRemarks(String remarks) {
+        this.remarks = remarks;
+    }
+
+    public String getOrigin() {
+        return origin;
+    }
+
+    public void setOrigin(String origin) {
+        this.origin = origin;
+    }
+
+    public String getcServiceType() {
+        return cServiceType;
+    }
+
+    public void setcServiceType(String cServiceType) {
+        this.cServiceType = cServiceType;
+    }
+
+    public String getcServiceMode() {
+        return cServiceMode;
+    }
+
+    public void setcServiceMode(String cServiceMode) {
+        this.cServiceMode = cServiceMode;
+    }
+
+    public String getServiceType() {
+        return serviceType;
+    }
+
+    public void setServiceType(String serviceType) {
+        this.serviceType = serviceType;
+    }
+
+    public String getServiceMode() {
+        return serviceMode;
+    }
+
+    public void setServiceMode(String serviceMode) {
+        this.serviceMode = serviceMode;
+    }
+
+    public String getImportant() {
+        return important;
+    }
+
+    public void setImportant(String important) {
+        this.important = important;
+    }
+
+    public String getLevel() {
+        return level;
+    }
+
+    public void setLevel(String level) {
+        this.level = level;
+    }
+
+    public String getSiteName() {
+        return siteName;
+    }
+
+    public void setSiteName(String siteName) {
+        this.siteName = siteName;
+    }
+
+    public String getEmploye1() {
+        return employe1;
+    }
+
+    public void setEmploye1(String employe1) {
+        this.employe1 = employe1;
+    }
+
+    public String getEmploye2() {
+        return employe2;
+    }
+
+    public void setEmploye2(String employe2) {
+        this.employe2 = employe2;
+    }
+
+    public String getEmploye3() {
+        return employe3;
+    }
+
+    public void setEmploye3(String employe3) {
+        this.employe3 = employe3;
+    }
+
+    public Date getDispatchTime() {
+        return dispatchTime;
+    }
+
+    public void setDispatchTime(Date dispatchTime) {
+        this.dispatchTime = dispatchTime;
+    }
+
+    public Date getUpdateTime() {
+        return updateTime;
+    }
+
+    public void setUpdateTime(Date updateTime) {
+        this.updateTime = updateTime;
+    }
+
+    public String getWarrantyType() {
+        return warrantyType;
+    }
+
+    public void setWarrantyType(String warrantyType) {
+        this.warrantyType = warrantyType;
+    }
+
+    public String getMalfunctionType() {
+        return malfunctionType;
+    }
+
+    public void setMalfunctionType(String malfunctionType) {
+        this.malfunctionType = malfunctionType;
+    }
+
+    public String getMalfunctionDescription() {
+        return malfunctionDescription;
+    }
+
+    public void setMalfunctionDescription(String malfunctionDescription) {
+        this.malfunctionDescription = malfunctionDescription;
+    }
+
+    public String getMalfunctionCause() {
+        return malfunctionCause;
+    }
+
+    public void setMalfunctionCause(String malfunctionCause) {
+        this.malfunctionCause = malfunctionCause;
+    }
+
+    public String getMalfunctionCauseDescription() {
+        return malfunctionCauseDescription;
+    }
+
+    public void setMalfunctionCauseDescription(String malfunctionCauseDescription) {
+        this.malfunctionCauseDescription = malfunctionCauseDescription;
+    }
+
+    public String getMeasures() {
+        return measures;
+    }
+
+    public void setMeasures(String measures) {
+        this.measures = measures;
+    }
+
+    public String getMeasuresDescription() {
+        return measuresDescription;
+    }
+
+    public void setMeasuresDescription(String measuresDescription) {
+        this.measuresDescription = measuresDescription;
+    }
+
+    public String getSiteId() {
+        return siteId;
+    }
+
+    public void setSiteId(String siteId) {
+        this.siteId = siteId;
+    }
+
+    public String getProcessDetail() {
+        return processDetail;
+    }
+
+    public void setProcessDetail(String processDetail) {
+        this.processDetail = processDetail;
+    }
+
+    public Date getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(Date endTime) {
+        this.endTime = endTime;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String orderId) {
+        this.orderId = orderId;
+    }
+
+    public String getFeedback() {
+        return feedback;
+    }
+
+    public void setFeedback(String feedback) {
+        this.feedback = feedback;
+    }
+
+    public Date getFeedbackTime() {
+        return feedbackTime;
+    }
+
+    public void setFeedbackTime(Date feedbackTime) {
+        this.feedbackTime = feedbackTime;
+    }
+
+    public String getFeedbackResult() {
+        return feedbackResult;
+    }
+
+    public void setFeedbackResult(String feedbackResult) {
+        this.feedbackResult = feedbackResult;
+    }
+
+    public String getFeedbackName() {
+        return feedbackName;
+    }
+
+    public void setFeedbackName(String feedbackName) {
+        this.feedbackName = feedbackName;
+    }
+
+    public String getIsConvert() {
+        return isConvert;
+    }
+
+    public void setIsConvert(String isConvert) {
+        this.isConvert = isConvert;
+    }
+
+    public String getFlag() {
+        return flag;
+    }
+
+    public void setFlag(String flag) {
+        this.flag = flag;
+    }
+
+    public String getFlagDesc() {
+        return flagDesc;
+    }
+
+    public void setFlagDesc(String flagDesc) {
+        this.flagDesc = flagDesc;
+    }
+
+    public Date getFlagAlertDate() {
+        return flagAlertDate;
+    }
+
+    public void setFlagAlertDate(Date flagAlertDate) {
+        this.flagAlertDate = flagAlertDate;
+    }
+
+    public Integer getPrintTimes() {
+        return printTimes;
+    }
+
+    public void setPrintTimes(Integer printTimes) {
+        this.printTimes = printTimes;
+    }
+}

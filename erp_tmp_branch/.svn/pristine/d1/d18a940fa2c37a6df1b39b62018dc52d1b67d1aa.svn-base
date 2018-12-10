@@ -1,0 +1,61 @@
+package com.jojowonet.modules.order.utils.excelExt.handler;
+
+import java.util.Map;
+
+import org.apache.poi.ss.formula.functions.T;
+
+import com.jfinal.plugin.activerecord.Db;
+
+public class ExcelOrderTemplateCheckHandler implements ExcelItemHandler{
+
+	private Map<String, Object> excelTemplate;
+	
+	private Object params;
+
+	@Override
+	public Class<?> getExcelItemClass() {
+		return T.class;
+	}
+
+	@Override
+	public Map<String, Object> getExcelTemplate() {
+		return excelTemplate;
+	}
+
+	public void setExcelTemplate(String templateId) {
+		if(excelTemplate == null){
+			excelTemplate = Db.findFirst("SELECT * FROM crm_order_import_template a where a.id = ?", templateId).getColumns();
+		}
+	}
+
+	@Override
+	public Object getParams() {
+		return params;
+	}
+
+	public void setParams(Object params){
+		this.params = params;
+	}
+
+	@Override
+	public int getStartRow() {
+		return 0;
+	}
+
+	@Override
+	public int getStartSheet() {
+		return 0;
+	}
+
+	@Override
+	public Boolean handler(Map<String, Object> rowData, int rowIndex) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Boolean checkExcel(Map<String, Object> rowData, int rowIndex) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+}

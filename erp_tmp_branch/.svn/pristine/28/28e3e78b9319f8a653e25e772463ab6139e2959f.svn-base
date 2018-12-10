@@ -1,0 +1,1874 @@
+package com.jojowonet.modules.order.service;
+
+import com.google.common.collect.Maps;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.form.Target;
+import com.jojowonet.modules.fitting.service.FittingUsedRecordService;
+import com.jojowonet.modules.operate.dao.NonServicemanDao;
+import com.jojowonet.modules.operate.entity.NonServiceman;
+import com.jojowonet.modules.operate.service.SiteMsgService;
+import com.jojowonet.modules.order.dao.*;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.entity.OrderDispatch;
+import com.jojowonet.modules.order.entity.OrderDispatchEmployeRel;
+import com.jojowonet.modules.order.entity.OrderFeedback;
+import com.jojowonet.modules.order.utils.*;
+import com.jojowonet.modules.sys.config.SFCacheService;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.UserUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
+import org.hibernate.SQLQuery;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.RoundingMode;
+import java.util.*;
+
+@Component
+@Transactional(readOnly = true)
+public class ChangeSelfOrderService extends BaseService{
+
+	private static final Logger logger = Logger.getLogger(ChangeSelfOrderService.class);
+
+	@Autowired
+	private OrderDao orderDao;
+	@Autowired 
+	private NonServicemanDao nonDao;
+	@Autowired
+	private OrderDispatchDao orderDispatchDao;
+	@Autowired
+	private OrderFeedbackDao orderFeedbackDao;
+	@Autowired
+	private OrderDispatchEmployeRelDao orderDispatchEmployeRelDao;
+	@Autowired
+	private SiteMsgService siteMsgService;
+	@Autowired
+	private FittingUsedRecordService fittingUsedRecordService;
+	@Autowired
+	private OrderFittingService orderFittingService;
+	@Autowired
+	private SFCacheService sfCacheService;
+	@Autowired
+	private CrmOrder400Dao crmOrder400Dao;
+	
+	/*获取system权限下维护的厂家*/
+	public List<Record> gerOrderBrandList(String siteId){
+		return Db.find("SELECT a.* FROM crm_vender_info a WHERE a.status='0' ");
+	}
+
+	/**
+	 * 判断是否显示某厂家的工单
+	 * @param siteId
+	 */
+	public List<Record> selectFactory(String siteId){
+		StringBuffer sb=new StringBuffer();
+		sb.append(" SELECT a.name FROM crm_site_vender_account a ");
+		sb.append(" LEFT JOIN crm_vender_info b ON a.vender_id=b.id AND b.status='0' ");
+		sb.append(" WHERE a.status='0' AND a.site_id='"+siteId+"' ");
+		return  Db.find(sb.toString());
+	}
+
+	public Page<Record> getFourHandurandOrderGrid(String siteId,Page<Record> page,Map<String,Object> map,String orderType) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append("SELECT o.*,(SELECT f.name FROM `crm_order_mark_settings` AS f WHERE f.`id`=o.`flag`) AS flag FROM crm_order_400 o WHERE o.site_id = '"+siteId+"' and order_type='"+orderType+"' ");
+		sb.append(getOrderCondition(map,orderType));
+		sb.append(createOrderBy(map," ORDER BY o.repair_time DESC  "));
+		if(page!=null){
+			sb.append(" limit "+page.getPageSize()+" offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		List<Record> list = Db.find(sb.toString());
+		for(Record rd : list){
+			String customerMobiles=CrmUtils.cusMobiles(rd.getStr("customer_mobile"),rd.getStr("customer_telephone"),rd.getStr("customer_telephone2"));
+			rd.set("customer_mobile", customerMobiles);
+		}
+		Long count = getCount(siteId,map,orderType);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+
+	/*400工单历史数据*/
+	public Page<Record> old400Order(String siteId,Page<Record> page,Map<String,Object> map) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append("SELECT o.*,(SELECT f.name FROM `crm_order_mark_settings` AS f WHERE f.`id`=o.`flag`) AS flag FROM crm_order_400_2017 o WHERE o.site_id = '"+siteId+"'  ");
+		sb.append(getOrderCondition(map,""));
+		sb.append(createOrderBy(map," ORDER BY o.repair_time DESC  "));
+		if(page!=null){
+			sb.append(" limit "+page.getPageSize()+" offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		List<Record> list = Db.find(sb.toString());
+		for(Record rd : list){
+			String customerMobiles=CrmUtils.cusMobiles(rd.getStr("customer_mobile"),rd.getStr("customer_telephone"),rd.getStr("customer_telephone2"));
+			rd.set("customer_mobile", customerMobiles);
+		}
+		Long count = getCountForOld(siteId,map);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+
+	public Long getCountForOld(String siteId,Map<String,Object> map){
+		StringBuilder sb = new StringBuilder("");
+		sb.append("SELECT count(*) FROM crm_order_400_2017 o WHERE o.site_id = '"+siteId+"'  ");
+		sb.append(getOrderCondition(map,""));
+		return Db.queryLong(sb.toString());
+	}
+
+	//表头排序
+	private String createOrderBy(Map<String, Object> map, String defaultOrderBy) {
+		String sort =null;
+		String dir = null;
+		if(map.get("sidx")!=null){
+			if(StringUtils.isNotBlank(map.get("sidx").toString())){
+					sort = map.get("sidx").toString();		
+			}
+		}
+         if(map.get("sord")!=null){
+	          if(StringUtils.isNotBlank(map.get("sord").toString())){
+		            dir = map.get("sord").toString();
+	        }
+         }
+	
+		String result=defaultOrderBy;
+		if(map.get("sidx")!=null){
+	               result=(StringUtils.isNotBlank(sort) && StringUtils.isNotBlank(dir)) ? ("order by `" + sort + "` " + dir) : defaultOrderBy;
+		}
+	    return result;
+	}
+	
+	
+	public List<Record> getList(String siteId,Page<Record> page,Map<String,Object> map,String orderType){
+		StringBuilder sb = new StringBuilder("");
+		sb.append("SELECT o.* FROM crm_order_400 o WHERE o.site_id = '"+siteId+"' and order_type='"+orderType+"' ");
+		sb.append(getOrderCondition(map,orderType));
+		sb.append(" ORDER BY o.create_time desc");
+		if(page!=null){
+			sb.append(" limit "+page.getPageSize()+" offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		List<Record> list = Db.find(sb.toString());
+		return list;
+	}
+
+    /**
+     * 导出400历史工单
+     * @param siteId
+     * @param page
+     * @param map
+     * @return
+     */
+	public List<Record> getListForOld400(String siteId,Page<Record> page,Map<String,Object> map){
+		StringBuilder sb = new StringBuilder("");
+		sb.append("SELECT o.* FROM crm_order_400_2017 o WHERE o.site_id = '"+siteId+"' ");
+		sb.append(getOrderCondition(map,""));
+		sb.append(" ORDER BY o.create_time desc");
+		if(page!=null){
+			sb.append(" limit "+page.getPageSize()+" offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		List<Record> list = Db.find(sb.toString());
+		return list;
+	}
+	public Long getCount(String siteId,Map<String,Object> map,String orderType){
+		StringBuilder sb = new StringBuilder("");
+		sb.append("SELECT count(*) FROM crm_order_400 o WHERE o.site_id = '"+siteId+"' and order_type='"+orderType+"' ");
+		sb.append(getOrderCondition(map,orderType));
+		return Db.queryLong(sb.toString());
+	}
+	public String getOrderCondition(Map<String,Object> map,String orderType){
+		StringBuffer sf = new StringBuffer();
+		//小程序中使用
+		if(StringUtil.checkParamsValid(map.get("ordernumberMobile"))){
+			sf.append(" and (o.customer_mobile like '%"+(map.get("ordernumberMobile"))+"%' or o.customer_telephone like '%"+map.get("ordernumberMobile")+"%' or o.customer_telephone2 like '%"+map.get("ordernumberMobile")+"%' or o.number like '%"+(map.get("ordernumberMobile"))+"%') ");
+		}
+				
+		
+		if(StringUtil.checkParamsValid((CharSequence)map.get("number"))){//工单编号
+			sf.append(" and o.number like '%"+map.get("number").toString().trim()+"%' ");
+		}
+		if(StringUtil.checkParamsValid((CharSequence)map.get("status"))){//工单状态
+			String statuss[]=map.get("status").toString().split(",");
+			if("9".equals(orderType) || "f".equals(orderType)) {//奥克斯、美菱工单状态是输入框查询
+				sf.append(" and o.status like '%"+map.get("status")+"%'");
+			}else {
+				sf.append(" and o.status in ( ");
+				for(int i=0;i<statuss.length;i++){
+					if(i<statuss.length-1){
+						sf.append(" '"+statuss[i]+"', ");
+					}else{
+						sf.append(" '"+statuss[i]+"' ");
+					}
+				}
+				sf.append(" ) ");
+			}
+		}
+
+		if(StringUtils.isNotBlank(orderType)){
+			if(StringUtil.checkParamsValid((CharSequence)map.get("origin"))) {
+				if ("2".equals(orderType)) {//2.美的厂家系统
+					String[] origins = map.get("origin").toString().trim().split(",");
+					List<String> list=Arrays.asList(origins);
+					List arrList = new ArrayList(list);
+					if(list.contains("用户自助微信")){
+						arrList.add("用户自助-微信");
+					}
+					if(list.contains("用户自助官网")){
+						arrList.add("用户自助-官网");
+					}
+					String[] originsArray = new String[arrList.size()];
+					arrList.toArray(originsArray);
+					sf.append(" and o.origin  in ("+StringUtil.joinInSql(originsArray)+") ");
+				}else{
+					sf.append(" and o.origin  like '%"+map.get("origin").toString().trim()+"%' ");
+				}
+			}
+		}
+
+		if(StringUtil.checkParamsValid((CharSequence)map.get("warningType"))){
+			if(StringUtils.isNotBlank(orderType)){
+				if("2".equals(orderType)){//2.美的厂家系统
+					if("1".equals(map.get("warningType"))){//今日工单总数
+						sf.append(" and TO_DAYS(o.repair_time)=TO_DAYS(NOW()) ");
+					}else if("2".equals(map.get("warningType"))){//待接收
+						sf.append(" and o.`status` in('待派单','待接收','一级网点改派申请','抢单中') ");
+					}else if("3".equals(map.get("warningType"))){//未完工
+						sf.append(" and o.`status` IN ('待派单','已派工','已接单','待接收','一级网点改派申请','抢单中','已预约') ");
+					}else if("4".equals(map.get("warningType"))){//超20h预警
+						sf.append(" and o.`status` IN ('待派单','已派工','已接单','待接收','一级网点改派申请','抢单中','已预约') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND o.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}else if("5".equals(map.get("warningType"))){//超24h预警
+						sf.append(" and o.`status` IN ('待派单','已派工','已接单','待接收','一级网点改派申请','抢单中','已预约') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}else if("6".equals(map.get("warningType"))){//超45分钟未预约
+						sf.append(" and (ISNULL(o.promise_time) or o.promise_time='') and o.`status` IN ('待派单','待接收','一级网点改派申请','抢单中','已预约') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 45 minute) ");
+					}else if("7".equals(map.get("warningType"))){//预约倒计时2H
+						sf.append(" and o.promise_time IS NOT NULL AND o.promise_time <> '' and o.`status` IN ('待派单','待接收','一级网点改派申请','抢单中','已预约') AND o.promise_time >= DATE_SUB(NOW(), INTERVAL 2 HOUR) ");
+					}
+
+				}else if("3".equals(orderType)){ //3.惠而浦厂家系统
+					if("1".equals(map.get("warningType"))){//今日工单总数
+						sf.append(" and TO_DAYS(o.repair_time)=TO_DAYS(NOW()) ");
+					}else if("3".equals(map.get("warningType"))){//未完工
+						sf.append(" and o.`status` IN ('已派至网点') ");
+					}else if("4".equals(map.get("warningType"))){//超20h预警
+						sf.append(" and o.`status` IN ('已派至网点') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND o.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}else if("5".equals(map.get("warningType"))){//超24h预警
+						sf.append(" and o.`status` IN ('已派至网点') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}
+				}else if("4".equals(orderType)){//4.海信厂家系统
+					if("1".equals(map.get("warningType"))){//今日工单总数
+						sf.append(" and TO_DAYS(o.repair_time)=TO_DAYS(NOW()) ");
+					}else if("3".equals(map.get("warningType"))){//未完工
+						sf.append(" and o.`status` in('待派工','已派工','已接收','已联系用户','已指派工程师','已反馈') ");
+					}else if("4".equals(map.get("warningType"))){//超20h预警
+						sf.append(" and o.`status` IN ('待派工','已派工','已接收','已联系用户','已指派工程师','已反馈') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND o.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}else if("5".equals(map.get("warningType"))){//超24h预警
+						sf.append(" and o.`status` IN ('待派工','已派工','已接收','已联系用户','已指派工程师','已反馈') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}
+				}else if("5".equals(orderType)){// 5.海尔厂家系统
+					if("1".equals(map.get("warningType"))){//今日工单总数
+						sf.append(" and TO_DAYS(o.repair_time)=TO_DAYS(NOW()) ");
+					}else if("3".equals(map.get("warningType"))){//未完工
+						sf.append(" and o.`status` IN ('服务中','已派单','抢单中','已到商','已到兵','已响应','已预约','处理中','未完工') ");
+					}else if("4".equals(map.get("warningType"))){//超48h预警
+						sf.append(" and o.`status` IN ('服务中','已派单','抢单中','已到商','已到兵','已响应','已预约','处理中','未完工') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 48 HOUR) AND o.repair_time >= DATE_SUB(NOW(), INTERVAL 72 HOUR) ");
+					}else if("5".equals(map.get("warningType"))){//超72h预警
+						sf.append(" and o.`status` IN ('服务中','已派单','抢单中','已到商','已到兵','已响应','已预约','处理中','未完工') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 72 HOUR) ");
+					}
+				}else if("9".equals(orderType)){// 6.奥克斯厂家系统
+					if("1".equals(map.get("warningType"))){//今日工单总数
+						sf.append(" and TO_DAYS(o.repair_time)=TO_DAYS(NOW()) ");
+					}else if("3".equals(map.get("warningType"))){//未完工
+						sf.append(" and o.`status` IN ('服务中','已派单') ");
+					}else if("4".equals(map.get("warningType"))){//超48h预警
+						sf.append(" and o.`status` IN ('服务中','已派单') AND AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND o.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}else if("5".equals(map.get("warningType"))){//超72h预警
+						sf.append(" and o.`status` IN ('服务中','已派单') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}
+				}else if("8".equals(orderType)){// 7.格力厂家系统
+					if("1".equals(map.get("warningType"))){//今日工单总数
+						sf.append(" and TO_DAYS(o.repair_time)=TO_DAYS(NOW()) ");
+					}else if("3".equals(map.get("warningType"))){//未完工
+						sf.append(" and o.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工') ");
+					}else if("4".equals(map.get("warningType"))){//超48h预警
+						sf.append(" and o.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND o.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}else if("5".equals(map.get("warningType"))){//超72h预警
+						sf.append(" and o.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}
+				}else if("f".equals(orderType)){// 7.美菱厂家系统
+					if("1".equals(map.get("warningType"))){//今日工单总数
+						sf.append(" and TO_DAYS(o.repair_time)=TO_DAYS(NOW()) ");
+					}else if("3".equals(map.get("warningType"))){//未完工
+						sf.append(" and o.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工') ");
+					}else if("4".equals(map.get("warningType"))){//超48h预警
+						sf.append(" and o.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND o.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}else if("5".equals(map.get("warningType"))){//超72h预警
+						sf.append(" and o.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工') AND o.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) ");
+					}
+				}
+			}
+		}
+
+		if (StringUtil.checkParamsValid((CharSequence)map.get("applianceB"))){//家电品牌
+			sf.append(" and o.appliance_brand like '%"+map.get("applianceB").toString().trim()+"%' ");
+		}
+		if(StringUtil.checkParamsValid((CharSequence)map.get("applianceCategory"))){//家电类型
+			sf.append(" and o.appliance_category like '%"+map.get("applianceCategory").toString().trim()+"%' ");
+		}
+		if(StringUtil.checkParamsValid((CharSequence)map.get("applianceModel"))){//家电型号employeName
+			sf.append(" and o.appliance_model like '%"+map.get("applianceModel").toString().trim()+"%' ");
+		}
+		if (StringUtil.checkParamsValid((CharSequence)map.get("customerName"))){//用户姓名
+			sf.append(" and o.customer_name like '%"+map.get("customerName").toString().trim()+"%' ");
+		}
+		if(StringUtil.checkParamsValid((CharSequence)map.get("customerMobile"))){//联系方式
+			Object mobile = map.get("customerMobile");
+			if(StringUtil.isMobile(mobile)) {
+				sf.append(" and (o.customer_mobile = '" + map.get("customerMobile").toString().trim() + "' or o.customer_telephone = '" + map.get("customerMobile").toString().trim() + "' or o.customer_telephone2 = '" + map.get("customerMobile").toString().trim() + "') ");
+			} else {
+				sf.append(" and (o.customer_mobile like '%" + map.get("customerMobile").toString().trim() + "%' or o.customer_telephone like '%" + map.get("customerMobile").toString().trim() + "%' or o.customer_telephone2 like '%" + map.get("customerMobile").toString().trim() + "%') ");
+			}
+		}
+		if(StringUtil.checkParamsValid((CharSequence)map.get("customerAddress"))){//详细地址
+			sf.append(" and o.customer_address like '%"+map.get("customerAddress").toString().trim()+"%' ");
+		}
+		if(StringUtil.checkParamsValid((CharSequence)map.get("employeName"))){//服务工程师
+			sf.append(" and (o.employe1 like '%"+map.get("employeName").toString().trim()+"%' or o.employe2 like '%"+map.get("employeName").toString().trim()+"%' or o.employe3 like '%"+map.get("employeName").toString().trim()+"%') ");
+		}
+		if (StringUtil.checkParamsValid((CharSequence)map.get("isConvert"))){//转自接
+			sf.append(" and o.is_convert ='"+map.get("isConvert")+"' ");
+		}
+		if(StringUtil.checkParamsValid((CharSequence)map.get("serviceType"))){//服务类型
+			sf.append(" and (o.service_type like '%"+map.get("serviceType").toString().trim()+"%' or o.c_service_type like '%"+map.get("serviceType").toString().trim()+"%') ");
+		}
+		if(StringUtil.checkParamsValid(map.get("repairTimeMin"))){//报修时间
+			if(((String)map.get("repairTimeMin")).matches("^(\\d{4})-([0-1]\\d)-([0-3]\\d)\\s([0-5]\\d):([0-5]\\d):([0-5]\\d)$")){
+				sf.append(" and o.repair_time >= '"+(map.get("repairTimeMin"))+"'  ");
+			}else{
+				sf.append(" and o.repair_time >= '"+(map.get("repairTimeMin"))+"'  ");
+			}
+		}
+		if(StringUtil.checkParamsValid(map.get("repairTimeMax"))){
+			if(((String)map.get("repairTimeMax")).matches("^(\\d{4})-([0-1]\\d)-([0-3]\\d)\\s([0-5]\\d):([0-5]\\d):([0-5]\\d)$")){
+				sf.append(" and o.repair_time <= '"+(map.get("repairTimeMax"))+"' ");
+			}else{
+				sf.append(" and o.repair_time <= '"+(map.get("repairTimeMax"))+"' ");
+			}
+		}
+		if(StringUtil.checkParamsValid(map.get("endTimeMin"))){//完成时间
+				sf.append(" and o.end_time >= '"+( map.get("endTimeMin"))+"' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("endTimeMax"))){
+			sf.append(" and o.end_time <= '"+( map.get("endTimeMax"))+"'  ");
+		}
+		if(StringUtil.checkParamsValid(map.get("promiseTimeMin"))){//预约时间
+			sf.append(" and o.promise_time >= '"+( map.get("promiseTimeMin"))+"' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("promiseTimeMax"))){
+			sf.append(" and o.promise_time <= '"+( map.get("promiseTimeMax"))+"'  ");
+		}
+		if(StringUtil.checkParamsValid(map.get("dispatchTimeMin"))){//派工时间
+			sf.append(" and o.dispatch_time >= '"+( map.get("dispatchTimeMin"))+"' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("dispatchTimeMax"))){
+			sf.append(" and o.dispatch_time <= '"+( map.get("dispatchTimeMax"))+"'  ");
+		}
+		if(StringUtil.checkParamsValid(map.get("signType"))){
+			String str[]=map.get("signType").toString().split(",");
+			sf.append(" and o.flag in (" + StringUtil.joinInSql(str) + ")");
+		}
+		return sf.toString();
+	}
+	
+	public List<Record> empList(String siteId){
+		return Db.find("select * from crm_employe a where a.status='0' and a.site_id='"+siteId+"'");
+	}
+	
+	public String confirm(String siteId,String employes){
+		String[] employeArray = employes.split(",");
+		String emps = "";
+		for(String st : employeArray){
+			if("".equals(emps)){
+				emps="'"+st+"'";
+			}else{
+				emps=emps+",'"+st+"'";
+			}
+		}
+		Long count = Db.queryLong("select count(*) from crm_employe a where a.site_id=? and a.status='0' and a.name in("+emps+") ",siteId);
+		if(count>0){
+			List<Record> list = Db.find("select a.* from crm_employe a where a.site_id=? and a.status='0' and a.name in("+emps+")",siteId);
+			String employesExist="";
+			for(Record rd : list){
+				if("".equals(employesExist)){
+					employesExist=rd.getStr("name");
+				}else{
+					employesExist=employesExist+","+rd.getStr("name");
+				}
+			}
+			return employesExist;
+		}
+		return "noEmployes";
+	}
+
+	/**
+	 * 创建反馈内容。
+	 * @param siteId 网点id
+	 * @param fbName 反馈人姓名
+	 * @param fbTime 反馈时间
+	 * @param fbContent 反馈内容
+	 * @param fbResult 反馈结果
+	 * @param orderId 工单id
+	 * @param dispId 派工单id
+	 * @param remark 备注
+	 */
+	private void createEmpFeedback(String siteId, String fbName, Date fbTime, String fbContent, String fbResult, String orderId, String dispId, String remark) {
+		OrderFeedback orderFeedback = newEmpFeedback(siteId, fbName, fbTime, fbContent, fbResult, orderId, dispId, remark);
+		if (orderFeedback != null) {
+			orderFeedbackDao.save(orderFeedback);
+		}
+	}
+
+	private OrderFeedback newEmpFeedback(String siteId, String fbName, Date fbTime, String fbContent, String fbResult, String orderId, String dispId, String remark) {
+		if (StringUtil.isBlank(fbContent)) {
+			return null;
+		}
+
+		if (fbTime == null) {
+			fbTime = new Date();
+		}
+		OrderFeedback orderFeedback = new OrderFeedback();
+		if (StringUtils.isNotBlank(fbName)) {
+			Record rd3 = Db.findFirst("select * from crm_employe a where a.status='0' and a.site_id=? and a.name=?", siteId, fbName);
+			if (rd3 != null) {
+				orderFeedback.setFeedbackId(rd3.getStr("id"));
+			}
+		} else {
+			fbName = "400反馈";
+		}
+		orderFeedback.setDispatchId(dispId);
+		orderFeedback.setOrderId(orderId);
+		orderFeedback.setFeedbackName(fbName);
+		orderFeedback.setSiteId(siteId);
+		orderFeedback.setFeedbackType("1");
+		orderFeedback.setUserType("4");
+		if (StringUtils.isNotBlank(remark)) {
+			orderFeedback.setRemarks(remark);//备注
+		}
+		orderFeedback.setFeedbackTime(fbTime);
+		if (StringUtils.isNotBlank(fbResult)) {//反馈结果
+			orderFeedback.setFeedbackResult(fbResult);
+		}
+		orderFeedback.setFeedback(fbContent);
+		return orderFeedback;
+	}
+	
+	@Transactional
+	public String confirmOne(String siteId,String id400,String employes,String orderStatus,String userId){
+			Record rd5 = Db.findFirst("select * from crm_order_400 where `id`=?",id400);
+			if(rd5==null){
+				return "orderNoExist";
+			}
+			String number = rd5.getStr("number");
+			if("1".equals(rd5.getStr("is_convert")) || orderDao.isOrderExists(number, siteId)){
+				return "alreadyZzj";
+			}
+		    String confirmResult="";
+			if(StringUtils.isNotBlank(employes)){
+				confirmResult = confirm(siteId,employes);
+				if(confirmResult.equals("noEmployes")){
+					return "noEmployes";
+				}
+				employes=confirmResult;
+			}
+			Record rd = Db.findFirst("select * from crm_order_400 a where a.id='"+id400+"'");
+			Record site = Db.findFirst("select * from crm_site a where a.id='"+siteId+"'");
+			
+			User user = null;
+			if(StringUtils.isNotBlank(userId)) {
+				user = UserUtils.getUserById(userId);
+			}else{
+				user= UserUtils.getUser();
+			}
+			
+			String name = CrmUtils.getCreateName(user);
+			String msgId="";
+			NonServiceman no = null;
+			if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+				name= CrmUtils.getSiteName();
+				msgId = CrmUtils.getCurrentSiteId(user);
+			} else {
+				no = nonDao.getNonServiceman(user);
+				name = no.getName();
+				msgId = no.getId();
+			}
+			Order order = new Order();
+			order.setFlag(rd.getStr("flag"));
+			order.setAuxiliaryCost(orderFittingService.sumFittingUseCostByOrder(siteId, number).setScale(2, RoundingMode.HALF_UP).doubleValue());
+			order.setFlagAlertDate(rd.getDate("flag_alert_date"));
+			order.setFlagDesc(rd.getStr("flag_desc"));
+			order.setStatus(orderStatus);
+			order.setOrderType(rd.getStr("order_type"));//工单来源                                                                                                                         
+			order.setCreateTime(new Date());//创建时间                                                            							
+			order.setRepairTime(rd.getDate("repair_time"));//报修时间
+			order.setCreateBy(UserUtils.getUser().getId());//创建人
+			order.setApplianceBrand(rd.getStr("appliance_brand"));//家电品牌
+			order.setApplianceCategory(rd.getStr("appliance_category"));//家电品类
+			order.setApplianceModel(rd.getStr("appliance_model"));//家电型号
+			order.setApplianceBarcode(rd.getStr("appliance_barcode"));//家电内机条码
+			order.setApplianceBuyTime(rd.getDate("appliance_buy_time"));//家电购机时间
+			order.setApplianceNum(1);//家电数量
+			order.setApplianceMachineCode(rd.getStr("appliance_machine_code"));//家电外机条码
+			order.setCustomerName(rd.getStr("customer_name"));//用户姓名
+			if("保内".equals(rd.getStr("warranty_type"))){
+				order.setWarrantyType("1");//保修类型-保内
+			}else if("保外".equals(rd.getStr("warranty_type"))){
+				order.setWarrantyType("2");//保修类型-保外
+			}
+			order.setMalfunctionCause(rd.getStr("malfunction_cause"));
+			order.setMalfunctionCauseDescription(rd.getStr("malfunction_cause_description"));
+			order.setMalfunctionType(rd.getStr("malfunction_type"));
+			order.setMalfunctionDescription(rd.getStr("malfunction_description"));
+			order.setMeasures(rd.getStr("measures"));
+			order.setMeasuresDescription(rd.getStr("measures_description"));
+			if(StringUtils.isNotBlank(rd.getStr("customer_address"))){
+				order.setCustomerAddress(rd.getStr("customer_address"));//用户地址
+			}else if(StringUtils.isNotBlank(rd.getStr("customer_address2"))){
+				order.setCustomerAddress(rd.getStr("customer_address2"));//用户地址2
+			}
+			order.setCustomerMobile(rd.getStr("customer_mobile"));//用户联系方式
+			order.setCustomerTelephone(rd.getStr("customer_telephone"));//用户电话
+			order.setCustomerTelephone2(rd.getStr("customer_telephone2"));//用户电话2
+			if(rd.getDate("promise_time")!=null){
+				order.setPromiseTime(rd.getDate("promise_time"));//预约时间
+			}
+			if(StringUtils.isNotBlank(rd.getStr("promise_limit"))){
+				order.setPromiseLimit(rd.getStr("promise_limit"));//时间要求
+			}
+			if(StringUtils.isNotBlank(rd.getStr("customer_feedback"))){
+				order.setCustomerFeedback(rd.getStr("customer_feedback"));//用户反馈TradeNoUtils.genOrderNo("V")
+			}
+			if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+				order.setRemarks(rd.getStr("remarks"));//备注
+			}
+			order.setOrigin(rd.getStr("origin"));//信息来源
+			if(StringUtils.isNotBlank(rd.getStr("service_type"))){
+				order.setServiceType(rd.getStr("service_type"));//服务类型
+			}else{
+				order.setServiceType(rd.getStr("c_service_type"));//服务类型
+			}
+			if(StringUtils.isNotBlank(rd.getStr("service_mode"))){
+				order.setServiceMode(rd.getStr("service_mode"));//服务类型
+			}else{
+				order.setServiceMode(rd.getStr("c_service_mode"));//服务类型
+			}
+			if(StringUtils.isNotBlank(rd.getStr("level"))){
+				if(rd.getStr("level").equals("紧急")){
+					order.setLevel("1");//信息等级
+				}else{
+					order.setLevel("2");//信息等级
+				}
+			}
+			order.setSiteId(siteId);//网点Id
+			order.setSiteName(site.getStr("name"));//网点名称
+			order.setMessengerId(msgId);//信息员Id                                                            
+			order.setMessengerName(name);//信息员名称    
+			order.setNumber(rd.getStr("number"));
+			order.setFactoryNumber(rd.getStr("number"));//转自接过来的工单记录原400工单编号
+			order.setRecordAccount("0");//未录单
+			String code = siteMsgService.ifOpenOrderSet(siteId);
+			if("200".equals(code)){
+				OrderNo odn = CrmUtils.genOrderNo(siteId);
+				if(odn!=null){
+					if("200".equals(check400OrderNumber(rd.getStr("number"),siteId))) {
+						order.setNumber(odn.getData());
+						order.setSeq(odn.getSeq());
+					}
+				}
+			}
+			if(orderStatus.equals("1")){//待派工 		
+				order.setLatestProcessTime(new Date());  
+				order.setLatestProcess(name+"转自接");//最新过程信息	
+				order.setProcessDetail(processDetail(name,rd.getStr("process_detail")));//过程信息    
+				orderDao.save(order);
+			}else if(orderStatus.equals("2")){//服务中
+				String[] employeArray = employes.split(",");
+				/*crm_order工单表*/
+				Target ta1 = new Target();
+				ta1.setType(Target.DISPATCH_ORDER);//派工
+				ta1.setName(name);
+				ta1.setContent(name+"派工至"+employes);
+				if(rd.getDate("dispatch_time")!=null){
+					ta1.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("dispatch_time")));
+					//order.setPromiseTime(rd.getDate("dispatch_time"));
+				}else{
+					ta1.setTime(DateToStringUtils.DateToString());
+				}
+				String str1 = WebPageFunUtils.appendProcessDetail(ta1, processDetail(name,rd.getStr("process_detail")));
+				
+				order.setProcessDetail(str1);//过程信息                                                                                                                     
+				order.setLatestProcess(name+"派工至"+employes);//最新过程信息	
+				order.setEmployeId(employeIdAndName(employes,siteId));//服务工程师ids        3张表
+				order.setEmployeName(employes);//服务工程师names
+				orderDao.save(order);
+				
+				/*crm_order_dispacth派工表*/
+				OrderDispatch orderDispatch = new OrderDispatch();
+				if(rd.getDate("dispatch_time")!=null){//派工时间
+					orderDispatch.setDispatchTime(rd.getDate("dispatch_time"));
+				}else{
+					orderDispatch.setDispatchTime(new Date());
+				}
+				orderDispatch.setOrder(order);//order_id
+				orderDispatch.setStatus("1");//派工状态，4-已上门维修中
+				if(rd.getDate("promise_time")!=null){
+					orderDispatch.setPromiseFlag("1");//是否有预约时间
+				}
+				orderDispatch.setUpdateTime(new Date());//更新时间
+				orderDispatch.setUpdateBy(name);//更新操作人
+				if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+					orderDispatch.setRemarks(rd.getStr("remarks"));//备注
+				}
+				orderDispatch.setMessengerId(msgId);
+				orderDispatch.setMessengerName(name);
+				orderDispatch.setSiteId(siteId);
+				orderDispatch.setEmployeId(employeIdAndName(employes,siteId));//服务工程师ids        
+				orderDispatch.setEmployeName(employes);//服务工程师names
+				orderDispatchDao.save(orderDispatch);
+				
+				/*crm_order_dispatch_employe_rel工单派工与工程师关系表*/
+				for(String st : employeArray){
+					OrderDispatchEmployeRel orderDispatchEmployeRel = new OrderDispatchEmployeRel();
+					Record rd1 = Db.findFirst("select * from crm_employe a where a.status='0' and a.site_id=? and a.name=?",siteId,st);
+					orderDispatchEmployeRel.setDispatchId(orderDispatch.getId());
+					orderDispatchEmployeRel.setSiteId(siteId);
+					orderDispatchEmployeRel.setOrderId(order.getId());
+					orderDispatchEmployeRel.setEmpId(rd1.getStr("id"));
+					orderDispatchEmployeRel.setEmpName(st);
+					orderDispatchEmployeRelDao.save(orderDispatchEmployeRel);
+				}
+
+				String fbContent = rd.getStr("feedback");
+				if (StringUtil.isNotBlank(fbContent)) {
+					String fbName = rd.getStr("feedback_name");
+					String fbResult = rd.getStr("feedback_result");
+					String remark = rd.getStr("remarks");
+					String orderId = order.getId();
+					String dispId = orderDispatch.getId();
+					Date fbTime = rd.getDate("feedback_time");
+					createEmpFeedback(siteId, fbName, fbTime, fbContent, fbResult, orderId, dispId, remark);
+				}
+			}else if(orderStatus.equals("3")){//待回访
+				String[] employeArray = employes.split(",");
+				/*crm_order工单表*/
+				Target ta1 = new Target();
+				ta1.setType(Target.DISPATCH_ORDER);//派工
+				ta1.setName(name);
+				ta1.setContent(name+"派工至"+employes);
+				if(rd.getDate("dispatch_time")!=null){
+					ta1.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("dispatch_time")));
+				}else{
+					ta1.setTime(DateToStringUtils.DateToString());
+				}
+				String str1 = WebPageFunUtils.appendProcessDetail(ta1, processDetail(name,rd.getStr("process_detail")));
+				
+				Target ta2 = new Target();//完成
+				ta2.setTime(DateToStringUtils.DateToStringParam1(new Date()));
+				if(rd.getDate("end_time")!=null){
+					ta2.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("end_time")));
+					order.setLatestProcessTime(rd.getDate("end_time"));
+					order.setEndTime(rd.getDate("end_time"));//完工时间	
+				} else {
+					order.setEndTime(new Date());
+				}
+				ta2.setName(employes);
+				ta2.setContent(employes+"确认维修完成");
+				ta2.setType(12);
+				String str2 = WebPageFunUtils.appendProcessDetail(ta2, str1);
+				order.setProcessDetail(str2);//过程信息                                                                                                                     
+				order.setLatestProcess(employes+"确认维修完成");//最新过程信息	
+				order.setEmployeId(employeIdAndName(employes,siteId));
+				order.setEmployeName(employes);//服务工程师names
+				orderDao.save(order);
+				
+				/*crm_order_dispacth派工表*/
+				OrderDispatch orderDispatch = new OrderDispatch();
+				if(rd.getDate("dispatch_time")!=null){//派工时间
+					orderDispatch.setDispatchTime(rd.getDate("dispatch_time"));
+				}else{
+					orderDispatch.setDispatchTime(new Date());
+				}
+				if(rd.getDate("end_time")!=null){
+					orderDispatch.setEndTime(rd.getDate("end_time"));//完工时间
+				} else {
+					orderDispatch.setEndTime(new Date());
+				}
+				orderDispatch.setOrder(order);//order_id
+				orderDispatch.setStatus("5");//派工状态，4-已上门维修中
+				if(rd.getDate("promise_time")!=null){
+					orderDispatch.setPromiseFlag("1");//是否有预约时间
+				}
+				orderDispatch.setUpdateTime(new Date());//更新时间
+				orderDispatch.setUpdateBy(name);//更新操作人
+				if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+					orderDispatch.setRemarks(rd.getStr("remarks"));//备注
+				}
+				orderDispatch.setMessengerId(msgId);
+				orderDispatch.setMessengerName(name);
+				orderDispatch.setSiteId(siteId);
+				orderDispatch.setEmployeId(employeIdAndName(employes,siteId));//服务工程师ids        3张表
+				orderDispatch.setEmployeName(employes);//服务工程师names
+				orderDispatchDao.save(orderDispatch);
+				
+				/*crm_order_dispatch_employe_rel工单派工与工程师关系表*/
+				for(String st : employeArray){
+					OrderDispatchEmployeRel orderDispatchEmployeRel = new OrderDispatchEmployeRel();
+					Record rd1 = Db.findFirst("select * from crm_employe a where a.status='0' and a.site_id=? and a.name=?",siteId,st);
+					orderDispatchEmployeRel.setDispatchId(orderDispatch.getId());
+					orderDispatchEmployeRel.setSiteId(siteId);
+					orderDispatchEmployeRel.setOrderId(order.getId());
+					orderDispatchEmployeRel.setEmpId(rd1.getStr("id"));
+					orderDispatchEmployeRel.setEmpName(st);
+					orderDispatchEmployeRelDao.save(orderDispatchEmployeRel);
+				}
+				
+				/*crm_order_feedback工单反馈表*/
+//				if(rd.getDate("feedback_time")!=null){
+//					OrderFeedback orderFeedback = new OrderFeedback();
+//					String feedName="MAINSERVICE";//反馈人
+//					if(StringUtils.isNotBlank(rd.getStr("feedback_name"))){
+//						Long ff = Db.queryLong("select count(*) from crm_employe a where a.status='0' and a.site_id=? and a.name=?",siteId,rd.getStr("feedback_name"));
+//						if(ff>0){
+//							feedName=rd.getStr("feedback_name");
+//							Record rd3 = Db.findFirst("select * from crm_employe a where a.status='0' and a.site_id=? and a.name=?",siteId,rd.getStr("feedback_name"));
+//							orderFeedback.setFeedbackId(rd3.getStr("id"));
+//						}
+//					}
+//					orderFeedback.setDispatchId(orderDispatch.getId());
+//					orderFeedback.setOrderId(order.getId());
+//					orderFeedback.setFeedbackName(feedName);
+//					orderFeedback.setSiteId(siteId);
+//					orderFeedback.setFeedbackType("1");
+//					orderFeedback.setUserType("4");
+//					if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+//						orderFeedback.setRemarks(rd.getStr("remarks"));//备注
+//					}
+//					if(rd.getDate("feedback_time")!=null){//反馈时间
+//						orderFeedback.setFeedbackTime(rd.getDate("feedback_time"));
+//					}
+//					if(StringUtils.isNotBlank(rd.getStr("feedback_result"))){//反馈结果
+//						orderFeedback.setFeedbackResult(rd.getStr("feedback_result"));
+//					}
+//					if(StringUtils.isNotBlank(rd.getStr("feedback"))){//反馈内容
+//						orderFeedback.setFeedback(rd.getStr("feedback"));
+//					}
+//					orderFeedbackDao.save(orderFeedback);
+//				}
+				String fbContent = rd.getStr("feedback");
+				if (StringUtil.isNotBlank(fbContent)) {
+					String fbName = rd.getStr("feedback_name");
+					String fbResult = rd.getStr("feedback_result");
+					String remark = rd.getStr("remarks");
+					String orderId = order.getId();
+					String dispId = orderDispatch.getId();
+					Date fbTime = rd.getDate("feedback_time");
+					createEmpFeedback(siteId, fbName, fbTime, fbContent, fbResult, orderId, dispId, remark);
+				}
+			}
+			Db.update("update crm_order_400 a set a.is_convert='1',a.update_time=now(),a.order_id='"+order.getId()+"' where a.id='"+id400+"'");//将order_400 的is_convert改为1：已转自接 order_id
+			return "ok";
+	}
+
+	public String employeIdAndName(String employes,String siteId){
+		String[] emName = employes.split(",");
+		List<Record> emIdList = Db.find("select * from crm_employe a where a.status='0' and a.site_id=? and a.name in("+StringUtil.joinInSql(emName)+")",siteId);
+		
+		String str = "";
+		for(Record rd1 : emIdList){
+			if(str.equals("")){
+				str=rd1.getStr("id");
+			}else{
+				str=str+","+rd1.getStr("id");
+			}
+		}
+		return str;
+	}
+	
+	public Long checkEmploye(String emps,String siteId){
+		String[] emp400 = emps.split(",");
+		return Db.queryLong("select count(*)  from crm_employe a where a.name in("+StringUtil.joinInSql(emp400)+") and a.site_id='"+siteId+"' and a.status='0'");
+	}
+	
+
+    /*
+     * 判断数组中是否有重复的值
+     */
+    public static boolean cheakIsRepeat(String[] array) {
+        HashSet<String> hashSet = new HashSet<String>();
+        for (int i = 0; i < array.length; i++) {
+            hashSet.add(array[i]);
+        }
+        if (hashSet.size() == array.length) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+	
+	@Transactional
+	public String confirmMore(String siteId,String ids,String employes,String orderStatus,String isEmployes){
+			List<Record> ls = Db.find("select * from crm_order_400 where `id` in("+ids+")");
+			String marks="0";
+			List<String> numbers = new ArrayList<>();
+			String zzjNums = "";
+
+			for(Record rd : ls){
+				String numberOne = rd.getStr("number");
+				if(StringUtils.isEmpty(zzjNums)){
+					zzjNums=numberOne;
+				}else{
+					zzjNums=zzjNums+","+numberOne;
+				}
+				numbers.add(rd.getStr("number"));
+				if("1".equals(rd.getStr("is_convert"))){
+					marks="1";
+				}
+			}
+			if(StringUtils.isNotBlank(zzjNums)){
+				String[] numberArr = zzjNums.split(",");
+				if (!cheakIsRepeat(numberArr)) {
+					return "numbersRepeat";
+				}
+			}
+			if("1".equals(marks) || orderDao.isOrderExists(numbers, siteId)){
+				return "alreadyZzj";
+			}
+			String confirmResult="";
+			if(StringUtils.isNotBlank(employes)){
+				confirmResult = confirm(siteId,employes);
+				if(confirmResult.equals("noEmployes")){
+					if("是".equals(isEmployes)){
+						return "noEmployes";
+					}
+				}
+				employes=confirmResult;
+			}
+			List<Order> orderList = new ArrayList<>();
+			List<OrderDispatch> orderDispatchList = new ArrayList<>();
+			List<Record> list = Db.find("select * from crm_order_400 a where a.id in ("+ids+")");
+			Record site = Db.findFirst("select * from crm_site a where a.id='"+siteId+"'");
+			User user = UserUtils.getUser();
+			List<String> id400List = new ArrayList<>();
+			String name;
+			String msgId="";
+			NonServiceman no = null;
+			if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+				name= CrmUtils.getSiteName();
+				msgId = CrmUtils.getCurrentSiteId(user);
+			} else {
+				no = nonDao.getNonServiceman(user);
+				name = no.getName();
+				msgId = no.getId();
+			}
+			String allNumbers = togetherNumber(list);
+
+			HashSet<String> ret= new HashSet<>() ;
+			String code = siteMsgService.ifOpenOrderSet(siteId);
+			List<SimpleOrderNo> son = new ArrayList<SimpleOrderNo>();
+			if("200".equals(code)){
+				List<Record> listApply = Db.find("select a.order_number from crm_site_fitting_apply a where a.order_number in ("+StringUtil.joinInSql(allNumbers.split(","))+") and a.site_id=? ",siteId);
+				List<Record> listUsed = Db.find("select a.order_number from crm_site_fitting_used_record a where a.order_number in ("+StringUtil.joinInSql(allNumbers.split(","))+") and a.site_id=? ",siteId);
+				ret = needsNum(listApply,listUsed);
+				son = CrmUtils.genOrderNos(siteId,list.size()-ret.size());
+			}
+			Integer sonMark = 0;
+			String[] orderIds = new String[list.size()];
+			int c = 0;
+			for(Record rd : list) {
+				orderIds[c++] = rd.getStr("id");
+			}
+
+		Map<String, Double> fittingFee = fittingUsedRecordService.calcFittingFee(orderIds);
+		for(Record rd : list){
+				
+				id400List.add(rd.getStr("id"));
+				Order order = new Order();
+				order.setFlag(rd.getStr("flag"));
+				Double fee = fittingFee.get(rd.getStr("id"));
+				if (fee != null) {
+					order.setAuxiliaryCost(fee);
+				}
+				order.setFlagAlertDate(rd.getDate("flag_alert_date"));
+				order.setFlagDesc(rd.getStr("flag_desc"));
+				order.setStatus(orderStatus);
+				order.setOrderType(rd.getStr("order_type"));//工单来源                                                                                                                         
+				order.setCreateTime(new Date());//创建时间                                                            							
+				order.setRepairTime(rd.getDate("repair_time"));//报修时间
+				order.setCreateBy(UserUtils.getUser().getId());//创建人
+				order.setApplianceBrand(rd.getStr("appliance_brand"));//家电品牌
+				order.setApplianceCategory(rd.getStr("appliance_category"));//家电品类
+				order.setApplianceModel(rd.getStr("appliance_model"));//家电型号
+				order.setApplianceBarcode(rd.getStr("appliance_barcode"));//家电内机条码
+				order.setApplianceBuyTime(rd.getDate("appliance_buy_time"));//家电购机时间
+				order.setApplianceNum(1);//家电数量
+				order.setApplianceMachineCode(rd.getStr("appliance_machine_code"));//家电外机条码
+				order.setCustomerName(rd.getStr("customer_name"));//用户姓名
+				order.setRecordAccount("0");//未录单
+				if("保内".equals(rd.getStr("warranty_type"))){
+					order.setWarrantyType("1");//保修类型-保内
+				}else if("保外".equals(rd.getStr("warranty_type"))){
+					order.setWarrantyType("2");//保修类型-保外
+				}
+				order.setMalfunctionCause(rd.getStr("malfunction_cause"));
+				order.setMalfunctionCauseDescription(rd.getStr("malfunction_cause_description"));
+				order.setMalfunctionType(rd.getStr("malfunction_type"));
+				order.setMalfunctionDescription(rd.getStr("malfunction_description"));
+				order.setMeasures(rd.getStr("measures"));
+				order.setMeasuresDescription(rd.getStr("measures_description"));
+				if(StringUtils.isNotBlank(rd.getStr("customer_address"))){
+					order.setCustomerAddress(rd.getStr("customer_address"));//用户地址
+				}else if(StringUtils.isNotBlank(rd.getStr("customer_address2"))){
+					order.setCustomerAddress(rd.getStr("customer_address2"));//用户地址2
+				}
+				order.setCustomerMobile(rd.getStr("customer_mobile"));//用户联系方式
+				order.setCustomerTelephone(rd.getStr("customer_telephone"));//用户电话
+				order.setCustomerTelephone2(rd.getStr("customer_telephone2"));//用户电话2
+				if(rd.getDate("promise_time")!=null){
+					order.setPromiseTime(rd.getDate("promise_time"));//预约时间
+				}
+				if(StringUtils.isNotBlank(rd.getStr("promise_limit"))){
+					order.setPromiseLimit(rd.getStr("promise_limit"));//时间要求
+				}
+				if(StringUtils.isNotBlank(rd.getStr("customer_feedback"))){
+					order.setCustomerFeedback(rd.getStr("customer_feedback"));//用户反馈TradeNoUtils.genOrderNo("V")
+				}
+				if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+					order.setRemarks(rd.getStr("remarks"));//备注
+				}
+				order.setOrigin(rd.getStr("origin"));//信息来源
+				if(StringUtils.isNotBlank(rd.getStr("service_type"))){
+					order.setServiceType(rd.getStr("service_type"));//服务类型
+				}else{
+					order.setServiceType(rd.getStr("c_service_type"));//服务类型
+				}
+				
+				if(StringUtils.isNotBlank(rd.getStr("level"))){
+					if("紧急".equals(rd.getStr("level"))){
+						order.setLevel("1");//信息等级
+					}else{
+						order.setLevel("2");//信息等级
+					}
+				}
+				order.setSiteId(siteId);//网点Id
+				order.setSiteName(site.getStr("name"));//网点名称
+				order.setMessengerId(msgId);//信息员Id                                                            
+				order.setMessengerName(name);//信息员名称                                                                                                                
+				order.setNumber(rd.getStr("number"));
+				order.setFactoryNumber(rd.getStr("number"));//转自接过来的工单记录原400工单编号
+				if("200".equals(code)){
+					if(son.size() > 0) {
+						SimpleOrderNo sonEntity = son.get(sonMark);
+						if(!ret.contains(rd.getStr("number"))) {
+							order.setNumber(sonEntity.getNo());
+							order.setSeq(sonEntity.getS());
+							sonMark++;
+						}
+					}
+				}
+				if(orderStatus.equals("1")){//待派工 		
+					order.setLatestProcessTime(new Date());  
+					order.setLatestProcess(name+"转自接");//最新过程信息	
+					order.setProcessDetail(processDetail(name,rd.getStr("process_detail")));//过程信息    
+					orderList.add(order);
+				}else if(orderStatus.equals("2")){//服务中
+					if("否".equals(isEmployes)){
+						List<String> list1 = getEmpIdAndName(rd.getStr("employe1"),rd.getStr("employe2"),rd.getStr("employe3"),siteId);
+						order.setEmployeName(list1.get(0));
+						order.setEmployeId(list1.get(2));
+						Target ta1 = new Target();
+						ta1.setType(Target.DISPATCH_ORDER);//派工
+						ta1.setName(name);
+						ta1.setContent(name+"派工至"+list1.get(0));
+						if(rd.getDate("dispatch_time")!=null){
+							ta1.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("dispatch_time")));
+							//order.setPromiseTime(rd.getDate("dispatch_time"));
+						}else{
+							ta1.setTime(DateToStringUtils.DateToString());
+							//order.setPromiseTime(new Date());
+						}
+						String str1 = WebPageFunUtils.appendProcessDetail(ta1, processDetail(name,rd.getStr("process_detail")));
+						order.setProcessDetail(str1);//过程信息                                                                                                                     
+						order.setLatestProcess(name+"派工至"+list1.get(0));//最新过程信息	
+						/*crm_order_dispacth派工表*/
+						OrderDispatch orderDispatch = new OrderDispatch();
+						if(rd.getDate("dispatch_time")!=null){//派工时间
+							orderDispatch.setDispatchTime(rd.getDate("dispatch_time"));
+						}else{
+							orderDispatch.setDispatchTime(new Date());
+						}
+						orderDispatch.setOrder(order);//order_id
+						orderDispatch.setStatus("1");//派工状态，4-已上门维修中
+						if(rd.getDate("promise_time")!=null){
+							orderDispatch.setPromiseFlag("1");//是否有预约时间
+						}
+						orderDispatch.setUpdateTime(new Date());//更新时间
+						orderDispatch.setUpdateBy(name);//更新操作人
+						if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+							orderDispatch.setRemarks(rd.getStr("remarks"));//备注
+						}
+						orderDispatch.setMessengerId(msgId);
+						orderDispatch.setMessengerName(name);
+						orderDispatch.setSiteId(siteId);
+						orderDispatch.setEmployeId(list1.get(2));//服务工程师ids        
+						orderDispatch.setEmployeName(list1.get(0));//服务工程师names
+						orderList.add(order);
+						orderDispatchList.add(orderDispatch);
+					}else if("是".equals(isEmployes)){
+						Target ta1 = new Target();
+						ta1.setType(Target.DISPATCH_ORDER);//派工
+						ta1.setName(name);
+						ta1.setContent(name+"派工至"+employes);
+						if(rd.getDate("dispatch_time")!=null){
+							ta1.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("dispatch_time")));
+							//order.setPromiseTime(rd.getDate("dispatch_time"));
+						}else{
+							ta1.setTime(DateToStringUtils.DateToString());
+							//order.setPromiseTime(new Date());
+						}
+						String str1 = WebPageFunUtils.appendProcessDetail(ta1, processDetail(name,rd.getStr("process_detail")));
+						order.setProcessDetail(str1);//过程信息                                                                                                                     
+						order.setLatestProcess(name+"派工至"+employes);//最新过程信息	
+						order.setEmployeId(employeIdAndName(employes,siteId));//服务工程师ids        3张表
+						order.setEmployeName(employes);//服务工程师names
+						/*crm_order_dispacth派工表*/
+						OrderDispatch orderDispatch = new OrderDispatch();
+						if(rd.getDate("dispatch_time")!=null){//派工时间
+							orderDispatch.setDispatchTime(rd.getDate("dispatch_time"));
+						}else{
+							orderDispatch.setDispatchTime(new Date());
+						}
+						orderDispatch.setOrder(order);//order_id
+						orderDispatch.setStatus("1");//派工状态，4-已上门维修中
+						if(rd.getDate("promise_time")!=null){
+							orderDispatch.setPromiseFlag("1");//是否有预约时间
+						}
+						orderDispatch.setUpdateTime(new Date());//更新时间
+						orderDispatch.setUpdateBy(name);//更新操作人
+						if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+							orderDispatch.setRemarks(rd.getStr("remarks"));//备注
+						}
+						orderDispatch.setMessengerId(msgId);
+						orderDispatch.setMessengerName(name);
+						orderDispatch.setSiteId(siteId);
+						orderDispatch.setEmployeId(employeIdAndName(employes,siteId));//服务工程师ids        
+						orderDispatch.setEmployeName(employes);//服务工程师names
+						orderList.add(order);
+						orderDispatchList.add(orderDispatch);
+					}
+				}else if(orderStatus.equals("3")){//待回访
+					if("否".equals(isEmployes)){//选择的否的话，则每个工单转自接之后服务工程师还是原本工单的工程师
+						List<String> list1 = getEmpIdAndName(rd.getStr("employe1"),rd.getStr("employe2"),rd.getStr("employe3"),siteId);
+						order.setEmployeName(list1.get(0));
+						order.setEmployeId(list1.get(2));
+						Target ta1 = new Target();
+						ta1.setType(Target.DISPATCH_ORDER);//派工
+						ta1.setName(name);
+						ta1.setContent(name+"派工至"+list1.get(0));
+						if(rd.getDate("dispatch_time")!=null){
+							ta1.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("dispatch_time")));
+						}else{
+							ta1.setTime(DateToStringUtils.DateToString());
+						}
+						String str1 = WebPageFunUtils.appendProcessDetail(ta1, processDetail(name,rd.getStr("process_detail")));
+						Target ta2 = new Target();//完成
+						ta2.setTime(DateToStringUtils.DateToStringParam1(new Date()));
+						if(rd.getDate("end_time")!=null){
+							ta2.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("end_time")));
+							order.setLatestProcessTime(rd.getDate("end_time"));
+							order.setEndTime(rd.getDate("end_time"));//完工时间	
+						} else {
+							order.setEndTime(new Date());
+						}
+						ta2.setName(list1.get(0));
+						ta2.setContent(list1.get(0)+"确认维修完成");
+						ta2.setType(12);
+						String str2 = WebPageFunUtils.appendProcessDetail(ta2, str1);
+						order.setProcessDetail(str2);//过程信息                                                                                                                     
+						order.setLatestProcess(list1.get(0)+"确认维修完成");//最新过程信息	
+						/*crm_order_dispacth派工表*/
+						OrderDispatch orderDispatch = new OrderDispatch();
+						if(rd.getDate("dispatch_time")!=null){//派工时间
+							orderDispatch.setDispatchTime(rd.getDate("dispatch_time"));
+						}else{
+							orderDispatch.setDispatchTime(new Date());
+						}
+						if(rd.getDate("end_time")!=null){
+							orderDispatch.setEndTime(rd.getDate("end_time"));//完工时间
+						} else {
+							orderDispatch.setEndTime(new Date());
+						}
+						orderDispatch.setOrder(order);//order_id
+						orderDispatch.setStatus("5");//派工状态，4-已上门维修中
+						if(rd.getDate("promise_time")!=null){
+							orderDispatch.setPromiseFlag("1");//是否有预约时间
+						}
+						orderDispatch.setUpdateTime(new Date());//更新时间
+						orderDispatch.setUpdateBy(name);//更新操作人
+						if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+							orderDispatch.setRemarks(rd.getStr("remarks"));//备注
+						}
+						orderDispatch.setMessengerId(msgId);
+						orderDispatch.setMessengerName(name);
+						orderDispatch.setSiteId(siteId);
+						orderDispatch.setEmployeId(list1.get(2));//服务工程师ids        
+						orderDispatch.setEmployeName(list1.get(0));//服务工程师names
+						orderList.add(order);
+						orderDispatchList.add(orderDispatch);
+					}else if("是".equals(isEmployes)){
+						/*crm_order工单表*/
+						Target ta1 = new Target();
+						ta1.setType(Target.DISPATCH_ORDER);//派工
+						ta1.setName(name);
+						ta1.setContent(name+"派工至"+employes);
+						if(rd.getDate("dispatch_time")!=null){
+							ta1.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("dispatch_time")));
+						}else{
+							ta1.setTime(DateToStringUtils.DateToString());
+						}
+						String str1 = WebPageFunUtils.appendProcessDetail(ta1, processDetail(name,rd.getStr("process_detail")));
+						
+						Target ta2 = new Target();//完成
+						ta2.setTime(DateToStringUtils.DateToStringParam1(new Date()));
+						if(rd.getDate("end_time")!=null){
+							ta2.setTime(DateToStringUtils.DateToStringParam1(rd.getDate("end_time")));
+							order.setLatestProcessTime(rd.getDate("end_time"));
+							order.setEndTime(rd.getDate("end_time"));//完工时间	
+						} else {
+							order.setEndTime(new Date());
+						}
+						ta2.setName(employes);
+						ta2.setContent(employes+"确认维修完成");
+						ta2.setType(12);
+						String str2 = WebPageFunUtils.appendProcessDetail(ta2, str1);
+						order.setProcessDetail(str2);//过程信息                                                                                                                     
+						order.setLatestProcess(employes+"确认维修完成");//最新过程信息	
+						order.setEmployeId(employeIdAndName(employes,siteId));
+						order.setEmployeName(employes);//服务工程师names
+						
+						/*crm_order_dispacth派工表*/
+						OrderDispatch orderDispatch = new OrderDispatch();
+						if(rd.getDate("dispatch_time")!=null){//派工时间
+							orderDispatch.setDispatchTime(rd.getDate("dispatch_time"));
+						}else{
+							orderDispatch.setDispatchTime(new Date());
+						}
+						if(rd.getDate("end_time")!=null){
+							orderDispatch.setEndTime(rd.getDate("end_time"));//完工时间
+						} else {
+							orderDispatch.setEndTime(new Date());
+						}
+						orderDispatch.setOrder(order);//order_id
+						orderDispatch.setStatus("5");//派工状态，4-已上门维修中
+						if(rd.getDate("promise_time")!=null){
+							orderDispatch.setPromiseFlag("1");//是否有预约时间
+						}
+						orderDispatch.setUpdateTime(new Date());//更新时间
+						orderDispatch.setUpdateBy(name);//更新操作人
+						if(StringUtils.isNotBlank(rd.getStr("remarks"))){
+							orderDispatch.setRemarks(rd.getStr("remarks"));//备注
+						}
+						orderDispatch.setMessengerId(msgId);
+						orderDispatch.setMessengerName(name);
+						orderDispatch.setSiteId(siteId);
+						orderDispatch.setEmployeId(employeIdAndName(employes,siteId));//服务工程师ids        3张表
+						orderDispatch.setEmployeName(employes);//服务工程师names
+						orderList.add(order);
+						orderDispatchList.add(orderDispatch);
+					}
+				}
+			}
+			if(orderStatus.equals("1")){//待派工
+				orderDao.save(orderList);
+			}else if(orderStatus.equals("2")){//服务中
+				List<OrderDispatchEmployeRel> oderList = new ArrayList<>();
+				List<OrderFeedback> orderFeedbackList = new ArrayList<>();
+				Integer j=0;
+				orderDispatchDao.save(orderDispatchList);
+				/*crm_order_dispatch_employe_rel工单派工与工程师关系表*/
+				for (OrderDispatch op : orderDispatchList) {
+					Record order4 = Db.findFirst("select * from crm_order_400 a where a.id='" + id400List.get(j) + "'");
+					j++;
+					String employeDis = op.getEmployeName();
+					String[] empDis = employeDis.split(",");
+					for (String st : empDis) {
+						OrderDispatchEmployeRel orderDispatchEmployeRel = new OrderDispatchEmployeRel();
+						Record rd1 = Db.findFirst("select * from crm_employe a where a.status='0' and a.site_id=? and a.name=?", siteId, st);
+						orderDispatchEmployeRel.setDispatchId(op.getId());
+						orderDispatchEmployeRel.setSiteId(siteId);
+						orderDispatchEmployeRel.setOrderId(op.getOrder().getId());
+						orderDispatchEmployeRel.setEmpId(rd1.getStr("id"));
+						orderDispatchEmployeRel.setEmpName(st);
+						oderList.add(orderDispatchEmployeRel);
+					}
+
+					String fbContent = order4.getStr("feedback");
+					if (StringUtil.isNotBlank(fbContent)) {
+						String fbName = order4.getStr("feedback_name");
+						String fbResult = order4.getStr("feedback_result");
+						String remark = order4.getStr("remarks");
+						String orderId = op.getOrder().getId();
+						String dispId = op.getId();
+						Date fbTime = order4.getDate("feedback_time");
+						OrderFeedback orderFeedback = newEmpFeedback(siteId, fbName, fbTime, fbContent, fbResult, orderId, dispId, remark);
+						if (orderFeedback != null) {
+							orderFeedbackList.add(orderFeedback);
+						}
+					}
+				}
+				orderDispatchEmployeRelDao.save(oderList);
+				orderFeedbackDao.save(orderFeedbackList);
+			}else if(orderStatus.equals("3")){//待回访
+				List<OrderDispatchEmployeRel> oderList = new ArrayList<>();
+				List<OrderFeedback> orderFeedbackList = new ArrayList<>();
+				orderDispatchDao.save(orderDispatchList);
+				Integer j=0;
+				/*crm_order_dispatch_employe_rel工单派工与工程师关系表*/
+				for(OrderDispatch op : orderDispatchList){
+					Record order4 = Db.findFirst("select * from crm_order_400 a where a.id='"+id400List.get(j)+"'");
+					j++;
+					String employeDis = op.getEmployeName();
+					String[] empDis = employeDis.split(",");
+					for(String st : empDis){
+						OrderDispatchEmployeRel orderDispatchEmployeRel = new OrderDispatchEmployeRel();
+						Record rd1 = Db.findFirst("select * from crm_employe a where a.status='0' and a.site_id=? and a.name=?",siteId,st);
+						orderDispatchEmployeRel.setDispatchId(op.getId());
+						orderDispatchEmployeRel.setSiteId(siteId);
+						orderDispatchEmployeRel.setOrderId(op.getOrder().getId());
+						orderDispatchEmployeRel.setEmpId(rd1.getStr("id"));
+						orderDispatchEmployeRel.setEmpName(st);
+						oderList.add(orderDispatchEmployeRel);
+					}
+					/*crm_order_feedback工单反馈表*/
+//					OrderFeedback orderFeedback = new OrderFeedback();
+//					String feedName="MAINSERVICE";//反馈人
+//					if(StringUtils.isNotBlank(order4.getStr("feedback_name"))){
+//						Long ff = Db.queryLong("select count(*) from crm_employe a where a.status='0' and a.site_id=? and a.name=?",siteId,order4.getStr("feedback_name"));
+//						if(ff>0){
+//							feedName=order4.getStr("feedback_name");
+//							Record rd3 = Db.findFirst("select * from crm_employe a where a.status='0' and a.site_id=? and a.name=?",siteId,order4.getStr("feedback_name"));
+//							orderFeedback.setFeedbackId(rd3.getStr("id"));
+//						}
+//					}
+//					orderFeedback.setDispatchId(op.getId());
+//					orderFeedback.setOrderId(op.getOrder().getId());
+//					orderFeedback.setFeedbackName(feedName);
+//					orderFeedback.setSiteId(siteId);
+//					orderFeedback.setFeedbackType("1");
+//					orderFeedback.setUserType("4");
+//					if(StringUtils.isNotBlank(order4.getStr("remarks"))){
+//						orderFeedback.setRemarks(order4.getStr("remarks"));//备注
+//					}
+//					if(order4.getDate("feedback_time")!=null){//反馈时间
+//						orderFeedback.setFeedbackTime(order4.getDate("feedback_time"));
+//					}
+//					if(StringUtils.isNotBlank(order4.getStr("feedback_result"))){//反馈结果
+//						orderFeedback.setFeedbackResult(order4.getStr("feedback_result"));
+//					}
+//					if(StringUtils.isNotBlank(order4.getStr("feedback"))){//反馈内容
+//						orderFeedback.setFeedback(order4.getStr("feedback"));
+//					}
+
+					String fbContent = order4.getStr("feedback");
+					if (StringUtil.isNotBlank(fbContent)) {
+						String fbName = order4.getStr("feedback_name");
+						String fbResult = order4.getStr("feedback_result");
+						String remark = order4.getStr("remarks");
+						String orderId = op.getOrder().getId();
+						String dispId = op.getId();
+						Date fbTime = order4.getDate("feedback_time");
+						OrderFeedback orderFeedback = newEmpFeedback(siteId, fbName, fbTime, fbContent, fbResult, orderId, dispId, remark);
+						if (orderFeedback != null) {
+							orderFeedbackList.add(orderFeedback);
+						}
+					}
+				}
+				orderDispatchEmployeRelDao.save(oderList);
+				orderFeedbackDao.save(orderFeedbackList);
+			}
+			Integer i=0;
+			for(Order od : orderList ){
+				Db.update("update crm_order_400 a set a.is_convert='1',a.update_time=now(),a.order_id='"+od.getId()+"' where a.id='"+id400List.get(i)+"'");//将order_400 的is_convert改为1：已转自接 order_id
+				i++;
+			}
+			return "ok";
+	}
+	
+	public String processDetail(String name,String proDetail){//同步过程信息和转自接
+		String str1 = "";
+		if(StringUtils.isNotBlank(proDetail)){
+			Target ta1 = new Target();
+			ta1.setType(Target.ORDER_ZZJ);//同步过程信息
+			ta1.setName("系统助手");
+			ta1.setContent(proDetail);
+			ta1.setTime(DateToStringUtils.DateToString());
+			str1 = WebPageFunUtils.appendProcessDetail(ta1, "");
+		}
+		Target ta = new Target();
+		ta.setType(Target.NEW_ORDER);//转自接工单
+		ta.setName(name);
+		ta.setContent(name+"转自接");
+		ta.setTime(DateToStringUtils.DateToString());
+		return WebPageFunUtils.appendProcessDetail(ta, str1);
+	}
+	
+	public List<String> getEmpIdAndName(String emps1,String emps2,String emps3,String siteId){
+		List<String> list = new ArrayList<>();
+		String emp1="";
+		String emp2="";
+		if(StringUtils.isNotBlank(emps1)){
+			if(emp1.equals("")){
+				emp1=emps1;
+				emp2="'"+emps1+"'";
+			}else{
+				emp1=emp1+","+emps1;
+				emp2=emp2+",'"+emps1+"'";
+			}
+		}
+		if(StringUtils.isNotBlank(emps2)){
+			if(emp1.equals("")){
+				emp1=emps2;
+				emp2="'"+emps2+"'";
+			}else{
+				emp1=emp1+","+emps2;
+				emp2=emp2+",'"+emps2+"'";
+			}
+		}
+		if(StringUtils.isNotBlank(emps3)){
+			if(emp1.equals("")){
+				emp1=emps3;
+				emp2="'"+emps3+"'";
+			}else{
+				emp1=emp1+","+emps3;
+				emp2=emp2+",'"+emps3+"'";
+			}
+		}
+		Set<String> set = new HashSet<>(); 
+		String[] emp4001 = emp1.split(",");
+		 for(int i=0;i<emp4001.length;i++){  
+	            set.add(emp4001[i]);  
+	        }
+		emp4001 = (String[]) set.toArray(new String[set.size()]);  
+	    emp1=StringUtils.join(emp4001,",");
+	    
+		List<Record> records = Db.find("select * from crm_employe a where a.status='0' and a.site_id='"+siteId+"' and a.name in ("+emp2+")"); 
+		String empIds="";
+		for(Record rd : records){
+			if(empIds.equals("")){
+				empIds=rd.getStr("id");
+			}else{
+				empIds=empIds+","+rd.getStr("id");
+			}
+		}
+		list.add(emp1);
+		list.add(emp2);
+		list.add(empIds);
+		return list;
+	}
+	
+	public Record changeSelfOrderService(String id){
+		return Db.findFirst("select * from crm_order_400 a where a.id='"+id+"'");
+	}
+
+	public Record changeSelfOrderServiceFor2017(String id){
+		return Db.findFirst("select * from crm_order_400_2017 a where a.id='"+id+"'");
+	}
+	public Record changeSelfOrderService4(String oderNum,String siteId){
+		return Db.findFirst("select * from crm_order_400 a where a.number=? and a.site_id=?",oderNum,siteId);
+	}
+	
+	public List<Record> getList400(String ids){
+		return  Db.find("select * from crm_order_400 a where a.id in ("+ids+")");
+	}
+	
+	public Record oneDetail(String id){
+		return  Db.findFirst("select * from crm_order_400 a where a.id='"+id+"'");
+	}
+	
+	public String checkNumber(String numbers,String siteId){
+		try {
+			Long count = Db.queryLong("select count(*) from crm_order a where a.site_id='"+siteId+"' and a.number in("+numbers+")");
+			if(count<1){
+				return "ok";
+			}else{
+				return "existNumber";
+			}
+		} catch (Exception e) {
+			return "no";
+		}
+	}
+
+	/**
+	 * 美的
+	 * @param siteId
+	 * @return
+	 */
+	public Map<String,Long> getCount(String siteId){
+		Map<String, Long> ret = loadCountFromCache(siteId, "2");
+		if (ret != null) {
+			return ret;
+		}
+
+		Map<String,Long> map= Maps.newHashMap();
+		StringBuffer sb=new StringBuffer();
+//		sb.append("SELECT COUNT( CASE WHEN TO_DAYS(a.repair_time)=TO_DAYS(NOW()) THEN 0 END ) AS jrCount , ");
+//		sb.append("  COUNT( CASE WHEN a.`status` in('待派单','待接收','一级网点改派申请','抢单中')  THEN 0 END ) AS djsCount , ");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('待派单','已派工','已接单','待接收','一级网点改派申请','抢单中','已预约') THEN 0 END ) AS wwgCount , ");
+//		sb.append("  COUNT( CASE WHEN (ISNULL(a.promise_time) OR a.promise_time='') and a.`status` IN ('待派单','待接收','一级网点改派申请','抢单中','已预约') AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 45 minute) THEN 0 END ) AS 45mintCount, ");
+//		sb.append("  COUNT( CASE WHEN a.promise_time IS NOT NULL AND a.promise_time <> '' and a.`status` IN ('待派单','待接收','一级网点改派申请','抢单中','已预约') AND a.promise_time >= DATE_SUB(NOW(), INTERVAL 2 HOUR) THEN 0 END ) AS 2hCount, ");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('待派单','已派工','已接单','待接收','一级网点改派申请','抢单中','已预约') AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND a.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 20hCount,");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('待派单','已派工','已接单','待接收','一级网点改派申请','抢单中','已预约') AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 24hCount ");
+//		sb.append("  FROM crm_order_400 a WHERE a.`site_id` = '"+siteId+"' and is_convert in(0,1) and order_type='2' ");
+
+
+		sb.append("SELECT COUNT( CASE WHEN TO_DAYS(a.repair_time)=TO_DAYS(NOW()) THEN 0 END ) AS jrCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` in('待派单','待接收','一级网点改派申请','抢单中')  THEN 0 END ) AS djsCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('待派单','已派工','已接单','待接收','一级网点改派申请','抢单中','已预约') THEN 0 END ) AS wwgCount , ");
+		sb.append("  COUNT( CASE WHEN (ISNULL(a.promise_time) OR a.promise_time='') and a.`status` IN ('待派单','待接收','一级网点改派申请','抢单中','已预约') AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 45 minute) THEN 0 END ) AS 45mintCount ");
+		sb.append("  FROM crm_order_400 a WHERE a.`site_id` = '"+siteId+"' and order_type='2' ");
+
+        Record re= Db.findFirst(sb.toString());
+        map.put("jrgdCunt",re.getLong("jrCount"));
+        map.put("djsCount",re.getLong("djsCount"));
+        map.put("wwgCount",re.getLong("wwgCount"));
+        map.put("fofmintCount",re.getLong("45mintCount"));//超45分钟未预约
+//        map.put("twhCount",re.getLong("2hCount"));//预约倒计时2H
+//        map.put("tyhCount",re.getLong("20hCount"));
+//        map.put("tfhCount",re.getLong("24hCount"));
+        sfCacheService.setex(String.format("sid:%s:t:2:count", siteId), 10*60, new Gson().toJson(map));
+        return map;
+    }
+
+	private Map<String, Long> loadCountFromCache(String siteId, String orderType) {
+		String s = sfCacheService.get(String.format("sid:%s:t:%s:count", siteId, orderType));
+		if (!StringUtil.isBlank(s)) {
+			return new Gson().fromJson(s, new TypeToken<HashMap<String, Long>>() {
+			}.getType());
+		}
+		return null;
+	}
+
+	/**
+	 * 海尔
+	 * @param siteId
+	 * @return
+	 */
+	public Map<String,Long> getHaierCount(String siteId){
+		Map<String, Long> ret = loadCountFromCache(siteId, "5");
+		if (ret != null) {
+			return ret;
+		}
+
+		Map<String,Long> map= Maps.newHashMap();
+		StringBuffer sb=new StringBuffer();
+		sb.append("SELECT  COUNT( CASE WHEN  TO_DAYS(a.repair_time)=TO_DAYS(NOW()) THEN 0 END ) AS jrCount , ");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('服务中','已派单','抢单中','已到商','已到兵','已响应','已预约','处理中','未完工') THEN 0 END ) AS wwgCount , ");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('服务中','已派单','抢单中','已到商','已到兵','已响应','已预约','处理中','未完工')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 48 HOUR) AND a.repair_time >= DATE_SUB(NOW(), INTERVAL 72 HOUR) THEN 0 END ) AS 20hCount,");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('服务中','已派单','抢单中','已到商','已到兵','已响应','已预约','处理中','未完工')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 72 HOUR) THEN 0 END ) AS 24hCount ");
+
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('服务中','已派单','抢单中','已到商','已到兵','已响应','已预约','处理中','未完工') THEN 0 END ) AS wwgCount ");
+		sb.append("  FROM crm_order_400 a WHERE a.`site_id` = '"+siteId+"'  and order_type='5' ");
+        Record re= Db.findFirst(sb.toString());
+        map.put("jrgdCunt",re.getLong("jrCount"));
+        map.put("wwgCount",re.getLong("wwgCount"));
+//        map.put("tyhCount",re.getLong("20hCount"));
+//        map.put("tfhCount",re.getLong("24hCount"));
+		sfCacheService.setex(String.format("sid:%s:t:5:count", siteId), 10*60, new Gson().toJson(map));
+        return map;
+    }
+	/**
+	 * 海信
+	 * @param siteId
+	 * @return
+	 */
+	public Map<String,Long> getHaixinCount(String siteId){
+		Map<String, Long> ret = loadCountFromCache(siteId, "4");
+		if (ret != null) {
+			return ret;
+		}
+
+		Map<String,Long> map= Maps.newHashMap();
+		StringBuffer sb=new StringBuffer();
+		sb.append("SELECT  COUNT( CASE WHEN  TO_DAYS(a.repair_time)=TO_DAYS(NOW()) THEN 0 END ) AS jrCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('待派工','已派工','已接收','已联系用户','已指派工程师','已反馈') THEN 0 END ) AS wwgCount  ");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('待派工','已派工','已接收','已联系用户','已指派工程师','已反馈')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND a.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 20hCount,");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('待派工','已派工','已接收','已联系用户','已指派工程师','已反馈')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 24hCount ");
+		sb.append("  FROM crm_order_400 a WHERE a.`site_id` = '"+siteId+"' and  order_type='4' ");
+        Record re= Db.findFirst(sb.toString());
+		map.put("jrgdCunt",re.getLong("jrCount"));
+        map.put("wwgCount",re.getLong("wwgCount"));
+//        map.put("tyhCount",re.getLong("20hCount"));
+//        map.put("tfhCount",re.getLong("24hCount"));
+		sfCacheService.setex(String.format("sid:%s:t:4:count", siteId), 10*60, new Gson().toJson(map));
+        return map;
+    }
+	/**
+	 * 惠而浦
+	 * @param siteId
+	 * @return
+	 */
+	public Map<String,Long> getHuierpuCount(String siteId){
+		Map<String, Long> ret = loadCountFromCache(siteId, "3");
+		if (ret != null) {
+			return ret;
+		}
+
+		Map<String,Long> map= Maps.newHashMap();
+		StringBuffer sb=new StringBuffer();
+		sb.append("SELECT  COUNT( CASE WHEN  TO_DAYS(a.repair_time)=TO_DAYS(NOW()) THEN 0 END ) AS jrCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('已派至网点') THEN 0 END ) AS wwgCount  ");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('已派至网点')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND a.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 20hCount,");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('已派至网点')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 24hCount ");
+		sb.append("  FROM crm_order_400 a WHERE a.`site_id` = '"+siteId+"'  and order_type='3' ");
+        Record re= Db.findFirst(sb.toString());
+		map.put("jrgdCunt",re.getLong("jrCount"));
+        map.put("wwgCount",re.getLong("wwgCount"));
+//        map.put("tyhCount",re.getLong("20hCount"));
+//        map.put("tfhCount",re.getLong("24hCount"));
+		sfCacheService.setex(String.format("sid:%s:t:3:count", siteId), 10*60, new Gson().toJson(map));
+        return map;
+    }
+	
+	/**
+	 * 奥克斯
+	 * @param siteId
+	 * @return
+	 */
+	public Map<String,Long> getAokesiCount(String siteId){
+		Map<String, Long> ret = loadCountFromCache(siteId, "9");
+		if (ret != null) {
+			return ret;
+		}
+
+		Map<String,Long> map= Maps.newHashMap();
+		StringBuffer sb=new StringBuffer();
+		sb.append("SELECT  COUNT( CASE WHEN  TO_DAYS(a.repair_time)=TO_DAYS(NOW()) THEN 0 END ) AS jrCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('已派至网点') THEN 0 END ) AS wwgCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('已派至网点')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND a.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 20hCount,");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('已派至网点')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 24hCount ");
+		sb.append("  FROM crm_order_400 a WHERE a.`site_id` = '"+siteId+"'  and order_type='9' ");
+        Record re= Db.findFirst(sb.toString());
+		map.put("jrgdCunt",re.getLong("jrCount"));
+        map.put("wwgCount",re.getLong("wwgCount"));
+        map.put("tyhCount",re.getLong("20hCount"));
+        map.put("tfhCount",re.getLong("24hCount"));
+		sfCacheService.setex(String.format("sid:%s:t:9:count", siteId), 10*60, new Gson().toJson(map));
+        return map;
+    }
+	
+	/**
+	 * 格力
+	 * @param siteId
+	 * @return
+	 */
+	public Map<String,Long> getGeliCount(String siteId){
+		Map<String, Long> ret = loadCountFromCache(siteId, "8");
+		if (ret != null) {
+			return ret;
+		}
+
+		Map<String,Long> map= Maps.newHashMap();
+		StringBuffer sb=new StringBuffer();
+		sb.append("SELECT  COUNT( CASE WHEN  TO_DAYS(a.repair_time)=TO_DAYS(NOW()) THEN 0 END ) AS jrCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工') THEN 0 END ) AS wwgCount  ");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND a.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 20hCount,");
+//		sb.append("  COUNT( CASE WHEN a.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 24hCount ");
+		sb.append("  FROM crm_order_400 a WHERE a.`site_id` = '"+siteId+"'  and order_type='8' ");
+        Record re= Db.findFirst(sb.toString());
+		map.put("jrgdCunt",re.getLong("jrCount"));
+        map.put("wwgCount",re.getLong("wwgCount"));
+//        map.put("tyhCount",re.getLong("20hCount"));
+//        map.put("tfhCount",re.getLong("24hCount"));
+		sfCacheService.setex(String.format("sid:%s:t:8:count", siteId), 10*60, new Gson().toJson(map));
+        return map;
+    }
+	
+	/**
+	 * 格力
+	 * @param siteId
+	 * @return
+	 */
+	public Map<String,Long> getMeilingCount(String siteId){
+		Map<String, Long> ret = loadCountFromCache(siteId, "f");
+		if (ret != null) {
+			return ret;
+		}
+
+		Map<String,Long> map= Maps.newHashMap();
+		StringBuffer sb=new StringBuffer();
+		sb.append("SELECT  COUNT( CASE WHEN  TO_DAYS(a.repair_time)=TO_DAYS(NOW()) THEN 0 END ) AS jrCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工') THEN 0 END ) AS wwgCount , ");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 20 HOUR) AND a.repair_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 20hCount,");
+		sb.append("  COUNT( CASE WHEN a.`status` IN ('保存','待网点派工','待服务人员处理','待件','拉修中','用户改约','延误','服务人员接收','服务人员拒绝','用户反馈','服务人员报完工')  AND a.repair_time <= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 0 END ) AS 24hCount ");
+		sb.append("  FROM crm_order_400 a WHERE a.`site_id` = '"+siteId+"'  and order_type='f' ");
+        Record re= Db.findFirst(sb.toString());
+		map.put("jrgdCunt",re.getLong("jrCount"));
+        map.put("wwgCount",re.getLong("wwgCount"));
+        map.put("tyhCount",re.getLong("20hCount"));
+        map.put("tfhCount",re.getLong("24hCount"));
+		sfCacheService.setex(String.format("sid:%s:t:f:count", siteId), 10*60, new Gson().toJson(map));
+        return map;
+    }
+
+
+    @Transactional(rollbackFor = Exception.class)
+	public String delMore(String delIds){
+			logger.info("to be del 400 order ids: " + delIds);
+			if (StringUtil.isNotBlank(delIds)) {
+				// delete is very serious, so site id is used a guard condition.
+				String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+				String[] split = delIds.split(",");
+				if (split.length > 100) { // this is just a guard
+					logger.error("delete too many 400 order, refused ids:" + delIds);
+					return "no";
+				}
+				SQLQuery query = crmOrder400Dao.getSession().createSQLQuery("delete from crm_order_400 where site_id=:sid and id in(" + delIds + ")");
+				query.setParameter("sid", siteId);
+				int updates = query.executeUpdate();
+//				int updates = Db.update("delete from crm_order_400 where site_id=? and id in(" + delIds + ")", siteId);
+				if (updates > 100) {
+					logger.error("delete too many 400 order, refused ids:" + delIds);
+					throw new RuntimeException("delete too many 400 orders");
+				}
+			}
+//			Db.update("update crm_order_400 a set a.is_convert='2'  where a.id in("+delIds+")");
+			return "ok";
+	}
+	
+	public String getEmpIdAndName1(String emps1,String emps2,String emps3){
+//		List<String> list = new ArrayList<>();
+//		String emp1="";
+//		if(StringUtils.isNotBlank(emps1)){
+//			if(emp1.equals("")){
+//				emp1=emps1;
+//			}else{
+//				emp1=emp1+","+emps1;
+//			}
+//		}
+//		if(StringUtils.isNotBlank(emps2)){
+//			if(emp1.equals("")){
+//				emp1=emps2;
+//			}else{
+//				emp1=emp1+","+emps2;
+//			}
+//		}
+//		if(StringUtils.isNotBlank(emps3)){
+//			if(emp1.equals("")){
+//				emp1=emps3;
+//			}else{
+//				emp1=emp1+","+emps3;
+//			}
+//		}
+//		Set<String> set = new HashSet<>();
+//		String[] emp4001 = emp1.split(",");
+//		 for(int i=0;i<emp4001.length;i++){
+//	            set.add(emp4001[i]);
+//	        }
+//		emp4001 = (String[]) set.toArray(new String[set.size()]);
+//	    emp1=StringUtils.join(emp4001,",");
+//	    return emp1;
+		return StringUtil.uniqueJoin(",", emps1, emps2, emps3);
+	}
+	
+	public Map<String,Object> getEmpIdAndName2(String emps1,String emps2,String emps3,String siteId){
+		String emps = "";
+		String msg1="";//name(mobile),name(mobile)
+		String msg2="";//names
+		String msg3="";//mobiles
+		String msg4="no";
+		if(StringUtils.isNotBlank(emps1)){
+			if(emps.equals("")){
+				emps=emps1;
+			}else{
+				emps=emps+","+emps1;
+			}
+		}
+		if(StringUtils.isNotBlank(emps2)){
+			if(emps.equals("")){
+				emps=emps2;
+			}else{
+				emps=emps+","+emps2;
+			}
+		}
+		if(StringUtils.isNotBlank(emps3)){
+			if(emps.equals("")){
+				emps=emps3;
+			}else{
+				emps=emps+","+emps3;
+			}
+		}
+		if(StringUtils.isNotBlank(emps)){
+			String[] emp400 = emps.split(",");
+			/*先给服务工程师做去重处理*/
+			Set<String> set = new HashSet<>();  
+	        for(int i=0;i<emp400.length;i++){  
+	            set.add(emp400[i]);  
+	        }  
+	        emp400 = (String[]) set.toArray(new String[set.size()]);  
+	       // StringUtil.joinInSql(emp400)+");
+	      //  String sql = "select a.* from crm_employe a where a.status='0' and a.site_id=? and a.name in ("+StringUtil.joinInSql(emp400)+")";
+	        List<Record> list = Db.find("select a.* from crm_employe a where a.status='0' and a.site_id=? and a.name in ("+StringUtil.joinInSql(emp400)+")",siteId);
+	        if(list.size()>0){
+	        	msg4="ok";
+	        	for(Record rd : list){
+	        		String mobile = "";
+	        		if(StringUtils.isNotBlank(rd.getStr("mobile"))){
+	        			mobile=rd.getStr("mobile");
+	        			if("".equals(msg1)){
+		        			msg3=rd.getStr("mobile");
+		        		}else{
+		        			msg3=msg3+","+rd.getStr("mobile");
+		        		}
+	        		}
+	        		if("".equals(msg1)){
+	        			msg1=rd.getStr("name")+"("+mobile+")";
+	        		}else{
+	        			msg1=msg1+","+rd.getStr("name")+"("+mobile+")";
+	        		}
+	        		if("".equals(msg2)){
+	        			msg2=rd.getStr("name");
+	        		}else{
+	        			msg2=msg2+","+rd.getStr("name");
+	        		}
+	        	}
+	        }
+		}
+		Map<String,Object> map = new HashMap();
+		map.put("msg1", msg1);
+		map.put("msg2", msg2);
+		map.put("msg3", msg3);
+		map.put("msg4", msg4);
+		return map;
+	}
+
+	@Transactional
+	public void markOrders(String[] ids, String flag, String flagDesc, String flagAlertTime) {
+		flagAlertTime = StringUtil.isNotBlank(flagAlertTime) ? ",flag_alert_date='" + flagAlertTime + "'" : "";
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		if (ids != null && ids.length > 0) {
+			SqlKit kit = new SqlKit()
+					.append("update crm_order_400" )
+					.append("set flag=:flag,flag_desc=:desc" + flagAlertTime)
+					.last("where site_id=:sid and id in(:ids)" );
+
+			SQLQuery sqlQuery = orderDao.getSession().createSQLQuery(kit.toString());
+			sqlQuery.setParameter("flag", flag);
+			sqlQuery.setParameter("desc", flagDesc);
+			sqlQuery.setParameter("sid", siteId);
+			sqlQuery.setParameterList("ids", ids);
+			sqlQuery.executeUpdate();
+		}
+	}
+
+	/**
+	 * 标记2017工单
+	 * @param ids
+	 * @param flag
+	 * @param flagDesc
+	 * @param flagAlertTime
+	 */
+	@Transactional
+	public void markOrdersFor2017(String[] ids, String flag, String flagDesc, String flagAlertTime) {
+		flagAlertTime = StringUtil.isNotBlank(flagAlertTime) ? ",flag_alert_date='" + flagAlertTime + "'" : "";
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		if (ids != null && ids.length > 0) {
+			SqlKit kit = new SqlKit()
+					.append("update crm_order_400_2017" )
+					.append("set flag=:flag,flag_desc=:desc" + flagAlertTime)
+					.last("where site_id=:sid and id in(:ids)" );
+
+			SQLQuery sqlQuery = orderDao.getSession().createSQLQuery(kit.toString());
+			sqlQuery.setParameter("flag", flag);
+			sqlQuery.setParameter("desc", flagDesc);
+			sqlQuery.setParameter("sid", siteId);
+			sqlQuery.setParameterList("ids", ids);
+			sqlQuery.executeUpdate();
+		}
+	}
+
+	@Transactional
+	public void cancelOrdersMark(String[] ids) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		if (ids != null && ids.length > 0) {
+			SqlKit kit = new SqlKit()
+					.append("update crm_order_400" )
+					.append("set flag=:flag,flag_desc=:desc,flag_alert_date=:date")
+					.last("where site_id=:sid and id in(:ids)" );
+
+			SQLQuery sqlQuery = orderDao.getSession().createSQLQuery(kit.toString());
+			sqlQuery.setParameter("flag", null);
+			sqlQuery.setParameter("desc", null);
+			sqlQuery.setParameter("date", null);
+			sqlQuery.setParameter("sid", siteId);
+			sqlQuery.setParameterList("ids", ids);
+			sqlQuery.executeUpdate();
+		}
+	}
+
+	/**
+	 * 取消标记工单2017
+	 * @param ids
+	 */
+	@Transactional
+	public void cancelOrdersMarkFor2017(String[] ids) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		if (ids != null && ids.length > 0) {
+			SqlKit kit = new SqlKit()
+					.append("update crm_order_400_2017" )
+					.append("set flag=:flag,flag_desc=:desc,flag_alert_date=:date")
+					.last("where site_id=:sid and id in(:ids)" );
+
+			SQLQuery sqlQuery = orderDao.getSession().createSQLQuery(kit.toString());
+			sqlQuery.setParameter("flag", null);
+			sqlQuery.setParameter("desc", null);
+			sqlQuery.setParameter("date", null);
+			sqlQuery.setParameter("sid", siteId);
+			sqlQuery.setParameterList("ids", ids);
+			sqlQuery.executeUpdate();
+		}
+	}
+
+	public String check400OrderNumber(String number,String siteId) {
+		Long applyCount = Db.queryLong("select count(1) from crm_site_fitting_apply a where a.order_number=? and a.site_id=? ",number,siteId);
+		Long usedCount = Db.queryLong("select count(1) from crm_site_fitting_used_record a where a.order_number=? and a.site_id=? ",number,siteId);
+		if(applyCount > 0 || usedCount > 0){
+			return "420";//有关联备件使用或者申请，则工单编号不变
+		}
+		return "200";//工单编号自定义规则
+	}
+	
+	public String togetherNumber(List<Record> list) {
+		String numbers = "";
+		for(Record rd : list){
+			String number = rd.getStr("number");
+			if(StringUtils.isBlank(numbers)){
+				numbers=number;
+			}else {
+				numbers=numbers+","+number;
+			}
+		}
+		return numbers;
+	}
+	
+	public HashSet<String> needsNum(List<Record> list1,List<Record> list2) {
+		HashSet<String> ret = new HashSet<>();
+		for(Record r : list1) {
+			ret.add(r.getStr("order_number"));
+		}
+		for(Record r : list2) {
+			ret.add(r.getStr("order_number"));
+		}
+		return ret;
+	}
+}

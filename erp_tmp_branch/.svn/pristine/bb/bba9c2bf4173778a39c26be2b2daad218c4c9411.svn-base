@@ -1,0 +1,84 @@
+.top{
+    overflow: hidden;
+}
+.pd-30{
+    padding: 30px;
+}
+.text-c{
+    text-align: center;
+}
+.fs12{
+    font-size: 12px;
+}
+.fs14{
+    font-size: 14px;
+}
+table{
+    width: 100%;
+    margin: 10px auto;
+
+}
+td{
+    height: 40px;
+    padding-left: 10px;
+}
+p{
+    font-size: 18px;
+    margin: 5px auto;
+    line-height: 35px;
+    text-indent: 2em;
+}
+body{
+    overflow: auto;
+}
+h3{
+    margin-top:30px;
+    font-size: 26px;
+    margin-bottom: 20px;
+
+}
+h1{
+    margin-bottom: 20px;
+}
+.bold{
+    font-weight: bold;
+}
+img{
+    width: 120px;
+}
+.lh70{
+    line-height: 70px;
+}
+.pl-15{
+    padding-left: 15px;
+}
+.print{
+    width: 120px;
+    height: 40px;
+    margin: 0 auto 40px;
+    display: block;
+    cursor: pointer;
+}
+.f-l{
+    float: left;
+}
+.f-r{
+    float: right;
+}
+.danWei{
+    text-indent: 2rem;
+}
+.lian{
+    /*margin-left: 150px;*/
+}
+.danWei>p{
+    position: relative;
+    display: inline-block;
+}
+.danWei>p:first-of-type{
+    /*margin-left: 200px;*/
+}
+.danWei>p:last-of-type{
+    margin-right: 10%;
+    float: right;
+}

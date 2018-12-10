@@ -1,0 +1,208 @@
+package com.jojowonet.modules.fitting.service;
+
+import java.math.RoundingMode;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.hibernate.SQLQuery;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.dao.EmpFittingKeepDao;
+import com.jojowonet.modules.fitting.dao.EmployeFittingDao;
+import com.jojowonet.modules.fitting.dao.FittingDao;
+import com.jojowonet.modules.fitting.dao.FittingUsedRecordDao;
+import com.jojowonet.modules.fitting.entity.EmpFittingKeep;
+import com.jojowonet.modules.fitting.entity.Fitting;
+import com.jojowonet.modules.fitting.entity.FittingUsedRecord;
+import com.jojowonet.modules.fitting.entity.SiteFittingKeep;
+import com.jojowonet.modules.operate.dao.NonServicemanDao;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.SqlKit;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+@Component
+@Transactional(readOnly = true)
+public class FittingUsedRecordService extends BaseService {
+	@Autowired
+	private FittingUsedRecordDao fittingUsedRecordDao;
+	@Autowired
+	private NonServicemanDao noDao;
+	@Autowired
+	private SiteDao siteDao;
+	@Autowired
+	private SiteFittingKeepService siteFittingKeepService;
+	@Autowired
+	private FittingService fittingService;
+	@Autowired
+	private EmployeFittingDao employeFittingDao;
+	@Autowired
+	private EmpFittingKeepDao empFittingKeepDao;
+	@Autowired
+	private FittingDao fittingDao;
+
+	// 零售新增服务商备件使用记录
+	public void addLS(FittingUsedRecord fur) {
+		fittingUsedRecordDao.save(fur);
+	}
+
+	// 根据id获取整条信息
+	public FittingUsedRecord getById(String id) {
+		String sql = "select * from crm_site_fitting_used_record where id='" + id + "'";
+		FittingUsedRecord fur = new FittingUsedRecord();
+		Record rd = Db.findFirst(sql);
+		if (rd != null) {
+			fur.setFittingId(rd.getStr("fitting_id"));
+			fur.setEmployeId(rd.getStr("employe_id"));
+			fur.setUsedNum(rd.getBigDecimal("used_num"));
+		}
+		return fur;
+	}
+
+	// public BigDecimal calcFittingFee(String orderNumber) {
+	// SqlKit kit = new SqlKit()
+	// .append("select COALESCE(SUM(r.collection_money), 0) from
+	// crm_site_fitting_used_record as r")
+	// .append("where r.order_number=?")
+	// .append("and r.collection_flag='1'");
+	// return Db.queryBigDecimal(kit.toString(), orderNumber);
+	// }
+
+	public Map<String, Double> calcFittingFee(String[] orderIds) {
+		SqlKit kit = new SqlKit().append("select r.order_id, COALESCE(SUM(r.collection_money), 0) as cnt from crm_site_fitting_used_record as r")
+				.append("where r.order_id in(" + StringUtil.joinInSql(orderIds) + ") ").append("and r.collection_flag='1'").append("group by r.order_id");
+		List<Record> records = Db.find(kit.toString());
+		Map<String, Double> ret = new HashMap<>();
+		for (Record r : records) {
+			ret.put(r.getStr("order_id"), r.getBigDecimal("cnt").setScale(2, RoundingMode.HALF_UP).doubleValue());
+		}
+		return ret;
+	}
+
+	// 待返还（确认入库）【根据id修改】
+	@Transactional(rollbackFor = Exception.class)
+	public void doDFH(String fittingId, double num, String id, SiteFittingKeep sfk, String employeId) {
+		employeFittingDao.doDFH(fittingId, num, employeId);
+		fittingService.doDFH(fittingId, num);
+		siteFittingKeepService.save(sfk);
+
+		User user = UserUtils.getUser();
+		String status = "2";// 申请状态
+		String confirmor = CrmUtils.getUserXM();
+		String confirmor_id = user.getId();
+		String sb1 = "update `crm_site_fitting_used_record` set `status`=:status,`confirmor`=:cm,`confirmor_id`=:cid,`check_time`=:ctime where id=:id";
+
+		SQLQuery sqlQuery = fittingUsedRecordDao.getSession().createSQLQuery(sb1);
+		sqlQuery.setParameter("status", status);
+		sqlQuery.setParameter("cm", confirmor);
+		sqlQuery.setParameter("cid", confirmor_id);
+		sqlQuery.setParameter("ctime", new Date());
+		sqlQuery.setParameter("id", id);
+		sqlQuery.executeUpdate();
+	}
+
+	@Transactional
+	public String doTurnBack(String id, String num) {
+		if (StringUtils.isNotBlank(num)) {
+			if (StringUtils.isNotBlank(id)) {
+				Fitting fitting = fittingService.get(id);
+				if (Double.valueOf(num) > fitting.getWarning()) {
+					return "noFull";
+				} else {
+					SimpleDateFormat fm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+					Date now = new Date();
+					String date = fm.format(now);
+					SQLQuery sqlQuery = fittingDao.getSession().createSQLQuery(
+							"update crm_site_fitting set warning=warning-'" + num + "',cjnum=cjnum+'" + num + "',newest_keep_time='" + date + "' where id='" + id + "'  ");
+					sqlQuery.executeUpdate();
+
+					SiteFittingKeep sfk = new SiteFittingKeep();
+					sfk.setNumber(CrmUtils.no());
+					sfk.setType("6");// 新件返厂
+					sfk.setFittingId(id);
+					if (StringUtil.isNotBlank(fitting.getCode())) {
+						sfk.setFittingCode(fitting.getCode());
+					}
+					if (StringUtils.isNotBlank(fitting.getName())) {
+						sfk.setFittingName(fitting.getName());
+					}
+					sfk.setAmount(Double.valueOf(num));
+					if (fitting.getSitePrice() != null && !"".equals(fitting.getSitePrice())) {
+						sfk.setPrice(fitting.getSitePrice());
+					}
+					if (fitting.getEmployePrice() != null && !"".equals(fitting.getEmployePrice())) {
+						sfk.setEmployePrice(fitting.getEmployePrice());
+					}
+					if (fitting.getCustomerPrice() != null && !"".equals(fitting.getCustomerPrice())) {
+						sfk.setCustomerPrice(fitting.getCustomerPrice());
+					}
+					sfk.setCreateTime(new Date());
+					String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+					String uname = CrmUtils.getUserXM();
+					sfk.setCreateBy(uname);
+					sfk.setSiteId(siteId);
+					sfk.setApplicant(uname);
+					sfk.setConfirmor(uname);
+					siteFittingKeepService.save(sfk);
+					return "ok";
+				}
+			} else {
+				return "error";
+			}
+		} else {
+			return "error";
+		}
+	}
+
+	@Transactional
+	public int doSave(FittingUsedRecord fur, Map<String, Object> params, SiteFittingKeep sfk) {
+		if (params != null) {
+			String rsu = fittingService.doLS(params);
+			if ("noEnough".equals(rsu)) {
+				return 0;
+			}
+		}
+		if (sfk != null) {// 此判断不可去除，（该方法被工程师使用，网点零售调用）
+			siteFittingKeepService.save(sfk);
+		}
+		fittingUsedRecordDao.save(fur);
+		return 1;
+	}
+
+	@Transactional
+	public int doEmpRetailSave(FittingUsedRecord fur, Map<String, Object> params, EmpFittingKeep sfk) {
+		if (fur != null) {
+			fittingUsedRecordDao.save(fur);
+		}
+		empFittingKeepDao.save(sfk);
+		if (params != null) {
+			double s = Double.parseDouble(params.get("saleAmount").toString());// 售出数量
+			String id = params.get("id").toString();
+			StringBuilder sb = new StringBuilder("");
+			sb.append("update crm_employe_fitting set warning=warning-" + s + ",number=number+" + s + " where id='" + id + "'");
+			Db.update(sb.toString());
+		}
+		return 2;
+	}
+
+	public FittingUsedRecord get(String id) {
+		return fittingUsedRecordDao.get(id);
+	}
+
+	@Transactional(rollbackFor = Exception.class)
+	public void refuseHx(String id) {
+		fittingUsedRecordDao.refuseHx(id);
+	}
+}

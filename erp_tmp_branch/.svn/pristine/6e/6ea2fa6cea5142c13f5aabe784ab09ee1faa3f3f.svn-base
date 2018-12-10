@@ -1,0 +1,588 @@
+package com.jojowonet.modules.fitting.web;
+
+import com.google.common.collect.Maps;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.util.http.EzTemplate;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.entity.OldFitting;
+import com.jojowonet.modules.fitting.service.OldFittingService;
+import com.jojowonet.modules.fitting.utils.BarcodeUtil;
+import com.jojowonet.modules.goods.utils.LogisticsUtils;
+import com.jojowonet.modules.operate.dao.NonServicemanDao;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.OrderDispatchService;
+import com.jojowonet.modules.order.service.OrderService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.order.utils.Result;
+
+/**
+ * 旧件Controller
+ * @author dongqing
+ * @version 2017-05-22
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/fitting")
+public class OldFittingController extends BaseController{
+	
+	@Autowired
+	private OldFittingService oldFittingService;
+	
+	@Autowired
+	private OrderService orderService;//根据旧件中的关联工单id查询信息
+	
+	@Autowired
+	private OrderDispatchService orderDispatchService;//主要用于获取完工时间
+	
+	@Autowired
+	private SiteService siteService;
+	
+	@Autowired
+    private NonServicemanDao noDao;
+	@Autowired
+	private NonServicemanService nonService;
+	
+	@Autowired
+    private EzTemplate ezTemplate;
+	
+	public void setOldFittingService(OldFittingService oldFittingService) {
+		this.oldFittingService = oldFittingService;
+	}
+	
+	private String status="0";
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public OldFittingService getOldFittingService() {
+		return oldFittingService;
+	}
+
+	//旧单表头
+	@RequestMapping(value ="OldFittingWhole")
+	public String OldFittingWhole(OldFitting oldFitting,@RequestParam(value="status", defaultValue="0")String status, HttpServletRequest request, HttpServletResponse response, Model model) {
+			if(!"0".equals(status)){
+				this.status=status;
+			}
+			String siteId= CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+			model.addAttribute("headerData", stf);
+			model.addAttribute("siteId",siteId);
+			return "modules/fitting/fittingList";
+	}
+	
+	//旧件库存表头
+		@RequestMapping(value ="OldStockFittingWhole")
+		public String OldFittingWhole1(OldFitting oldFitting,@RequestParam(value="status", defaultValue="0")String status, HttpServletRequest request, HttpServletResponse response, Model model) {
+				if(!"0".equals(status)){
+					this.status=status;
+				}
+				String siteId= CrmUtils.getCurrentSiteId(UserUtils.getUser());
+				SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+				model.addAttribute("headerData", stf);
+				model.addAttribute("siteId",siteId);
+				return "modules/fitting/fittingList1";
+		}
+	
+	//查询当前服务商所有旧件信息(已登记)
+	@ResponseBody
+	@RequestMapping(value = "getWholeOldFittings")
+	public String list(OldFitting oldFitting, HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId= CrmUtils.getCurrentSiteId(user);
+		Map<String,Object> map = getParams(request);
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page=oldFittingService.getAllOldFitting(pages,siteId,map);
+		return renderJson(new JqGridPage<>(page));
+	}
+	
+	//查询当前服务商所有旧件信息(库存)
+		@ResponseBody
+		@RequestMapping(value = "getWholeOldStockFittings")
+		public String listStock(OldFitting oldFitting, HttpServletRequest request, HttpServletResponse response, Model model) {
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Map<String,Object> map = getParams(request);
+			Page<Record> pages = new Page<Record>(request, response);
+			Page<Record> page=oldFittingService.getAllOldStockFitting(pages, siteId, map);
+			return renderJson(new JqGridPage<>(page));
+		}
+	
+	//查询当前服务商所有旧件信息 入库
+		@ResponseBody
+		@RequestMapping(value = "getWholeOldFittings1")
+		public String list1(OldFitting oldFitting, HttpServletRequest request, HttpServletResponse response, Model model) {
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Map<String,Object> map = getParams(request);
+			Page<Record> pages = new Page<Record>(request, response);
+			Page<Record> page=oldFittingService.getAllOldFitting(pages,siteId,map);
+			return renderJson(new JqGridPage<>(page));
+		}
+	
+	@RequestMapping(value = "getFittingTabCount")
+	@ResponseBody
+	public JSONObject getFittingTabCount(HttpServletRequest request){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Long count =oldFittingService.getFittingCount(siteId) ;//旧件登记库存
+		Long countSecond =oldFittingService.getStockFittingCount(siteId) ;//旧件库存
+		Map<String,Long> map=new HashMap<String, Long>();
+		map.put("c1", count);
+		map.put("c2", countSecond);
+		return JSONObject.fromObject(map);
+	}
+	
+	//旧件入库/返厂/报废（修改旧件状态信息【status】为1/3/4）,可批量入库,根据编号进行修改
+	@ResponseBody
+	@RequestMapping(value="putOldFitting")
+	public boolean putOldFitting(HttpServletRequest request, HttpServletResponse response) throws IOException{
+		Boolean re=false;
+		String idArr = request.getParameter("idArr");
+		String type = request.getParameter("type");//type == 1 （返厂）type == 2报废
+		String[] ids=idArr.split(",");
+		int result= oldFittingService.putOldFitting(ids,type);
+		if(result>0){
+			re=true;
+		}
+		return re;
+	}
+
+	@ResponseBody
+	@RequestMapping(value="inStock")
+	public Boolean inStock(HttpServletRequest request){
+		Map<String,Object> map = getParams(request);
+		oldFittingService.inStock(map);
+		return true;
+	}
+
+	@ResponseBody
+	@RequestMapping(value="reloadOrder")
+	public OldFitting reloadOrder(HttpServletRequest request){
+		Map<String,Object> map = getParams(request);
+		OldFitting of=oldFittingService.reloadOrder(map);
+		return of;
+	}
+
+
+
+	//根据id获取旧件信息及相关工单信息
+	@RequestMapping(value="getById")
+	public String getById(String id,@RequestParam(value="whereFrom", defaultValue="0") String whereFrom, HttpServletRequest request, Model model){
+		User user = UserUtils.getUser();
+		String siteId= CrmUtils.getCurrentSiteId(user);
+		OldFitting  oldFitting=oldFittingService.getOldFittingById(id,siteId);
+		String[] imgsArray = null;
+		int imagesSize = 0;
+		if (StringUtils.isNotBlank(oldFitting.getImg())) {
+			imgsArray = oldFitting.getImg().split(",");
+			imagesSize = imgsArray.length;
+		}
+		request.setAttribute("imagesSize", imagesSize);
+		request.setAttribute("imgsArray", imgsArray);
+		request.setAttribute("oldFitting", oldFitting);
+		request.setAttribute("whereFrom", whereFrom);
+		request.setAttribute("siteId", siteId);
+		return "modules/fitting/oldStyle/bj-jjxx";
+	}
+	
+	@RequestMapping(value="doAddOldFitting")
+	public void doAddOldFitting(HttpServletRequest request,Model model){
+		OldFitting of=new OldFitting();
+		String customereName=request.getParameter("customerName");
+		if(StringUtils.isNotBlank(customereName)){
+			of.setCustomerName(customereName.trim());
+		}
+		String mobile=request.getParameter("mobile");
+		if(StringUtils.isNotBlank(mobile)){
+			of.setCustomerMobile(mobile.trim());
+		}
+		String oldFitCode=request.getParameter("oldFitCode");
+		if(StringUtils.isNotBlank(oldFitCode)){
+			of.setCode(oldFitCode.trim());
+		}
+		String address=request.getParameter("address");
+		if(StringUtils.isNotBlank(address)){
+			of.setCustomerAddress(address);
+		}
+		String oldFitName=request.getParameter("oldFitName");
+		if(StringUtils.isNotBlank(oldFitName)){
+			of.setName(oldFitName);
+		}
+		String oldFitVersion=request.getParameter("oldFitVersion");
+		if(StringUtils.isNotBlank(oldFitVersion)){
+			of.setVersion(oldFitVersion);
+		}
+		String oldFitBrand=request.getParameter("oldFitBrand");
+		if(StringUtils.isNotBlank(oldFitBrand)){
+			of.setBrand(oldFitBrand);
+		}
+		String num=request.getParameter("num");
+		if(StringUtils.isNotBlank(num)){
+			of.setNum(BigDecimal.valueOf(Double.valueOf(num)));
+		}
+		String yrpzFlag=request.getParameter("yrpzFlag");
+		if(StringUtils.isNotBlank(yrpzFlag)){
+			of.setYrpzFlag(yrpzFlag);
+		}
+		String remarks=request.getParameter("remarks");
+		if(StringUtils.isNotBlank(remarks)){
+			of.setRemarks(remarks);
+		}
+		String price=request.getParameter("price");
+		if(StringUtils.isNotBlank(price)){
+			of.setUnitPrice(Double.valueOf(price));
+		}
+		String empIdName=request.getParameter("empIdName");
+		if(StringUtil.isNotBlank(empIdName)){
+			String sz[]=empIdName.split(",");
+			of.setEmployeId(sz[0]);
+			of.setEmployeName(sz[1]);
+		}
+		String icon=request.getParameter("icon");
+		if(StringUtil.isNotBlank(icon)){
+			of.setImg(icon);
+		}
+
+		Date now=new Date();
+		of.setStatus("1");
+		of.setConfirmTime(now);
+		of.setCreateTime(now);
+		User user = UserUtils.getUser();
+		String name="";
+		if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+			name = siteService.getUserSite(user.getId()).getName();
+		} else {
+			name = noDao.getNonServiceman(user).getName();
+		}
+		of.setConfirmName(name);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		of.setSiteId(siteId);
+		oldFittingService.addOldFitting(of);
+	}
+	
+	
+	//加载图片
+	@ResponseBody  
+	@RequestMapping(value="loadPicture")
+	public String loadPicture(HttpServletResponse response,Model model,String img){
+		String name="暂无图片";
+		/*if(!"null".equals(img)||!"".equals(img)){
+			FileInputStream fis = null;  
+	        OutputStream os = null;  
+	        try {  
+	            fis = new FileInputStream("img");
+	            os = response.getOutputStream();  
+	            int count = 0;  
+	            byte[] buffer = new byte[1024 * 8];  
+	            while ((count = fis.read(buffer)) != -1) {  
+	                os.write(buffer, 0, count);  
+	                os.flush();  
+	            }  
+	        } catch (Exception e) {  
+	            e.printStackTrace();  
+	        }  
+	        try {  
+	            fis.close();  
+	            os.close();  
+	        } catch (IOException e) {  
+	            e.printStackTrace();  
+	        }  
+	        name= "ok"; 
+		}*/
+		return name;
+	}
+	
+	//生成条码
+	@RequestMapping(value="createTiaoMa")
+	public  String createTiaoMa(String code){
+		String path = "barcode.png";
+		BarcodeUtil.generateFile(code, path);
+		return null;
+	}
+
+
+	@RequestMapping(value = "checkOldFittingsExcel")
+	@ResponseBody
+	public JSONObject checkOldFittingsExcel(MultipartFile file, HttpServletRequest request, HttpServletResponse response){
+		Map<String, String> params = Maps.newHashMap();
+		Map<String, Object> retMap = Maps.newHashMap();
+		params.put("extName", StringUtil.getFileExtName(file.getOriginalFilename()));
+		try {
+			retMap = oldFittingService.checkOldFittings(params, file.getInputStream());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return JSONObject.fromObject(retMap);
+	}
+
+	@RequestMapping(value = "importOldFitting")
+	@ResponseBody
+	public JSONObject importOldFitting(MultipartFile file, HttpServletRequest request, HttpServletResponse response){
+		User user = UserUtils.getUser();
+		Map<String, String> params = Maps.newHashMap();
+		Map<String, Object> retMap = Maps.newHashMap();
+		params.put("extName", StringUtil.getFileExtName(file.getOriginalFilename()));
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Site site = siteService.get(siteId);
+		SimpleDateFormat sf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String now = sf.format(new Date());
+		params.put("siteId", siteId);
+		params.put("name", site.getName());
+		params.put("date",now);
+		try {
+			retMap = oldFittingService.importOldFittings(params, file.getInputStream());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return JSONObject.fromObject(retMap);
+	}
+
+	 @RequestMapping(value = "older/export")
+	    public String exportFile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+	        try {
+	            String formPath = request.getParameter("formPath");
+	            String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+	            SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+	            String title = stf.getExcelTitle();
+	            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+	            Map<String,Object> map = getParams(request);
+				Page<Record> pages = new Page<Record>(request, response);
+				pages.setPageNo(1);
+		        pages.setPageSize(10000);
+		        JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+	            List<Record> page=null;
+	            if("旧件返厂".equals(title)) {
+	            	 jarray.remove(0);
+	            	page=oldFittingService.getReturnFactory(pages,siteId,map).getList();
+	            }else {
+	            	page=oldFittingService.getAllOldFittingForExport(pages,siteId,status,map);
+	            }
+	            
+				for (Record rd : page) {
+					if("1".equals(rd.getStr("yrpz_flag"))){
+						rd.set("yrpz_flag", "是");
+					}else if("2".equals(rd.getStr("yrpz_flag"))){
+						rd.set("yrpz_flag", "否");
+					}else{
+						rd.set("yrpz_flag", "--");
+					}
+					
+					if("1".equals(rd.getStr("status"))){
+						rd.set("status", "已入库");
+					}else if("3".equals(rd.getStr("status"))){
+						rd.set("status", "返厂在途");
+					}else if("4".equals(rd.getStr("status"))){
+						rd.set("status", "已报废");
+					}else if("5".equals(rd.getStr("status"))) {
+						rd.set("status", "已到厂");
+					}
+					
+					if("1".equals(rd.getStr("warranty_type"))){
+						rd.set("warranty_type", "保内");
+					}else if("2".equals(rd.getStr("warranty_type"))){
+						rd.set("warranty_type", "保外");
+					}
+				}
+	            new ExportJqExcel(title, jarray.toString(), stf.getSortHeader())
+	                    .setDataList(page)
+	                    .write(request, response, fileName).dispose();
+	            return null;
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	            addMessage(redirectAttributes, "导出用户失败！失败信息：" + e.getMessage());
+	        }
+	        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	    }
+	 
+	 @RequestMapping(value="toTurnBackFactoryPage")
+	 public String toTurnBackFactoryPage(String ids,HttpServletRequest request,Model model) {
+		 model.addAttribute("ids", ids);
+		 model.addAttribute("uname", CrmUtils.getUserXM());
+		 model.addAttribute("lgn", LogisticsUtils.getlogisticsGet() );
+		 model.addAttribute("number", CrmUtils.applyNo("OF"));
+		 return "modules/fitting/turnBackFactoryForm";
+	 }
+	 
+	 @ResponseBody
+     @RequestMapping(value="getDefaultTurnBackList")
+     public List<Record> getDefaultTurnBackList(HttpServletRequest request, HttpServletResponse response, Model model) {
+    	String ids = request.getParameter("ids");
+    	return oldFittingService.getDefaultTurnBackList(ids);
+     }
+	 
+	 @ResponseBody
+     @RequestMapping(value="getOldFittingsBySelect")
+     public  Map<String,Object> getFittingsBySelect(HttpServletRequest request,String page){
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String code = request.getParameter("q");
+        StringBuilder sb=new StringBuilder();
+        sb.append("select code from crm_site_old_fitting where status='1' and site_id=? and code like ? ");
+        List<Record> list = Db.find(sb.toString(),siteId,'%'+code+'%');
+        Map<String,Object> map= Maps.newHashMap();
+        map.put("list",list);
+        map.put("total_count",list.size());
+        return map;
+     }
+
+
+	    @ResponseBody
+	    @RequestMapping(value="getOldFittingsNameBySelect")
+	    public  Map<String,Object> getFittingsNameBySelect(HttpServletRequest request,String page){
+	        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+	        String name = request.getParameter("q");
+	        StringBuilder sb=new StringBuilder();
+	        sb.append("select code,name,num from crm_site_old_fitting where status='1' and site_id=? and name like ? ");
+	        List<Record> list = Db.find(sb.toString(),siteId,'%'+name+'%');
+	        Map<String,Object> map= Maps.newHashMap();
+	        map.put("list",list);
+	        map.put("total_count",list.size());
+	        return map;
+	    }
+	    @ResponseBody
+	    @RequestMapping(value="getOldFittingsVersionBySelect")
+	    public  Map<String,Object> getFittingsVersionBySelect(HttpServletRequest request,String page){
+	        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+	        String version = request.getParameter("q");
+	        StringBuilder sb=new StringBuilder();
+	        sb.append("select code,version from crm_site_old_fitting where status='1' and site_id='"+siteId+"' and version like '%"+version+"%' ");
+	        List<Record> list = Db.find(sb.toString());
+	        Map<String,Object> map= Maps.newHashMap();
+	        map.put("list",list);
+	        map.put("total_count",list.size());
+	        return map;
+	    }
+
+	    @ResponseBody
+	    @RequestMapping(value="getFittingsByCode")
+	    public  Record getFittingsByCode(HttpServletRequest request){
+	        String code=request.getParameter("code");
+	        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+	        String sql="select code,name,version,num,id,suit_category from crm_site_old_fitting where status='1' and site_id='"+siteId+"' and code='"+code+"' ";
+	        return Db.findFirst(sql);
+	    }
+	    
+	    //旧件返厂
+	    @ResponseBody
+	    @RequestMapping(value="doOldFittingReturnFactory")
+	    public String doOldFittingReturnFactory(HttpServletRequest request) {
+	    	Map<String,Object> map = getParams(request);
+	    	User user = UserUtils.getUser();
+	  		String siteId= CrmUtils.getCurrentSiteId(user);
+	  		String uname = CrmUtils.getUserXM();
+	  		map.put("userId", user.getId());
+	  		map.put("siteId", siteId);
+	  		map.put("uname", uname);
+	    	Result<String> listResult = ezTemplate.postForm("/doOldFittingReturnFactory", map, new ParameterizedTypeReference<Result<String>>() {
+	        });
+	    	return listResult.getCode();
+	    }
+	    
+		//旧件返厂表头
+		@RequestMapping(value ="returnFactoryStockFitting")
+		public String returnFactoryStockFitting( HttpServletRequest request, HttpServletResponse response, Model model) {
+			String siteId= CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+			model.addAttribute("headerData", stf);
+			model.addAttribute("siteId",siteId);
+			return "modules/fitting/siteFittingreturnFactoryList";
+		}
+	
+	//查询当前服务商所有旧件返厂信息
+	@ResponseBody
+	@RequestMapping(value = "getreturnFactory")
+	public String getreturnFactory(HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId= CrmUtils.getCurrentSiteId(user);
+		Map<String,Object> map = getParams(request);
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page=oldFittingService.getReturnFactory(pages,siteId,map);
+		return renderJson(new JqGridPage<>(page));
+	}
+	// 操作确认到厂
+		@RequestMapping(value = "updateoldFittingById")
+		@ResponseBody
+		public Boolean updateFittingKeepById(HttpServletRequest request, HttpServletResponse response) {
+			String id = request.getParameter("id");
+			String remarks = request.getParameter("remarks");
+			boolean proving = true;
+			try {
+				oldFittingService.updateFittingKeepById(id, remarks);
+			} catch (Exception e) {
+				proving = false;
+			}
+			return proving;
+		}
+		// 操作确认到厂
+		@RequestMapping(value = "updateoldFittingIds")
+		@ResponseBody
+		public Boolean updateFittingKeepIds(HttpServletRequest request, HttpServletResponse response) {
+			String ids = request.getParameter("ids");
+			boolean proving = true;
+			try {
+				oldFittingService.updateFittingKeep(ids);
+			} catch (Exception e) {
+				proving = false;
+			}
+			return proving;
+		}
+		
+		/*
+		 * 旧件批量删除
+		*/
+		@RequestMapping(value = "jjpLSC")
+		@ResponseBody
+		public int pLSC(HttpServletRequest request, HttpServletResponse response, Model model) {
+			int num = 1;
+			String idArr = request.getParameter("idArr");
+			try {
+				oldFittingService.DeleteoldFitting(idArr);
+			} catch (Exception e) {
+				e.printStackTrace();
+				return 2;
+			}
+			return num;
+		}
+}

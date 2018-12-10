@@ -1,0 +1,194 @@
+package com.jojowonet.modules.order.service;
+
+import com.google.common.collect.Lists;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.dao.FittingDao;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.order.dao.CustomerTelephoneIncomeDao;
+import com.jojowonet.modules.order.dao.OrderCallbackDao;
+import com.jojowonet.modules.order.dao.OrderDispatchDao;
+import com.jojowonet.modules.order.utils.SqlKit;
+import com.jojowonet.modules.order.utils.TableSplitMapper;
+import com.jojowonet.modules.order.utils.Tuple;
+import com.jojowonet.modules.sys.util.OrderDetailsVo;
+
+import ivan.common.persistence.Page;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class TelNotifyOrderService {
+
+    @Autowired
+    OrderCallbackDao orderCallbackDao;
+    @Autowired
+    FittingDao fittingDao;
+    @Autowired
+    OrderDispatchDao orderDispatchDao;
+    @Autowired
+    CustomerTelephoneIncomeDao customerTelephoneIncomeDao;
+    @Autowired
+    PushMessageService pushMessageService;
+    @Autowired
+    NonServicemanService nonServicemanService;
+    @Autowired
+    TableSplitMapper tableSplitMapper;
+    
+    /**
+     * 获取来电号码对应的历史工单数据。
+     *
+     * @param serialNo  设备序列号
+     * @param telephone 用户来电手机号
+     * @return
+     */
+    public OrderDetailsVo getTelephoneDeviceOrderList(String serialNo, String telephone, int pageNO) {
+        String orderTable =  getOrderTable(serialNo);
+        SqlKit sb = new SqlKit()
+        		.append("select *,'1' as otype,0 as otime ")
+                .append("FROM crm_order AS a")
+                .append("WHERE a.`site_id` = (")
+                .append("  SELECT site_id")
+                .append("  FROM crm_site_tele_device")
+                .append("  WHERE serial_no = ?")
+                .append("  AND `status` = '0' LIMIT 1)")
+                .append("AND (a.`customer_mobile` = ? OR a.`customer_telephone` = ?)")
+                .append("AND a.`status` IN ('1', '2', '3', '4', '5', '7')");
+
+                if (orderTable != null) {
+                    sb.append(" union all ")
+                    .append("select *,'1' as otype,1 as otime ")
+                    .append("FROM " + orderTable + " AS a")
+                    .append("WHERE a.`site_id` = (")
+                    .append("  SELECT site_id")
+                    .append("  FROM crm_site_tele_device")
+                    .append("  WHERE serial_no = ?")
+                    .append("  AND `status` = '0' LIMIT 1)")
+                    .append("AND (a.`customer_mobile` = ? OR a.`customer_telephone` = ?)")
+                    .append("AND a.`status` IN ('1', '2', '3', '4', '5', '7')");
+                }
+
+                sb.append("ORDER BY `create_time` DESC")
+                .append("LIMIT 1 OFFSET " + (pageNO - 1));
+
+        Page<Record> page = new Page<>(pageNO, 1);
+        Tuple<Long, Long> tuple = getTelephoneDeviceOrderCountTuple(serialNo, telephone);
+        page.setCount(tuple.getVal1() + tuple.getVal2());//工单数量
+        List<Record> data = Db.find(sb.toString(), serialNo, telephone, telephone, serialNo, telephone, telephone);
+
+        OrderDetailsVo vo = new OrderDetailsVo();
+        vo.setUnfinishedOrderCount(tuple.getVal1());//未完成工单数量
+        vo.setFinishedOrderCount(tuple.getVal2());//已完成工单数量
+        page.setList(data);//工单信息
+        vo.setPage(page);
+        if (data.size() <= 0) {
+            return vo;
+        }
+
+        Record order = data.get(0);
+        String orderId = order.get("id");
+        String siteId = order.get("site_id");
+        String otype = order.getStr("otype");
+        vo.setOtype(otype);
+        String otime =String.valueOf(order.getLong("otime"));
+        vo.setOtime(otime);
+
+        if ("1" .equals(otype)) {
+            // 回访信息
+            vo.setCallback(orderCallbackDao.getLatestOrderCallback(orderId));
+            // 过程反馈
+            Record dis = orderDispatchDao.getOrderId(orderId);
+            vo.setCourseFeedback(dis == null ? "" : dis.getStr("course_feedback"));
+            if (dis != null) {
+                Date courseFeedbackTime = dis.getDate("course_feedback_time");
+                vo.setCourseFeedbackTime(courseFeedbackTime == null ? "" : new SimpleDateFormat("yyyy-MM-dd HH:mm").format(courseFeedbackTime));
+            }
+            //信息员
+            vo.setInfoMans(nonServicemanService.getInfoMans(siteId));
+            
+            // 结算信息
+            vo.setSettlement(fittingDao.getSetFittingId(orderId));
+            // 来电次数
+            vo.setCallTimes(customerTelephoneIncomeDao.getIncomingTimes(siteId, telephone));
+            vo.setPushMessages(pushMessageService.getPushMessageByOrderId(orderId));
+            // 用于展示App信息跟踪
+            vo.setFeedbacks(orderDispatchDao.getFeedbacks(orderId));
+        }
+
+        return vo;
+    }
+
+    
+    public long getTelephoneDeviceOrderCount(String serialNo, String telephone) {
+        Tuple<Long, Long> tuple = getTelephoneDeviceOrderCountTuple(serialNo, telephone);
+        return tuple.getVal1() + tuple.getVal2();
+    }
+
+    /**
+     * 查询历史工单数量
+     */
+    public long getHistoryOrderCount(String serialNo, String telephone) {
+        SqlKit kit = new SqlKit()
+                .append("SELECT COUNT(1) AS cnt")
+                .append("FROM `crm_order_completed_imported` AS a")
+                .append("WHERE a.`site_id`=(")
+                .append("SELECT site_id")
+                .append("FROM crm_site_tele_device")
+                .append("WHERE serial_no=?")
+                .append("AND `status`='0'")
+                .append("LIMIT 1)")
+               .append("AND (a.`customer_mobile` = ? OR a.`customer_telephone` = ?)");
+        return Db.queryLong(kit.toString(), serialNo, telephone, telephone);
+    }
+    /**
+     * @param serialNo  设备序列号
+     * @param telephone 来电号码
+     * @return 返回完成的和已经完成的工单数量。
+     */
+    private Tuple<Long, Long> getTelephoneDeviceOrderCountTuple(String serialNo, String telephone) {
+        String orderTable = getOrderTable(serialNo);
+        Tuple<Long, Long> ret1 = getTelephoneDeviceOrderCountTupleInner(serialNo, telephone, "crm_order");
+        Tuple<Long, Long> ret2 =  new Tuple<>(0L, 0L);
+        if (orderTable != null) {
+            ret2 = getTelephoneDeviceOrderCountTupleInner(serialNo, telephone, orderTable);
+        }
+        return new Tuple<>(ret1.getVal1() + ret2.getVal1(), ret1.getVal2() + ret2.getVal2());
+    }
+
+    private String getOrderTable(String serialNo) {
+        SqlKit kit  = new SqlKit()
+                .append("  SELECT site_id")
+                .append("  FROM crm_site_tele_device")
+                .append("  WHERE serial_no = ?")
+                .append("  AND `status` = '0' LIMIT 1");
+        Record rec = Db.findFirst(kit.toString(), serialNo);
+        String siteId = rec.getStr("site_id");
+        return tableSplitMapper.mapOrder(siteId);
+    }
+
+    private Tuple<Long, Long> getTelephoneDeviceOrderCountTupleInner(String serialNo, String telephone, String orderTable) {
+        SqlKit sb = new SqlKit()
+                .append("SELECT sum(case when a.status in ('0','1','2','3','4','7') then 1 else 0 end) as uCount, ")
+                .append("sum(case when a.status in ('5') then 1 else 0 end) as fCount")
+                .append(String.format("FROM %s AS a", orderTable))
+                .append("WHERE a.`site_id` = (")
+                .append("  SELECT site_id")
+                .append("  FROM crm_site_tele_device")
+                .append("  WHERE serial_no = ?")
+                .append("  AND `status` = '0' LIMIT 1)")
+                .append("AND (a.`customer_mobile` = ? OR a.`customer_telephone` = ?)");
+
+        Record o = Db.findFirst(sb.toString(), serialNo, telephone, telephone);
+        BigDecimal uCount = o.getBigDecimal("uCount");
+        BigDecimal fCount = o.getBigDecimal("fCount");
+        return new Tuple<>(uCount == null ? 0L : uCount.longValue(), fCount == null ? 0L : fCount.longValue());
+    }
+
+}

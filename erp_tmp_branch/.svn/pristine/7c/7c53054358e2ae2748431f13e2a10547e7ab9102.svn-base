@@ -1,0 +1,922 @@
+package com.jojowonet.modules.order.web;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.dao.CustomerTypeDao;
+import com.jojowonet.modules.order.dao.OrderDao;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.OrderDispatchService;
+import com.jojowonet.modules.order.service.OrderMallService;
+import com.jojowonet.modules.order.service.OrderOriginService;
+import com.jojowonet.modules.order.service.OrderParentCallBackService;
+import com.jojowonet.modules.order.service.OrderService;
+import com.jojowonet.modules.order.service.SecondSiteOrderService;
+import com.jojowonet.modules.order.service.SysSettleService;
+import com.jojowonet.modules.order.utils.BrandUtils;
+import com.jojowonet.modules.order.utils.CategoryUtils;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.order.utils.MsgModelUtils;
+import com.jojowonet.modules.order.utils.RandomUtil;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.util.TranslationUtils;
+import com.jojowonet.modules.sys.util.TrimMap;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+@Controller
+@RequestMapping(value = "${adminPath}/secondOrder")
+public class SecondSiteOrderController extends BaseController {
+	@Autowired
+	private OrderOriginService orderOriginService;
+	@Autowired
+	private SecondSiteOrderService secondSiteOrderService;
+	@Autowired
+	private OrderDao orderDao;
+	@Autowired
+	private OrderService orderService;
+	@Autowired
+	private OrderDispatchService orderDispatchService;
+	@Autowired
+	private SysSettleService siteSettleService;
+	@Autowired
+	private OrderOriginService orderOriginServicce;
+	@Autowired
+	private SiteService siteService;
+	@Autowired
+	private SiteDao siteDao;
+	@Autowired
+	private NonServicemanService noService;
+	@Autowired
+	private CustomerTypeDao customerTypeDao;
+	@Autowired
+	private OrderParentCallBackService orderParentCallBackService;
+	@Autowired
+	private OrderMallService orderMallService;
+
+	// 处理中工单
+	@RequestMapping(value = "secondDuring")
+	public String during(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		model.addAttribute("order", order);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		List<Record> listOrigin = orderOriginService.filterOrderOrigin(siteId);
+		List<String> listOriginlist = new ArrayList<String>();
+		for (Record rd : listOrigin) {
+			listOriginlist.add(rd.getStr("name"));
+		}
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		model.addAttribute("category", category);
+		model.addAttribute("listorigin", listOrigin);
+		model.addAttribute("listoriginlist", listOriginlist);
+		model.addAttribute("headerData", stf);
+		model.addAttribute("siteId", siteId);
+		model.addAttribute("sites", CrmUtils.getSecondSites(siteId));
+		return "modules/order/orderManagement/secondSiteOrder/secondDuring/secondOrderDuringList";
+	}
+
+	// 处理中工单数据
+	@ResponseBody
+	@RequestMapping(value = "getWxzList")
+	public String getWxzList(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = secondSiteOrderService.getOrderWaitForDis(pages, siteId, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	/**
+	 * 处理中工单数量
+	 */
+	@RequestMapping(value = "getOrderTabCount")
+	@ResponseBody
+	public JSONObject getOrderTabCount(HttpServletRequest request) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		User user = UserUtils.getUser();
+		Map<String, Object> maps = Maps.newHashMap();
+		List<String> cateList = null;
+		List<String> brandList = null;
+		if (!("2".equals(user.getUserType()))) {
+			String cate = noService.servicemanCate(user.getId(), siteId);
+			String brand = noService.servicemanBrand(user.getId(), siteId);
+			cateList = StringUtil.tolist(cate);
+			brandList = StringUtil.tolist(brand);
+		}
+		String sites = CrmUtils.getSiteIdList(siteId);
+		long count = orderDao.getOrderWaitDealCount(sites, maps, cateList, brandList);
+		Map<String, Long> map = Maps.newHashMap();
+		map.put("c1", count);
+		return JSONObject.fromObject(map);
+	}
+
+	/**
+	 * 处理中工单详情
+	 */
+	@RequestMapping(value = "duringform")
+	public String OrderDuringform(HttpServletRequest request, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String orderId = request.getParameter("id");
+		Order order = orderService.get(orderId);
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+		List<String> listOriginlist = new ArrayList<String>();
+		for (Record rd : listOrigin) {
+			listOriginlist.add(rd.getStr("name"));
+		}
+		Record rds = orderDispatchService.getOrderId(orderId, order.getSiteId());
+		String odStatus = (rds == null ? "" : rds.getStr("status"));
+		if (StringUtils.isBlank(odStatus)) {
+			String status = order.getStatus();
+			model.addAttribute("dispStatus", TranslationUtils.translateOrderStatus(status));
+		} else {
+			model.addAttribute("dispStatus", (rds == null ? "" : TranslationUtils.translateDispatchOrderStatus(odStatus)));
+		}
+		model.addAttribute("listoriginlist", listOriginlist);
+		model.addAttribute("order", order);
+		return "modules/order/orderManagement/secondSiteOrder/secondDuring/secOrderDuringForm";
+	}
+
+	/**
+	 * 待回访工单表头
+	 */
+	@RequestMapping(value = "waitCallBackTab")
+	public String waitCallBackTab(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		model.addAttribute("order", order);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+		List<String> listOriginlist = new ArrayList<String>();
+		for (Record rd : listOrigin) {
+			listOriginlist.add(rd.getStr("name"));
+		}
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		model.addAttribute("category", category);
+		model.addAttribute("listorigin", listOrigin);
+		model.addAttribute("listoriginlist", listOriginlist);
+		model.addAttribute("headerData", stf);
+		model.addAttribute("siteId", siteId);
+		String setFlag = siteSettleService.getSiteSettleFlag(siteId);
+		model.addAttribute("settleFlag", setFlag);
+		model.addAttribute("sites", CrmUtils.getSecondSites(siteId));
+		return "modules/order/orderManagement/secondSiteOrder/waitCallBackOrder/secOrderWaitCallBackList";
+	}
+
+	/**
+	 * 待回访工单数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getWaitCallBackList")
+	public String getWaitCallBackList(HttpServletRequest request, HttpServletResponse response) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = secondSiteOrderService.getOrderWaitCallBack(pages, siteId, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	/**
+	 * 获取二级网点待回访工单数量
+	 */
+
+	@ResponseBody
+	@RequestMapping(value = "getWaitCallBackCount")
+	public Map<String, Object> getWaitCallBackCount() {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		User user = UserUtils.getUser();
+		Map<String, Object> resultMap = Maps.newHashMap();
+		Map<String, Object> map = Maps.newHashMap();
+		List<String> cateList = null;
+		List<String> brandList = null;
+		if (!("2".equals(user.getUserType()))) {
+			String cate = noService.servicemanCate(user.getId(), siteId);
+			String brand = noService.servicemanBrand(user.getId(), siteId);
+			cateList = StringUtil.tolist(cate);
+			brandList = StringUtil.tolist(brand);
+		}
+		String sites = CrmUtils.getSiteIdList(siteId);
+		resultMap.put("c1", orderDao.getOrderWaitCallBackCount(siteId, sites, map, cateList, brandList));
+		return resultMap;
+	}
+
+	/**
+	 * 待回访工单详情
+	 */
+	@RequestMapping(value = "waitCallBackDetail")
+	public String waitCallBackDetail(HttpServletRequest request, Model model) {
+		String orderId = request.getParameter("id");
+		Order order = orderService.get(orderId);
+		String siteId = order.getSiteId();
+		Record dispRd = orderDispatchService.getOrderDispatchForCallBack(order.getId(), siteId);
+		String odStatus = (dispRd == null ? "" : dispRd.getStr("status"));
+		if (StringUtils.isBlank(odStatus)) {
+			String status = order.getStatus();
+			model.addAttribute("dispStatus", TranslationUtils.translateOrderStatus(status));
+		} else {
+			model.addAttribute("dispStatus", (dispRd == null ? "" : TranslationUtils.translateDispatchOrderStatus(odStatus)));
+		}
+		model.addAttribute("order", order);
+		return "modules/order/orderManagement/secondSiteOrder/waitCallBackOrder/waitCallBackForm";
+	}
+
+	/**
+	 * 已回访工单表头
+	 */
+	@RequestMapping(value = "hadCallBackTab")
+	public String hadCallBackTab(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		model.addAttribute("order", order);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+		List<String> listOriginlist = new ArrayList<String>();
+		for (Record rd : listOrigin) {
+			listOriginlist.add(rd.getStr("name"));
+		}
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		model.addAttribute("category", category);
+		model.addAttribute("listorigin", listOrigin);
+		model.addAttribute("listoriginlist", listOriginlist);
+		model.addAttribute("headerData", stf);
+		model.addAttribute("siteId", siteId);
+		model.addAttribute("sites", CrmUtils.getSecondSites(siteId));
+		return "modules/order/orderManagement/secondSiteOrder/hadCallBackOrder/secOrderHadCallBackList";
+	}
+
+	/**
+	 * 已回访工单数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getHadCallBackList")
+	public String getHadCallBackList(HttpServletRequest request, HttpServletResponse response) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		map.put("__WXGDList", "8"); // HACK,用此来表明是无效工单列表
+		Page<Record> page = secondSiteOrderService.getOrderHadCallBack(pages, siteId, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	/**
+	 * 获取二级网点已回访工单数量
+	 */
+
+	@ResponseBody
+	@RequestMapping(value = "getHadCallBackCount")
+	public Map<String, Object> getHadCallBackCount() {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		User user = UserUtils.getUser();
+		Map<String, Object> resultMap = Maps.newHashMap();
+		Map<String, Object> map = Maps.newHashMap();
+		List<String> cateList = null;
+		List<String> brandList = null;
+		if (!("2".equals(user.getUserType()))) {
+			String cate = noService.servicemanCate(user.getId(), siteId);
+			String brand = noService.servicemanBrand(user.getId(), siteId);
+			cateList = StringUtil.tolist(cate);
+			brandList = StringUtil.tolist(brand);
+		}
+		String sites = CrmUtils.getSiteIdList(siteId);
+		resultMap.put("c1", orderDao.getOrderHadCallBackCount(siteId, sites, map, cateList, brandList));
+		return resultMap;
+	}
+
+	/**
+	 * 已回访工单详情
+	 */
+	@RequestMapping(value = "hadCallBackform")
+	public String hadCallBackform(HttpServletRequest request, Model model) {
+		String orderId = request.getParameter("id");
+		Order order = orderService.get(orderId);
+		model.addAttribute("order", order);
+		Record rds = orderDispatchService.getOrderId(orderId, order.getSiteId());
+		String odStatus = (rds == null ? "" : rds.getStr("status"));
+		if (StringUtils.isBlank(odStatus)) {
+			String status = order.getStatus();
+			model.addAttribute("dispStatus", TranslationUtils.translateOrderStatus(status));
+		} else {
+			model.addAttribute("dispStatus", (rds == null ? "" : TranslationUtils.translateDispatchOrderStatus(odStatus)));
+		}
+		return "modules/order/orderManagement/secondSiteOrder/hadCallBackOrder/hadCallBackForm";
+	}
+
+	/**
+	 * 导出处理中、待回访工单
+	 */
+	@RequestMapping(value = "exportDuringOrCallBack")
+	public String exportDuringOrCallBack(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Map<String, Object> map = new TrimMap(getParams(request));
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+
+			String title = stf.getExcelTitle();
+			System.out.println(title);
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			String whoExport = request.getParameter("whoExport");
+			List<Record> list = null;
+			List<String> cateList = null;
+			List<String> brandList = null;
+			if (!("2".equals(user.getUserType()))) {
+				String cate = noService.servicemanCate(user.getId(), siteId);
+				String brand = noService.servicemanBrand(user.getId(), siteId);
+				cateList = StringUtil.tolist(cate);
+				brandList = StringUtil.tolist(brand);
+			}
+			String sites = CrmUtils.getSiteIdList(siteId);
+			if ("wait".equals(whoExport)) {
+				// 待回访工单
+				list = orderDao.getOrderWaitCallBack(pages, siteId, sites, map, cateList, brandList);
+			} else if ("deal".equals(whoExport)) {
+				// 处理中工单
+				list = orderDao.getOrderWaitDeal(pages, sites, map, cateList, brandList);
+			} else if ("had".equals(whoExport)) {
+				// 已回访工单
+				list = orderDao.getOrderHadCallBack(pages, siteId, sites, map, cateList, brandList);
+			}
+			String phones = "";
+			for (Record rd : list) {
+				phones = (rd.getStr("customer_mobile"));
+				if (StringUtils.isNotBlank(rd.getStr("customer_telephone"))) {
+					phones += "/" + (rd.getStr("customer_telephone"));
+				}
+				if (StringUtils.isNotBlank(rd.getStr("customer_telephone2"))) {
+					phones += "/" + (rd.getStr("customer_telephone2"));
+				}
+				rd.set("customer_mobile", phones);
+				String rAccount = rd.getStr("record_account");
+				if ("1".equals(rAccount)) {
+					rd.set("record_account", "是");
+				} else {
+					rd.set("record_account", "否");
+				}
+				String seAt = rd.getStr("service_attitude");// 满意度
+				if ("1".equals(seAt)) {
+					rd.set("service_attitude", "十分不满意");
+				}
+				if ("2".equals(seAt)) {
+					rd.set("service_attitude", "不满意");
+				}
+				if ("3".equals(seAt)) {
+					rd.set("service_attitude", "一般");
+				}
+				if ("4".equals(seAt)) {
+					rd.set("service_attitude", "满意");
+				}
+				if ("5".equals(seAt)) {
+					rd.set("service_attitude", "十分满意");
+				}
+			}
+
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+
+	// 待处理
+	@RequestMapping(value = "secondWaitDealOrder")
+	public String secondWaitDealOrder(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		model.addAttribute("order", order);
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+		List<Record> listSecondList = secondSiteOrderService.getSecondSiteList(siteId);
+		List<String> listOriginlist = new ArrayList<String>();
+		for (Record rd : listOrigin) {
+			listOriginlist.add(rd.getStr("name"));
+		}
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		model.addAttribute("category", category);
+		model.addAttribute("siteNow", secondSiteOrderService.getSiteById(siteId));
+		model.addAttribute("listorigin", listOrigin);
+		model.addAttribute("listoriginlist", listOriginlist);
+		model.addAttribute("listSecondList", listSecondList);
+		return "modules/order/orderManagement/secondSiteOrder/secondWaitDealOrder";
+	}
+
+	// 待处理
+	@ResponseBody
+	@RequestMapping(value = "secondWaitDealOrderList")
+	public String secondWaitDealOrderList(Order order, HttpServletRequest request, HttpServletResponse response) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = null;
+		page = secondSiteOrderService.getSecondWaitDealOrderList(pages, siteId, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	// 新建工单
+	@RequestMapping(value = "newOrder")
+	public String form(Order order, Model model, HttpServletRequest request) {
+		String oId = request.getParameter("oId");
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Site site = siteService.get(siteId);
+		Map<String, String> brand = BrandUtils.getSiteBrand(siteId, null);
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		Date curDate = new Date();
+		String orderId = RandomUtil.randomOrderNumber();
+		order.setNumber(orderId);
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+		List<String> listOriginlist = new ArrayList<String>();
+		for (Record rd : listOrigin) {
+			listOriginlist.add(rd.getStr("name"));
+		}
+		model.addAttribute("listorigin", listOrigin);
+		model.addAttribute("listoriginlist", listOriginlist);
+		// 自定义用户类型
+		model.addAttribute("cusTypecount", customerTypeDao.getsiteCustomerTypeCount(siteId));
+		// 获取来源
+		List<Record> list = orderService.getOrderType();
+		model.addAttribute("ordertype", list);
+		order.setRepairTime(curDate);
+		model.addAttribute("site", site);
+
+		model.addAttribute("category", category);
+		model.addAttribute("brand", brand);
+		model.addAttribute("order", order);
+		model.addAttribute("orderCopy", orderService.get(oId));
+		Map<String, Object> mapAddr = CrmUtils.getProCityArea(site, order);
+		model.addAttribute("provincelist", mapAddr.get("provincelist"));
+		model.addAttribute("cities", mapAddr.get("cities"));
+		model.addAttribute("districts", mapAddr.get("districts"));
+		return "modules/" + "order/orderManagement/secondSiteOrder/newSecondOrderForm";
+	}
+
+	// 工单入库
+	@ResponseBody
+	@RequestMapping(value = "save")
+	public Object save(HttpServletRequest request, Order or, Model model, RedirectAttributes redirectAttributes) {
+		Map<String, Object> map = getParams(request);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Long count = Db.queryLong("select count(1) as cnt from crm_order where number=? and site_id=?", or.getNumber(), siteId);
+		if (count > 0) {
+			return null;
+		}
+		secondSiteOrderService.save(or, map);
+		return or;
+	}
+
+	/* 全部工单页面tab数 */
+	@ResponseBody
+	@RequestMapping(value = "getWholeOrderTabCount")
+	public Map<String, Object> getWholeOrderTabCount() {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return secondSiteOrderService.getWholeOrderTabCount(siteId);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getSecondOrderTabCount")
+	public Map<String, Object> getSecondOrderTabCount() {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return secondSiteOrderService.getSecondOrderTabCount(siteId);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getSecondSiteDetailMsg")
+	public List<Record> getSecondSiteDetailMsg(String searchName, String selectcategory, String selectbrand, HttpServletRequest request, HttpServletResponse response) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		List<Record> list = secondSiteOrderService.getSecondSiteDetailMsg(searchName, siteId, selectcategory, selectbrand);
+		return list;
+	}
+
+	// 派工
+	@ResponseBody
+	@RequestMapping(value = "plDispatch")
+	public Map<String, Object> plDispatch(String ids, String secondSiteId, HttpServletRequest request) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return secondSiteOrderService.plDispatch(ids, siteId, secondSiteId);
+	}
+
+	// 转派
+	@ResponseBody
+	@RequestMapping(value = "plDispatchZp")
+	public Map<String, Object> plDispatchZp(String ids, String secondSiteId, String reason, HttpServletRequest request) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return secondSiteOrderService.plDispatchZp(ids, siteId, secondSiteId, reason);
+	}
+
+	@RequestMapping(value = "export")
+	public String exportFile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Map<String, Object> map = new TrimMap(getParams(request));
+			String type = map.get("type").toString();
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+			System.out.println(title);
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			List<Record> list = null;
+			list = secondSiteOrderService.getWholeWaitDealOrderList(pages, siteId, map, type).getList();
+			String phones = "";
+			for (Record rd : list) {
+				phones = (rd.getStr("customer_mobile"));
+				if (StringUtils.isNotBlank(rd.getStr("customer_telephone"))) {
+					phones += "/" + (rd.getStr("customer_telephone"));
+				}
+				if (StringUtils.isNotBlank(rd.getStr("customer_telephone2"))) {
+					phones += "/" + (rd.getStr("customer_telephone2"));
+				}
+				rd.set("customer_mobile", phones);
+				String rAccount = rd.getStr("record_account");
+				if ("1".equals(rAccount)) {
+					rd.set("record_account", "是");
+				} else {
+					rd.set("record_account", "否");
+				}
+				String seAt = rd.getStr("service_attitude");// 满意度
+				if ("1".equals(seAt)) {
+					rd.set("service_attitude", "十分不满意");
+				}
+				if ("2".equals(seAt)) {
+					rd.set("service_attitude", "不满意");
+				}
+				if ("3".equals(seAt)) {
+					rd.set("service_attitude", "一般");
+				}
+				if ("4".equals(seAt)) {
+					rd.set("service_attitude", "满意");
+				}
+				if ("5".equals(seAt)) {
+					rd.set("service_attitude", "十分满意");
+				}
+				String status = rd.getStr("status");
+				String stDesc = "";
+				if ("0".equals(status)) {
+					stDesc = "待接收";
+				}
+				if ("9".equals(status)) {
+					stDesc = "已拒接";
+				}
+				if ("2".equals(status)) {
+					stDesc = "服务中";
+				}
+				if ("1".equals(status)) {
+					stDesc = "待派工";
+				}
+				if ("3".equals(status)) {
+					stDesc = "待回访";
+				}
+				if ("4".equals(status)) {
+					stDesc = "待结算";
+				}
+				if ("7".equals(status)) {
+					stDesc = "暂不派工";
+				}
+				if ("5".equals(status)) {
+					stDesc = "已完成";
+				}
+				if ("8".equals(status)) {
+					stDesc = "无效工单";
+				}
+				rd.set("status", stDesc);
+			}
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "waitDealOrderPlfd")
+	public String waitDealOrderPlfd(String id, String latestProcess, HttpServletRequest request, HttpServletResponse response) {
+		return secondSiteOrderService.wdplfd(id, latestProcess);
+	}
+
+	// 待处理工单详情
+	@RequestMapping(value = "secondWaitDealOrderForm")
+	public String form(HttpServletRequest request, Model model) {
+		String orderId = request.getParameter("id");
+		String siteType = request.getParameter("siteType");
+		Order order = orderService.get(orderId);
+		User user = UserUtils.getUser();
+		String siteId = order.getSiteId();
+		// 模板获取
+		List<Record> listModel = MsgModelUtils.getListModel(order.getStatus());
+		model.addAttribute("listModel", listModel);
+
+		model.addAttribute("number", order.getNumber());
+		if (StringUtils.isNotBlank(order.getCustomerMobile())) {
+			model.addAttribute("lenMobile", order.getCustomerMobile().length());// 号码长度
+		} else {
+			model.addAttribute("lenMobile", 0);// 号码长度
+		}
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		Map<String, String> brand = BrandUtils.getSiteBrand(siteId, null);
+		model.addAttribute("brand", brand);
+		List<String> brandlist = new ArrayList<String>();
+		for (String value : brand.values()) {
+			brandlist.add(value);
+		}
+		List<String> catelist = new ArrayList<String>();
+		for (Record caterd : category) {
+			catelist.add(caterd.getStr("name"));
+		}
+		model.addAttribute("catelist", catelist);
+		model.addAttribute("brandlist", brandlist);
+		model.addAttribute("category", category);
+		model.addAttribute("order", order);
+		model.addAttribute("siteName", siteDao.get(siteId).getName());
+		// 信息来源
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+		List<String> listOriginlist = new ArrayList<String>();
+		for (Record rdss : listOrigin) {
+			listOriginlist.add(rdss.getStr("name"));
+		}
+		model.addAttribute("listorigin", listOrigin);
+		model.addAttribute("listoriginlist", listOriginlist);
+		// 时间要求
+		List<Record> list = orderDispatchService.getAllProLimit(new ArrayList<Record>());
+		List<String> listStr = Lists.newArrayList();
+		for (int i = 0; i < list.size(); i++) {
+			listStr.add(list.get(i).getStr("name"));
+		}
+		Record rds = orderDispatchService.getOrderId(orderId, order.getSiteId());
+		String odStatus = (rds == null ? "" : rds.getStr("status"));
+		if (StringUtils.isBlank(odStatus)) {
+			String status = order.getStatus();
+			model.addAttribute("dispStatus", TranslationUtils.translateOrderStatus(status));
+		} else {
+			model.addAttribute("dispStatus", (rds == null ? "" : TranslationUtils.translateDispatchOrderStatus(odStatus)));
+		}
+		model.addAttribute("proLimitList", listStr);
+
+		Site site = siteService.get(siteId);
+		Map<String, Object> mapAddr = CrmUtils.getProCityArea(site, order);
+		model.addAttribute("provincelist", mapAddr.get("provincelist"));
+		model.addAttribute("cities", mapAddr.get("cities"));
+		model.addAttribute("districts", mapAddr.get("districts"));
+		model.addAttribute("site", site);
+		// 反馈内容
+		/*
+		 * Map<String, Object> feedbackInfo =
+		 * orderService.getOrderFeedbackRecords(orderId, order.getSiteId());
+		 * model.addAttribute("feedbackInfo", feedbackInfo); List<Record>
+		 * collectionslist =
+		 * orderDispatchService.getCollectionlistByOrderNumber(order.getNumber(),
+		 * order.getSiteId()); model.addAttribute("collectionslist",collectionslist);
+		 */
+
+		model.addAttribute("disOrder", rds);
+		// 反馈内容
+		Map<String, Object> feedbackInfo = orderService.getOrderFeedbackRecords(orderId, order.getSiteId());
+		model.addAttribute("feedbackInfo", feedbackInfo);
+		Record rdetail = orderDispatchService.feedBackDuringDetail(siteId, orderId);
+		if (rdetail != null) {
+			model.addAttribute("duringFeedImgs", rdetail.getStr("feedback_img"));
+			Integer duringFeedImgsCount = 0;
+			if (StringUtils.isNotBlank(rdetail.getStr("feedback_img"))) {
+				model.addAttribute("duringFeedImgsArr", rdetail.getStr("feedback_img").split(","));
+				duringFeedImgsCount = rdetail.getStr("feedback_img").split(",").length;
+			}
+			model.addAttribute("duringFeedImgsCount", duringFeedImgsCount);
+		}
+
+		Record rdetails = orderDispatchService.feedBackDetail(siteId, orderId);
+		if (rdetails != null) {
+			model.addAttribute("feedBackDetail", orderDispatchService.feedBackDetail(siteId, orderId));
+			String feedBImgs = orderDispatchService.feedBackDetail(siteId, orderId).getStr("feedback_img");
+			if (StringUtils.isNotBlank(feedBImgs)) {
+				model.addAttribute("feedImgs", feedBImgs.split(","));
+				model.addAttribute("feedImgsCount", feedBImgs.split(",").length);
+			} else {
+				model.addAttribute("feedImgs", "");
+				model.addAttribute("feedImgsCount", 0);
+			}
+		} else {
+			model.addAttribute("feedBackDetail", "");
+		}
+		List<Record> malllist = orderMallService.getlist(siteId);
+		model.addAttribute("malllist", malllist);
+		List<Record> collectionslist = orderDispatchService.getCollectionlistByOrderNumber(order.getNumber(), order.getSiteId());
+		model.addAttribute("collectionslist", collectionslist);
+		if (StringUtils.isNotBlank(siteType)) {
+			// 合作型网点的工单，只有在待回访时会有回访按钮操作
+			if ("5".equals(order.getParentStatus())) {
+				// 回访信息
+				Record callrds = orderParentCallBackService.getCallBackOrder(orderId);
+				model.addAttribute("call", callrds);
+				return "modules/" + "order/orderManagement/secondSiteOrder/waitCallBackOrder/cooperationhistoryForm";
+			}
+			
+			return "modules/" + "order/orderManagement/secondSiteOrder/waitCallBackOrder/cooperationCallBackForm";
+		}
+		if ("1".equals(order.getParentStatus()) || "2".equals(order.getParentStatus()) || "6".equals(order.getParentStatus()) || "7".equals(order.getParentStatus())) {
+			// 待处理
+			return "modules/" + "order/orderManagement/secondSiteOrder/secondWaitDealOrderForm";
+		} else if ("4".equals(order.getParentStatus())) {
+			// 待回访
+			return "modules/order/orderManagement/secondSiteOrder/waitCallBackOrder/waitCallBackForm";
+		} else if ("3".equals(order.getParentStatus())) {
+			// 服务中
+			return "modules/order/orderManagement/secondSiteOrder/secondDuring/secOrderDuringForm";
+		} else if ("5".equals(order.getParentStatus())) {
+			// 已回访
+			return "modules/order/orderManagement/secondSiteOrder/secondWaitorderhistoryForm";
+		}
+		return "modules/order/orderManagement/secondSiteOrder/hadCallBackOrder/hadCallBackForm";
+	}
+
+	/* 操作返回一级网点待派工 */
+	@ResponseBody
+	@RequestMapping(value = "returnSiteOrder")
+	public Object returnSiteOrder(HttpServletRequest request) {
+		String orderId = request.getParameter("orderId");
+		return secondSiteOrderService.returnSiteOrder(orderId);
+	}
+
+	/*
+	 * //待处理工单直接封单
+	 * 
+	 * @RequestMapping(value = "plDispatchZp") public String wdplfd(String id,String
+	 * latestProcess,HttpServletRequest request){ return
+	 * secondSiteOrderService.wdplfd(id,latestProcess); }
+	 */
+
+	@ResponseBody
+	@RequestMapping(value = "recvOrders")
+	public Object recvOrders(HttpServletRequest request) {
+		String orderIds = request.getParameter("ids");
+		return secondSiteOrderService.recvOrders(orderIds);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "refuseOrders")
+	public Object refuseOrders(HttpServletRequest request) {
+		String orderIds = request.getParameter("ids");
+		return secondSiteOrderService.refuseOrders(orderIds);
+	}
+
+	/* 二级网点工单 */
+	@RequestMapping(value = "wholeWaitDealOrder")
+	public String wholeWaitDealOrder(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		model.addAttribute("order", order);
+		String type = request.getParameter("type");
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+
+		List<String> listOriginlist = new ArrayList<String>();
+		for (Record rd : listOrigin) {
+			listOriginlist.add(rd.getStr("name"));
+		}
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		model.addAttribute("category", category);
+		model.addAttribute("siteNow", secondSiteOrderService.getSiteById(siteId));
+		model.addAttribute("listorigin", listOrigin);
+		model.addAttribute("listoriginlist", listOriginlist);
+
+		if ("2".equals(type)) {
+			List<Record> listSecondList = secondSiteOrderService.getSecondSiteListAll(siteId, "2");
+			model.addAttribute("listSecondList", listSecondList);
+			return "modules/order/orderManagement/secondSiteOrder/cooperationSiteWholeOrder";
+		}
+		List<Record> listSecondList = secondSiteOrderService.getSecondSiteListAll(siteId, "1");
+		model.addAttribute("listSecondList", listSecondList);
+		return "modules/order/orderManagement/secondSiteOrder/wholeWaitDealOrder";
+	}
+
+	// 一级网点显示的二级网点（直营和合作）
+	@ResponseBody
+	@RequestMapping(value = "wholeWaitDealOrderList")
+	public String wholeWaitDealOrderList(Order order, HttpServletRequest request, HttpServletResponse response) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		String type = request.getParameter("type");
+		if (StringUtils.isBlank(type)) {
+			type = "1";
+		}
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = null;
+		page = secondSiteOrderService.getWholeWaitDealOrderList(pages, siteId, map, type);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	// 最新版-派工
+	@RequestMapping(value = "toDispatchOrderPage")
+	public String toDispatchOrderPage(String searchName, String selectcategory, String selectbrand, String customerMobile, String orderId, String position,
+			HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		List<Record> list = secondSiteOrderService.getSearchSiteList(siteId);
+		model.addAttribute("siteList", list);
+		model.addAttribute("selectcategory", selectcategory);
+		model.addAttribute("searchName", searchName);
+		model.addAttribute("orderId", orderId);
+		model.addAttribute("position", position);
+		model.addAttribute("latestEmp", orderService.getLatestEmployesByMobile(siteId, customerMobile));
+		return "modules/order/orderManagement/secondSiteOrder/dispatchOrder/dispatchOrder";
+	}
+
+	// 最新版-转派
+	@RequestMapping(value = "toChangeDispatchOrderPage")
+	public String toChangeDispatchOrderPage(String searchName, String selectcategory, String selectbrand, String customerMobile, String orderId, String position, String origin,
+			HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		// List<Record> list = secondSiteOrderService.getSecondSiteDetailMsg(searchName,
+		// siteId, selectcategory, selectbrand);
+		List<Record> list = secondSiteOrderService.getSearchSiteList(siteId);
+		model.addAttribute("siteList", list);
+		model.addAttribute("selectcategory", selectcategory);
+		model.addAttribute("searchName", searchName);
+		model.addAttribute("orderId", orderId);
+		model.addAttribute("position", position);
+		model.addAttribute("origin", origin);
+		model.addAttribute("latestEmp", orderService.getLatestEmployesByMobile(siteId, customerMobile));
+		return "modules/order/orderManagement/secondSiteOrder/dispatchOrder/changeDispatchOrder";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getEmployeBuSiteId")
+	public List<Record> getEmployeBuSiteId(String siteId, String category, HttpServletRequest request, HttpServletResponse response) {
+		return secondSiteOrderService.getEmployeBuSiteId(siteId, category);
+	}
+
+	/*
+	 * @ResponseBody
+	 * 
+	 * @RequestMapping(value = "getSearchSiteList") public List<Record>
+	 * getSearchSiteList(String searchName, String selectcategory, String
+	 * selectbrand, HttpServletRequest request, HttpServletResponse response, Model
+	 * model) { User user = UserUtils.getUser(); String siteId =
+	 * CrmUtils.getCurrentSiteId(user); return
+	 * secondSiteOrderService.getSearchSiteList(searchName, siteId, selectcategory,
+	 * selectbrand); }
+	 */
+
+	// 最新-派工保存
+	@ResponseBody
+	@RequestMapping(value = "dispatchOrderSave")
+	public String dispatchOrderSave(HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = getParams(request);
+		return secondSiteOrderService.dispatchOrderSave(map);
+	}
+
+	// 最新-转派保存
+	@ResponseBody
+	@RequestMapping(value = "dispatchChangeOrderSave")
+	public String dispatchChangeOrderSave(HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = getParams(request);
+		return secondSiteOrderService.dispatchChangeOrderSave(map);
+	}
+
+}

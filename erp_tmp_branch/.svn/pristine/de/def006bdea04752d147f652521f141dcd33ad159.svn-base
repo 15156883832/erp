@@ -1,0 +1,23 @@
+package com.jojowonet.modules.order.utils;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+
+public class MsgModelUtils {
+	public static List<Record> getListModel(String status){
+		List<Record> list = new ArrayList<Record>();
+		if(status.equals("2") || status.equals("1") || status.equals("7") ){
+			list = Db.find("select distinct a.tag from sys_sms_template a where a.status='0' and a.tag in('6','4','3','2','7','11','8','9','5')");
+		}else if(status.equals("3") || status.equals("4")){
+			list = Db.find("select * from sys_sms_template a where a.status='0' and a.tag in('5')");
+		}
+		return list;
+	}
+	
+	public static List<Record> getListModel1(){
+		return Db.find("select distinct a.tag from sys_sms_template a where a.status='0' and a.tag in('6','4','3','2','7','11','5','9')");
+	}
+}

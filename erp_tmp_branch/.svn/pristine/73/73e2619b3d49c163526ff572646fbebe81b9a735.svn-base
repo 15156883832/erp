@@ -1,0 +1,59 @@
+package com.jojowonet.modules.order.web;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.service.SmsSignSetService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+
+
+
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+
+/**
+ * 
+ * @author yc
+ * 短信签名controller
+ * 
+ *
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/order/smsSignSet")
+public class SmsSignSetController extends BaseController{
+	@Autowired
+	private SmsSignSetService smsSignSetService;
+	
+	@RequestMapping(value = { "list", "" })
+	public String list(HttpServletRequest request,HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Record site=smsSignSetService.getSiteSmsSign(siteId);
+		model.addAttribute("site", site);
+		return "modules/" + "order/smsSign";
+	}
+	//修改签名
+	@RequestMapping(value="smsSignUpdate")
+	@ResponseBody
+	public boolean smsSignUpdate(String smsPhone,String smsSign){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		boolean flag;
+		int i=smsSignSetService.updateSiteSign(siteId,smsPhone,smsSign);
+		if(i>0){
+			flag=true;
+		}else{
+			flag=false;
+		}
+		return flag;
+		
+	}
+
+}

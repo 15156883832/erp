@@ -1,0 +1,11 @@
+.imgBox{
+	width: 113px;
+	height: 113px;
+	margin-bottom: 8px;
+	padding: 6px 6px 6px 8px;
+	float: left;
+	border: 1px solid #fff;
+	border-radius: 5px;
+	box-sizing: border-box;
+}
+.imgBox img{ width: 100%; }

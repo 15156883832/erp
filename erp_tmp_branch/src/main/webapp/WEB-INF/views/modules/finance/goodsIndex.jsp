@@ -1,0 +1,443 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+  <head>
+    
+    <meta name="decorator" content="base"/>
+	<script type="text/javascript" src="${ctxPlugin}/lib/formatStatus.js"></script>
+  </head>
+  
+  <body>
+    <div class="sfpagebg">
+	<div class="sfpage bk-gray table-header-settable">
+	<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+			<sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_GOODSORDERDETAILED_TAB" html='<a class="btn-tabBar  current" href="${ctx}/finance/revenue/goods">商品订单明细</a>'></sfTags:pagePermission>
+		<sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_GOODSSALESCOMMISSION_TAB" html='<a class="btn-tabBar" href="${ctx}/finance/revenue/toEmployeGoodsDetail">销售提成明细</a>'></sfTags:pagePermission>
+			<p class="f-r btnWrap">
+				<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt resetSearchBtn"><i class="sficon sficon-reset"></i>重置</a>
+			</p>
+		</div>
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<div class="bk-gray pt-10 pb-5">
+				<input type="hidden" name="siteId" id="siteId" value="${siteId }"> 
+					<table class="table table-search">
+						<tr>
+						
+							<th style="width: 76px;" class="text-r">销售人员：</th>
+							<td>
+								<input type="text" class="input-text" name= "placingName" id="placingName"/>
+								
+							</td>
+						
+							<th style="width: 76px;" class="text-r">用户姓名：</th>
+							<td>
+								<input type="text" class="input-text" name = "customerName" id="customerName"/>
+							</td>
+							<th style="width: 76px;" class="text-r">联系方式：</th>
+							<td>
+								<input type="text" class="input-text" name = "customerMobile" id="customerMobile"/>
+							</td>
+							<th style="width: 76px;" class="text-r">零售时间：</th>
+							<td colspan="3">
+								<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'createTimeMax\')||\'%y-%M-%d\'}'})" id="createTimeMin" name="createTimeMin" value="${repairTimeMin }" class="input-text Wdate w-120" style="width:120px">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'createTimeMin\')}',maxDate:'%y-%M-%d'})" id="createTimeMax" name="createTimeMax" value="" class="input-text Wdate w-120" style="width:120px">
+							</td>
+						</tr>
+					</table>
+				</div>
+			</form>
+			<div class="pt-10 pb-5 cl">
+			 	<div class="f-l" style="color: #f60909;">
+			 		销售利润=成交总额-提成金额-商品成本；实际利润=实收金额-提成金额-商品成本
+					<%-- <sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_GOODSREVENUEDETAIL_CKGCHJSMX_BTN" html='<a onclick="seeGoodsDetail()"class="sfbtn sfbtn-opt" target="_blank"><i class="sficon sficon-checkgcsmx"></i>查看提成明细</a>'></sfTags:pagePermission> --%>
+				</div> 
+				<div class="f-r">
+					<sfTags:pagePermission authFlag="FINANCEMGM_SITEREVENUEDETAIL_GOODSORDER_EXPORT_BTN" html='<a  onclick="return exports()" class="sfbtn sfbtn-opt2" target="_blank"><i class="sficon sficon-export"></i>导出</a>'></sfTags:pagePermission>
+				</div>
+			</div>
+			<div>
+				<table id="table-waitdispatch" class="table"></table>
+				<!-- pagination -->
+					<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+					<!-- pagination -->
+			</div>
+		</div>
+	</div>
+</div>
+
+</div>
+</div>
+
+ <div class="popupBox w-320 vipPromptBox">
+            <h2 class="popupHead">
+                提示
+            </h2>
+            <div class="popupContainer">
+                <div class="popupMain text-c pt-30 pb-20">
+                    <div class="">
+                        <i class="iconType iconType2"></i>
+                        <strong class="f-16">VIP会员功能</strong>
+                    </div>
+                    <p class="c-666 lh-26">
+                        抱歉，此功能需要<span class="c-bb3906">开通VIP会员</span>后才能使用！
+                    </p>
+                    <div class="text-c mt-30">
+                        <%-- <a  href="#" onclick="jumpToVIP();return false;" class="sfbtn sfbtn-opt3 w-100">开通VIP会员</a>--%>
+                        <span class="sfbtn sfbtn-opt3 w-100" onclick="jumpToVIP();">开通VIP会员</span>
+                    </div>
+                </div>
+            </div>
+    </div>
+<script type="text/javascript">
+var placingName = '${placingName}';
+var createTimeMin = '${poTime}';
+var createTimeMax = '${poTime1}';
+var record = '${record}';
+
+
+$('#btn-add').click(function(){
+	layer.open({
+		type : 2,
+		content:'	${ctx}/order/unit/form',
+		title:false,
+		area: ['100%','100%'],
+		closeBtn:0,
+		shade:0,
+		anim:-1 
+	})
+})
+var sfGrid;
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+
+$(function(){
+	
+	 $.post("${ctx}/goods/sitePlatformGoods/distinct", function (result) {
+         if (result == "showPopup") {
+
+             $(".vipPromptBox").popup();
+             $('#Hui-article-box', window.top.document).css({'z-index': '9'});
+         }
+     });
+	
+	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	if(typeof(placingName) == undefined || !placingName){
+	}else{
+		$("#createTimeMin").val(createTimeMin);
+		$("#createTimeMax").val(createTimeMax);
+		$("#placingName").val(placingName);
+		
+		/* $.ajax({
+			type:"post",
+			url:'${ctx}/finance/financeOrderExcel/getRecord',
+			data:{placingName:placingName,
+				createTimeMin:createTimeMin,
+				createTimeMax:createTimeMax},
+			success:function(result){
+				$("#placingName").val(result.columns.placing_name);
+			}
+		}) */
+	}
+	
+	initSfGrid();
+});
+
+function jumpToVIP() {
+	layer.open({
+		type : 2,
+		content : '${ctx}/goods/sitePlatformGoods/jumpVIP',
+		title : false,
+		area : [ '100%', '100%' ],
+		closeBtn : 0,
+		shade : 0,
+		anim : -1
+	});
+}
+
+//初始化jqGrid表格，传递的参数按照说明
+function initSfGrid(){
+	var url = "${ctx}/finance/revenue/goodsList";
+	sfGrid = $("#table-waitdispatch").sfGrid({
+		url:url, 
+		sfHeader:defaultHeader,
+		sfSortColumns:sortHeader,
+		postData:$("#searchForm").serializeJson(),
+		//shrinkToFit: true,
+		multiselect: false,
+		rownumbers : true,
+		gridComplete:function(){
+			_order_comm.gridNum();
+		},
+		loadComplete : function(data) {
+			var row = data.records;
+			if(row <1){
+				return
+			}
+			var header = sortHeader;
+			if (isBlank(header)) {
+				header = dealHeader(defaultHeader);
+			}
+			var canshu = returnObject(header);
+			$("#table-waitdispatch").addRowData("1", canshu, "last");
+			$("#table-waitdispatch").find("#1").find("td").eq(0).addClass("hide");
+			$("#table-waitdispatch").find("#1").find("td").eq(2).addClass("hide");
+			$("#table-waitdispatch").find("#1").find("td").eq(1).attr("colspan", "5").css("background-color", "#ddd");
+			$("#table-waitdispatch").find("#1").find("td").eq(3).addClass("hide");
+			$("#table-waitdispatch").find("#1").find("td").eq(4).addClass("hide");
+			//加底色
+			$("#table-waitdispatch").find("#1").find("td").each(function(){
+				var val = $(this).attr("title");
+				if(val!='合计' && val!='— —'){ 
+					$(this).css("background-color", "#ffeedd");
+				}
+			})
+			
+		}
+	});
+}
+
+function dealHeader(dt) {
+	var name = "";
+	for (var i = 0; i < dt.length; i++) {
+		var val = dt[i].name;
+		if (isBlank(name)) {
+			name = val;
+		} else {
+			name += "," + val;
+		}
+	}
+	return name;
+}
+function returnObject(sortHeader) {
+	var objMny = {};
+	$.ajax({
+		type : "post",
+		url : "${ctx}/finance/revenue/getGoodsTotal",
+		async : false,
+		data : $("#searchForm").serializeJson(),
+		success : function(data) {
+			if(data == null){
+				return 
+			}
+			var dt = data.columns;
+			var pur = dt.purchase_num == ""? 0:dt.purchase_num;
+			var rea = dt.real_amount == ""? 0:dt.real_amount;
+			var con = dt.confirm_amount == ""? 0:dt.confirm_amount;
+			var sho = dt.shortNeedMoney == ""? 0:dt.shortNeedMoney;
+			var sal = dt.sales_commissions == ""? 0:dt.sales_commissions;
+			var pai = dt.paid_commissions == ""? 0:dt.paid_commissions;
+			var good = dt.goods_cost == ""? 0:dt.goods_cost;
+			var sales = dt.salesProfit == ""? 0:dt.salesProfit;
+			var real = dt.realProfit == ""? 0:dt.realProfit;
+			objMny = {
+				purchase_num : (pur).toFixed(2),
+				real_amount : (rea).toFixed(2),
+				confirm_amount : (con).toFixed(2),
+				shortNeedMoney : (sho).toFixed(2),
+				sales_commissions : (sal).toFixed(2),
+				paid_commissions : (pai).toFixed(2),
+				goods_cost : (good).toFixed(2),
+				salesProfit : (sales).toFixed(2),
+				realProfit : (real).toFixed(2)
+			};
+			
+		}
+	})
+	var arr = sortHeader.split(",");
+	var obj = {};//"id":"合计"
+	for (var i = 0; i < arr.length; i++) {
+		var name = arr[i];
+		var obj1 = {};
+		var val = "— —";
+		if (i == 0) {
+			val = "合计";
+		}
+		if (name == 'purchase_num') {
+			val = objMny.purchase_num;
+		}
+		if (name == 'real_amount') {
+			val = objMny.real_amount;
+		}
+		if (name == 'confirm_amount') {
+			val = objMny.confirm_amount;
+		}
+		if (name == 'shortNeedMoney') {
+			val = objMny.shortNeedMoney;
+		}
+		if (name == 'sales_commissions') {
+			val = objMny.sales_commissions;
+		}
+		if (name == 'paid_commissions') {
+			val = objMny.paid_commissions;
+		}
+		if (name == 'goods_cost') {
+			val = objMny.goods_cost;
+		}
+		if (name == 'salesProfit') {
+			val = objMny.salesProfit;
+		}
+		if (name == 'realProfit') {
+			val = objMny.realProfit;
+		}
+		obj1[name] = val;
+		obj = $.extend(obj, obj1);
+		;
+	}
+	return obj;
+}
+
+//未收款金额
+function shortNeedMoneyFomat(rowData){
+	var wei = rowData.real_amount - rowData.confirm_amount;
+	return wei.toFixed(2);
+}
+//实际利润
+function realProfit(rowData){
+	var wei = rowData.confirm_amount - rowData.sales_commissions - rowData.goods_cost;
+	return wei.toFixed(2);
+}
+//销售利润
+function salesProfit(rowData){
+	var wei = rowData.real_amount - rowData.sales_commissions - rowData.goods_cost;
+	return wei.toFixed(2);
+}
+
+function typesLook(rowData){
+	if (rowData.id == "合计") {
+		return "— —";
+	}
+	if(rowData.type=='i'){
+		return "<span>整数</span>";
+	}else{
+		return "<span>实数</span>";
+	}
+}
+
+function statuTrans(row){
+	if (rowData.id == "合计") {
+		return "— —";
+	}
+	if(row.jkstatus =='2'||row.jkstatus=='3'){
+		return "是";
+	}
+	
+	return "否";
+}
+
+function fmtOper(rowData){	
+	return "<span><a href=javascript:updateMsg('"+rowData.id+"')>修改</a></span><span><a href=javascript:deleteMsg('"+rowData.id+"')>删除</a></span>";	
+}
+function GoodName(rowData){
+	if (rowData.number == "合计") {
+		return "— —";
+	}
+	var html ="";
+	 $.each(rowData.good_name, function(i,val){    
+		 html += "【" + val.good_name  +" x " +val.purchase_num+" ￥"+val.good_amount+"】 ";
+	  });
+	return html;	
+}
+
+function search(){
+	var pageSize = $("#pageSize").val();
+	if ($.trim(pageSize) == '' || pageSize == null) {
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch({
+    	postData:$("#searchForm").serializeJson()
+    });
+}
+
+function fmtSours(rowData){
+	if (rowData.id == "合计") {
+		return "— —";
+	}
+	if(rowData.good_source=="1"){
+		return "自营"
+	}else{
+		return "平台"
+	}
+}
+function orderNumber(rowData){	
+	if(isBlank(rowData.order_number)){
+		return "";
+	}
+	return "<span><a class='c-0e8ee7' style='cursor: pointer;'  href=javascript:orderDetailForm('"+rowData.order_number+"')>"+rowData.order_number+"</a></span>";	
+}
+
+function exports(){
+	var idArr=$("#table-waitdispatch").jqGrid('getGridParam','records')
+	var content="共"+idArr+"条数据，本次允许导出前10000条，确定继续导出吗？";
+	if(idArr>10000){
+		$('body').popup({
+			level:3,
+			title:"导出",
+			content:content,
+			 fnConfirm :function(){
+				 location.href="${ctx}/finance/revenue/goods/export?formPath=/a/finance/revenue/goods&&maps="+$("#searchForm").serialize(); 
+			 }
+	
+		});
+	}else{
+		 location.href="${ctx}/finance/revenue/goods/export?formPath=/a/finance/revenue/goods&&maps="+$("#searchForm").serialize(); 
+	}
+	
+}
+
+function orderDetailForm(orderNumber){
+		layer.open({
+			type : 2,
+			content:"${ctx}/order/orderDispatch/orderDetailForm?orderNo="+orderNumber+"&migration=",
+			title:false,
+			area: ['100%','100%'],
+			closeBtn:0,
+			shade:0,
+			fadeIn:0,
+			anim:-1
+		});
+	}
+
+function isBlank(val) {
+	if (val == null || $.trim(val) == '' || val == undefined) {
+		return true;
+	}
+	return false;
+}
+/* function seeGoodsDetail(){
+	layer.open({
+		type : 2,
+		content:'${ctx}/finance/revenue/toEmployeGoodsDetail',
+		title:false,
+		area: ['100%','100%'],
+		closeBtn:0,
+		shade:0,
+		anim:-1 
+	});
+}
+ */
+function ifOutstocks(rowData){
+	 if (rowData.id == "合计") {
+			return "— —";
+		}
+	if(rowData.outstock_time!=null && $.trim(rowData.outstock_time)!="" ){
+		return "是";
+	}
+	return "否";
+}
+
+</script>
+  </body>
+</html>

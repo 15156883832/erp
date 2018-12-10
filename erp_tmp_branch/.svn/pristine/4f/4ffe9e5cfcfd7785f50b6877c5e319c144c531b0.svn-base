@@ -1,0 +1,337 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="decorator" content="base"/>
+<meta name="renderer" content="webkit|ie-comp|ie-stand">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+<script type="text/javascript" src="${ctxPlugin}/lib/formatStatus.js"></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/easyui.css"/> 
+<script type="text/javascript" src="${ctxPlugin}/lib/select/jquery.easyui.min.js"></script>  
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/> 
+<script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+
+
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+	<script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.js"></script>
+	<style>
+		.dropdown-display{font-size: 12px}
+		.dropdown-selected{margin-top: 4px}
+	</style>
+<title>备件申请管理-核销历史记录</title>
+</head>
+<body>
+	<div class="sfpagebg bk-gray"><div class="sfpage">
+		<div class="page-orderWait">
+			<div class="HuiTab">
+				<div class="tabBar cl mb-10">
+					<sfTags:pagePermission authFlag="FITTINGMGM_BALANCE_PAYMENTS_TAB" html='<a class="btn-tabBar current" href="${ctx}/fitting/balanceOfPayments">备件收支明细</a>'></sfTags:pagePermission>
+					<sfTags:pagePermission authFlag="FITTINGMGM_BALANCE_SUMMARY_TAB" html='<a class="btn-tabBar " href="${ctx}/fitting/fittingRetailvolume">备件收支汇总</a>'></sfTags:pagePermission>
+					<p class="f-r btnWrap">
+						<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+						<a href="javascript:reset();" class="sfbtn sfbtn-opt"><i class="sficon sficon-reset"></i>重置</a>
+					</p>
+				</div>
+				<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<div class="bk-gray pt-10 pb-5">
+					<table class="table table-search">
+						<tr>
+							<th style="width: 76px;" class="text-r">备件条码：</th>
+							<td>
+								<input type="text" class="input-text" name="code"/>
+								<input type="hidden" name="emps" id="emps" class="input-text" />
+							</td>
+							<th style="width: 76px;" class="text-r">备件名称：</th>
+							<td>
+								<input type="text" class="input-text" name="name"/>
+							</td>
+							<th style="width: 80px;" class="text-r">申请人：</th>
+							<td id="reloadSpan">
+								<span class="w-140 dropdown-sin-2">
+									<select class="select " id="employs" multiple name="emps" >
+									<c:forEach items="${fns:getEmloyeListForAll(siteId) }" var="emp">
+										<c:if test="${emp.columns.status ne 3}">
+											<option value="${emp.columns.name }">${emp.columns.name }</option>
+										</c:if>
+										<c:if test="${emp.columns.status eq 3}">
+											<option value="${emp.columns.name }">${emp.columns.name }【离职】</option>
+										</c:if>
+									</c:forEach>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">明细类型：</th>
+							<td>
+								<span class="select-box">
+									<select class="select" name="verificationType">
+										<option value="">请选择</option>
+										<option value="1">工单使用</option>
+										<option value="2">工单零售</option>
+										<option value="3">工程师零售</option>
+										<option value="4">网点零售</option>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">保修类型：</th>
+								<td>
+									<span class="select-box">
+										<select class="select" name="warrantyType">
+											<option value="">请选择</option>
+											<option value="1">保内</option>
+											<option value="2">保外</option>
+										</select>
+									</span>
+								</td>
+						</tr>
+						<tr>
+						<!-- 	
+							
+							<th style="width: 76px;" class="text-r">工单编号：</th>
+							<td>
+								<input type="text" class="input-text" name="orderNo"/>
+							</td> -->
+							<th style="width: 80px;" class="text-r">联系方式：</th>
+							<td>
+								<input type="text" class="input-text" name="tel"/>
+							</td>
+							<th style="width: 76px;" class="text-r">用户姓名：</th>
+							<td>
+								<input type="text" class="input-text" name= "customerName"/>
+							</td>
+						<th style="width: 76px;" class="text-r">详细地址：</th>
+								<td>
+									<input type="text" class="input-text" name= "customerAddress"/>
+								</td>
+						<!-- /tr>
+						<tr class="moreCondition" > -->
+							<th style="width: 76px;" class="text-r">使用时间：</th>
+							<td colspan="3">
+							<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'datemax\')||\'%y-%M-%d\'}'})" id="datemmin" name="datemmin" class="input-text Wdate">
+							至
+							<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'datemmin\')}',maxDate:'%y-%M-%d'})" id="datemax" name="datemax" class="input-text Wdate">
+							</td>
+							<!-- <th style="width: 76px;" class="text-r">核销时间：</th>
+							<td colspan="3">
+								<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'hxmax\')||\'%y-%M-%d\'}'})" id="hxmin" name="hxmin" class="input-text Wdate">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'hxmin\')}',maxDate:'%y-%M-%d'})" id="hxmax" name="hxmax" class="input-text Wdate">
+							</td> -->
+						</tr>
+					</table>
+				</div>
+				</form>
+				<div class="pt-10 pb-5 cl">
+				<div class="f-l" style="color: #f60909;">
+			 		（已经收款情况下）利润1=实收金额-入库价格；利润2=实收金额-工程师价格
+					
+				</div>
+					<div class="f-r">
+						<sfTags:pagePermission authFlag="FITTINGMGM_BALANCE_PAYMENTS_EXPORT_BTN" html='<a  onclick="return exports()"class="sfbtn sfbtn-opt2" target="_blank"><i class="sficon sficon-export"></i>导出</a>'></sfTags:pagePermission>
+						<sfTags:pagePermission authFlag="FITTINGMGM_PAYMENTS_EXPORT_SETHEADER_BTN" html='<a href="javascript:;" class="sfbtn sfbtn-opt2" id="setHeadersBtn"><i class="sficon sficon-setting"></i>表头设置</a>'></sfTags:pagePermission>
+					</div>
+
+				</div>
+				<div class="mt-10">
+					<table id="table-waitdispatch" class="table"></table>
+					<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+				</div>
+				
+			</div>
+		</div>
+	</div></div>
+
+
+ <div class="popupBox w-320 vipPromptBox">
+            <h2 class="popupHead">
+                提示
+            </h2>
+            <div class="popupContainer">
+                <div class="popupMain text-c pt-30 pb-20">
+                    <div class="">
+                        <i class="iconType iconType2"></i>
+                        <strong class="f-16">VIP会员功能</strong>
+                    </div>
+                    <p class="c-666 lh-26">
+                        抱歉，此功能需要<span class="c-bb3906">开通VIP会员</span>后才能使用！
+                    </p>
+                    <div class="text-c mt-30">
+                        <%-- <a  href="#" onclick="jumpToVIP();return false;" class="sfbtn sfbtn-opt3 w-100">开通VIP会员</a>--%>
+                        <span class="sfbtn sfbtn-opt3 w-100" onclick="jumpToVIP();">开通VIP会员</span>
+                    </div>
+                </div>
+            </div>
+    </div>
+<script type="text/javascript">
+
+var sfGrid;
+var id = '${headerData.id}';
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var defaultId = '${headerData.defaultId}';	
+	$(function(){
+		 $.post("${ctx}/goods/sitePlatformGoods/distinct", function (result) {
+             if (result == "showPopup") {
+
+                 $(".vipPromptBox").popup();
+                 $('#Hui-article-box', window.top.document).css({'z-index': '9'});
+             }
+         });
+		
+        $.tabfold("#moresearch",".moreCondition",1,"click");
+		$('#setHeadersBtn').click(function(){
+			$('.addHeaders').tableHeaderSetting({
+				id:id,
+				defaultId: defaultId,
+				sfHeader: defaultHeader,
+				sfSortColumns: sortHeader,
+				tableHeaderSaveUrl:'${ctx}/operate/site/saveTableHeader'
+			}).popup();
+		});
+		initGrid();
+        $('.dropdown-sin-2').dropdown({
+            input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+        });
+	});
+	
+	
+	function initGrid() {
+		$("#table-waitdispatch").sfGrid({
+			url : '${ctx}/fitting/balanceOfPaymentsData',
+			sfHeader : defaultHeader,
+			sfSortColumns : sortHeader,
+			multiselect : false,
+			rownumbers : true,
+			gridComplete : function() {
+				_order_comm.gridNum();
+			}
+
+		});
+	}
+	function jumpToVIP() {
+		layer.open({
+			type : 2,
+			content : '${ctx}/goods/sitePlatformGoods/jumpVIP',
+			title : false,
+			area : [ '100%', '100%' ],
+			closeBtn : 0,
+			shade : 0,
+			anim : -1
+		});
+	}
+	
+	function profitOne(row){
+		if(row.collection_flag =='1'){
+		var site_price = row.site_price;//入库价格
+		var collection = row.confirmed_money;//实收金额
+			return (collection - site_price).toFixed(2)	;
+		}
+		return 00;
+	}
+	function profitTwo(row){
+		if(row.collection_flag =='1'){
+			var employe_price = row.employe_price;
+			var collection = row.confirmed_money;
+				return (collection - employe_price).toFixed(2);
+			}
+		return 00;
+	}
+
+	function fmtConfirmType(row) {
+		if (row.confirmType == '1') {
+			return "工单使用";
+		} else if (row.confirmType == '2') {
+			return "工单零售";
+		} else if (row.confirmType == '3') {
+			return "工程师零售";
+		} else if (row.confirmType == '4') {
+			return "网点零售";
+		} else if (row.confirmType == '5') {
+			return "备件归还";
+		}else {
+			return "";
+		}
+	}
+
+	function fmtOrderNo(rowData) {
+		var orderId = rowData.order_id || '';
+		var orderNo = rowData.order_number || '';
+		return '<a href="javascript:showDetail(\'' + orderNo
+				+ '\');" class="c-0383dc">' + orderNo + '</a>';
+	}
+
+	function showDetail(orderNo) {
+		layer.open({
+			type : 2,
+			content : '${ctx}/order/orderDispatch/orderDetailForm?orderNo='
+					+ orderNo,
+			title : false,
+			area : [ '100%', '100%' ],
+			closeBtn : 0,
+			shade : 0,
+			fadeIn : 0,
+			anim : -1
+		});
+	}
+
+	function search() {
+		/* var y =$("#employs").combobox("getValues");
+		$("#emps").val(y); */
+		var pageSize = $("#pageSize").val();
+    	if($.trim(pageSize)=='' || pageSize==null){
+    		$("#pageSize").val(20);
+    	}
+		$("#table-waitdispatch").sfGridSearch({
+			postData : $("#searchForm").serializeJson()
+		});
+	}
+
+	function reset() {
+		$("#searchForm").get(0).reset();
+		var html = '<span class="w-140 dropdown-sin-2">';
+		html += '<select class="select-box w-120"  id="employs" style="display:none" multiple  multiline="true" name="emps"  >';
+		html += '<c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">';
+		html += ' <option value="${emp.columns.name }">${emp.columns.name }</option>';
+		html += '</c:forEach>';
+		html += '</select>  </span>';
+		$("#reloadSpan").html(html);
+		$('.dropdown-sin-2').dropdown({
+			input : '<input type="text" maxLength="20" placeholder="请输入搜索">',
+		});
+	}
+
+
+	function exports() {
+		var idArr = $("#table-waitdispatch").jqGrid('getGridParam', 'records')
+		var content = "共" + idArr + "条数据，本次允许导出前10000条，确定继续导出吗？";
+		if (idArr > 10000) {
+			$('body')
+					.popup(
+							{
+								level : 3,
+								title : "导出",
+								content : content,
+								fnConfirm : function() {
+									location.href = "${ctx}/fitting/exportBalan?formPath=/a/fitting/balanceOfPayments&&maps="
+											+ $("#searchForm").serialize();
+								}
+
+							});
+		} else {
+			location.href = "${ctx}/fitting/exportBalan?formPath=/a/fitting/balanceOfPayments&&maps="
+					+ $("#searchForm").serialize();
+		}
+
+	}
+</script> 
+</body>
+</html>

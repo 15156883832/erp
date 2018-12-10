@@ -1,0 +1,49 @@
+package com.jojowonet.modules.sys.util;
+
+import com.jojowonet.modules.order.entity.PushMessage;
+import org.apache.log4j.Logger;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.LinkedBlockingQueue;
+
+@Component
+public class AppPusher {
+
+    private static Logger logger = Logger.getLogger(AppPusher.class);
+    private final AppPushWorker worker;
+
+    public void pushMsg(PushMessage pm) {
+        worker.saveWork(pm);
+    }
+
+    public AppPusher() {
+        worker = new AppPushWorker();
+        worker.start();
+    }
+
+    static class AppPushWorker extends Thread {
+
+        private final LinkedBlockingQueue<PushMessage> q = new LinkedBlockingQueue<>(300);
+
+        @Override
+        public void run() {
+            for (; ; ) {
+                try {
+                    PushMessage pm = q.take();
+                    AppPushUtils.sendMsg(pm.getRegId(), pm.getTitle(), pm.getContent(), pm.getPushIds(), Integer.valueOf(pm.getType()),
+                            Integer.valueOf(pm.getAppType()), SFPushUtil2.EMP_PACKAGENAME);
+                } catch (Exception ex) {
+                    logger.error(ex.getMessage(), ex);
+                }
+            }
+        }
+
+        void saveWork(PushMessage msg) {
+            try {
+                q.put(msg);
+            } catch (InterruptedException e) {
+                logger.error(e.getMessage(), e);
+            }
+        }
+    }
+}

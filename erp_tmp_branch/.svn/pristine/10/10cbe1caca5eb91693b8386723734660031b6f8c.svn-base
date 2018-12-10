@@ -1,0 +1,206 @@
+/**
+ */
+package com.jojowonet.modules.operate.dao;
+
+import com.google.common.collect.Lists;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.persistence.BaseDao;
+import ivan.common.utils.StringUtils;
+import org.springframework.stereotype.Repository;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 服务商DAO接口
+ * 
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Repository
+public class SiteDao extends BaseDao<Site> {
+
+	public static String findSiteIdByUserId(String userid) {
+		if (userid != null && !userid.isEmpty()) {
+			String query = "SELECT id FROM crm_site WHERE user_id='" + userid
+					+ "'";
+			Record record = Db.findFirst(query);
+			if (record != null) {
+				return record.getStr("id");
+			}
+		}
+		
+		return null;
+	}
+
+	//根据userID 查询网点的分享区管的分享码
+	public String getAreaCode(String userId) {
+		if (StringUtil.isBlank(userId)) {
+			return "";
+		}
+		StringBuffer query = new StringBuffer();
+		query.append("select a.code from crm_area_manager as a  LEFT JOIN crm_site as s  ");
+		query.append(" on s.area_manager_id=a.id where s.user_id='" + userId + "' and s.share_code_site_parent_id is null");
+		return Db.queryStr(query.toString());
+	}
+	
+	public Record getSiteId(String id){
+		String sql = "SELECT * FROM crm_site WHERE id='"+id+"' AND status !='1'";
+		return Db.findFirst(sql);
+	}
+
+	public Record getByUserId(String userId) {
+		return Db.findFirst(
+				"select * from crm_site where status = '0' and user_id = ? ",
+				userId);
+	}
+
+	public static String getNameByUserId(String id) {
+		String name = "";
+		if (id != null && !id.isEmpty()) {
+			String query = "SELECT name FROM crm_site WHERE user_id='" + id
+					+ "'";
+			Record record = Db.findFirst(query);
+			if (record != null)
+				name = record.getStr("name");
+		}
+		return name;
+	}
+	
+	public static String getSiteNameId(String id) {
+		String name = "";
+		if (id != null && !id.isEmpty()) {
+			String query = "SELECT name FROM crm_site WHERE id='" + id
+					+ "'";
+			Record record = Db.findFirst(query);
+			if (record != null)
+				name = record.getStr("name");
+		}
+		return name;
+	}
+	
+	public String getcateId(String id) {
+		String category = "";
+		if (id != null && !id.isEmpty()) {
+			String query = "SELECT category FROM crm_site WHERE id='" + id
+					+ "'";
+			Record record = Db.findFirst(query);
+			if (record != null)
+				category = record.getStr("category");
+		}
+		return category;
+	}
+
+	public List<Site> getListSite(Site site) {
+		List<Site> list = Lists.newArrayList();
+		StringBuffer sf = new StringBuffer();
+		sf.append("");
+		List<Record> rds = Db.find(sf.toString());
+		if (rds != null) {
+			for (Record rd : rds) {
+				Site si = new Site();
+				si.setId(rd.getStr(""));
+
+				list.add(si);
+			}
+
+		}
+		return list;
+
+	}
+	
+	public void updatebrand(String categ,String id){
+		String sql = "UPDATE crm_site SET category = '"+categ+"' WHERE id ='"+id+"'";	
+		if(StringUtils.isEmpty(categ)){
+			
+			String sql1 = "DELETE FROM crm_site_brand_rel WHERE site_id = '"+id+"'";
+			Db.update(sql1);
+		}
+		Db.update(sql);
+		
+	}
+	
+	public void updatecate(String siteid,List<String> list){
+		
+        List<String> li = new ArrayList<String>();
+        for(int i=0;i<list.size();i++){
+        	String sql = "DELETE FROM crm_site_brand_rel WHERE site_id = '"+siteid+"' AND category_id = '"+list.get(i)+"' "; 
+            li.add(sql);
+        }
+		Db.batch(li, li.size());
+	}
+	
+	//添加修改品牌
+	public void updateBrand(String brand ,String cateid,String siteId){
+		if(StringUtils.isNotEmpty(cateid)){
+		String sql = "DELETE FROM crm_site_brand_rel WHERE site_id = '"+siteId+"' AND category_id = '"+cateid+"' "; 
+		Db.update(sql);
+		if(StringUtils.isNotEmpty(brand)){
+			
+			String[] br = brand.split(",");
+			List<String> list = new ArrayList<String>();
+			for(String bran : br){
+				StringBuffer sf = new StringBuffer();
+				sf.append("INSERT INTO crm_site_brand_rel (site_id, category_id, brand_id) ");
+				sf.append("VALUES('"+siteId+"', '"+cateid+"', '"+bran+"')");
+				list.add(sf.toString());
+			}
+			Db.batch(list, list.size());
+			
+		}
+		}
+	}
+	
+	
+
+	public boolean isMobileExists(String mobile) {
+		if (mobile != null && !mobile.isEmpty()) {
+			String query = "SELECT * FROM crm_site WHERE mobile=? AND `status` != '1'";
+			List<Record> records = Db.find(query, mobile);
+			return records != null && records.size() > 0;
+		}
+		return false;
+	}
+	
+	public void UpdateSiteId(String id,Site site){
+		
+	}
+	
+	public List<Map<String,String>> getTemplate(){
+		String sql = "SELECT a.tag,a.name FROM sys_sms_template a  WHERE a.status ='0' AND a.tag !='5'  GROUP BY a.tag ORDER BY a.tag DESC  ";
+		List<Record> rds = Db.find(sql);
+		List<Map<String,String>> list = Lists.newArrayList();
+		if(rds != null){
+			for(Record rd:rds){
+				Map<String,String> map = new HashMap<>();				
+				map.put("id", rd.getStr("tag"));
+				map.put("name", rd.getStr("name"));
+				list.add(map);
+			}
+			
+		}
+		
+		return list;
+	}
+
+	public List<Record> getTempTag(String tag){
+		String sql = "SELECT * FROM sys_sms_template a WHERE a.status='0' AND a.tag=?";
+		List<Record> list = Db.find(sql,tag);
+		return list;
+	}
+	
+	public  List<Record> getCategory(String siteId){
+		String sql = "SELECT * FROM crm_category WHERE (site_id='"+siteId+"') AND del_flag='0' ORDER BY sort";
+		return Db.find(sql);
+	}
+	
+	public  List<Record> getplatCategory(String siteId){
+		String sql = "SELECT * FROM crm_category WHERE  site_id IS NULL AND del_flag='0' ORDER BY sort";
+		return Db.find(sql);
+	}
+}

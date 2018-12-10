@@ -1,0 +1,120 @@
+package com.jojowonet.modules.order.service;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.form.Target;
+import com.jojowonet.modules.order.dao.OrderDao;
+import com.jojowonet.modules.order.dao.OrderParentCallbackDao;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.entity.OrderCallBack;
+import com.jojowonet.modules.order.entity.OrderParentCallBack;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.DateToStringUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.order.utils.WebPageFunUtils;
+import ivan.common.persistence.Parameter;
+import ivan.common.service.BaseService;
+import ivan.common.utils.UserUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.Map;
+
+@Component
+@Transactional(readOnly = true)
+public class OrderParentCallBackService extends BaseService {
+
+    private static Logger logger = Logger.getLogger(OrderParentCallBackService.class);
+
+    @Autowired
+    private OrderParentCallbackDao parentCallBackDao;
+
+    @Autowired
+    private OrderDao orderDao;
+
+    @Autowired
+    private OrderDispatchService orderDispatchService;
+
+    public Record getCallBackInfo(String orderId, String siteId) {
+        StringBuilder sb = new StringBuilder("");
+        sb.append(" select * from crm_order_parent_callback a  where a.order_id = ? and a.site_id = ? order by a.create_time desc ");
+        return Db.findFirst(sb.toString(), orderId, siteId);
+    }
+
+    @Transactional
+    public void saveCallBack(OrderParentCallBack orderCallback, Map<String, Object> map) {
+        String siteId = orderCallback.getSiteId();
+        fillOldCallbackId(orderCallback, siteId);
+        if (StringUtils.isBlank(orderCallback.getId())) {
+            orderCallback.setId(null);
+        }
+        //加过程信息By @yc
+        Target ta = new Target();
+        Order order = orderDao.get(orderCallback.getOrderId());
+        String name = CrmUtils.getUserXM();
+        ta.setTime(DateToStringUtils.DateToString());
+        String str ="";
+        String result = "";
+        if (StringUtil.checkParamsValid(map.get("result"))) {
+            if ("1".equals(map.get("result"))) {
+                result = "已完工";
+            } else if ("2".equals(map.get("result"))) {
+                result = "仍需上门";
+            } else if ("3".equals(map.get("result"))) {
+                result = "待回访";
+            }else if("4".equals(map.get("result"))){
+                result = "确认无效";
+            }
+        }
+        if ((parentCallBackDao.getbysite(orderCallback.getOrderId(), siteId)) != null) {
+            Date processTime = new Date();
+            String latestProcess = name + "再次回访，" + result;
+            order.setLatestProcessTime(processTime);
+            order.setLatestProcess(latestProcess);
+            ta.setName(name);
+            ta.setType(Target.MESS_CALLBACK_TWICE);
+            ta.setContent(name + "再次回访，" + result);
+            ta.setTime(DateToStringUtils.DateToString());
+            str =WebPageFunUtils.appendProcessDetail(ta, orderDao.get(orderCallback.getOrderId()).getProcessDetail());
+        } else {
+            Date processTime = new Date();
+            String latestProcess = name + "已回访，" + result;
+            order.setLatestProcessTime(processTime);
+            order.setLatestProcess(latestProcess);
+            ta.setName(name);
+            ta.setType(Target.MESS_CALLBACK);
+            ta.setContent(name + "已回访，" + result);
+            ta.setTime(DateToStringUtils.DateToString());
+            str =WebPageFunUtils.appendProcessDetail(ta, orderDao.get(orderCallback.getOrderId()).getProcessDetail());
+        }
+        order.setProcessDetail(str);
+        //orderDao.save(order);
+        parentCallBackDao.save(orderCallback);
+        if ("1".equals(map.get("result")) || "4".equals(map.get("result"))) {//已完成/确认无效
+            orderDao.update("update Order set  parent_status='5' where id = :p1 ", new Parameter(orderCallback.getOrderId()));
+        }
+    }
+
+    // 防止重复回访
+    private void fillOldCallbackId(OrderParentCallBack orderCallback, String siteId) {
+        String id = orderCallback.getId();
+        String orderId = orderCallback.getOrderId();
+        if (StringUtil.isNotBlank(orderId) && StringUtil.isBlank(id)) {
+            Record callback1 = Db.findFirst("select id from crm_order_parent_callback where order_id=? limit 1", orderId);
+            if (callback1 != null) {
+                orderCallback.setId(callback1.getStr("id"));
+                return;
+            }
+        }
+    }
+    
+    public Record getCallBackOrder(String orderId) {
+    	String sql = " SELECT 	* FROM crm_order_parent_callback a WHERE a.order_id=? ";
+    	return Db.findFirst(sql,orderId);
+    }
+    
+}

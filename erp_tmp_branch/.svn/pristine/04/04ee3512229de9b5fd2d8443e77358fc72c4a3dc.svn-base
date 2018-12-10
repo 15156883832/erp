@@ -1,0 +1,93 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+    <title>请求统计</title>
+    <meta name="decorator" content="base"/>
+    <meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+    <style>
+        .avg-time {
+            border-bottom: 1px solid #ccc;
+            text-align: left;
+        }
+        .row-active {
+            background-color: #df8505;
+        }
+    </style>
+</head>
+<body>
+<div class="sfpagebg bk-gray">
+    <div class="sfpage">
+        <div class="page-orderWait">
+            <div class="tabBar cl mb-10">
+                <a class="btn-tabBar" href="${ctx}/main/ac/countlist">分时统计</a>
+                <a class="btn-tabBar ${tab eq 'i' ? 'current' : ''}" href="${ctx}/main/ac/statlist">次数统计</a>
+                <a class="btn-tabBar ${tab eq 'a' ? 'current' : ''}" href="${ctx}/main/ac/statlist?sort=a">平均时长统计</a>
+                <a class="btn-tabBar ${tab eq 's' ? 'current' : ''}" href="${ctx}/main/ac/statlist?slow">慢请求统计</a>
+                <a class="btn-tabBar" href="${ctx}/main/ac/countmap">请求分布图</a>
+                <p class="f-r btnWrap">
+                    登录网点数：${sites}
+                </p>
+            </div>
+
+            <div class="mt-10 text-c tableWrap1 pr-5" style="border-bottom: 1px solid red;padding-bottom: 10px;">
+                <div class="tableLabel"  id="boxWrapHead" style="max-height: 700px;overflow: auto;">
+                    <table class="table table-bg table-bordered table-sdrk" style="border-bottom: 0;">
+                        <thead>
+                        <tr>
+                            <th style="text-align: center;" rowspan="2">链接名</th>
+                            <th class="hour" colspan="2">喵星人统计</th>
+                        </tr>
+                        <tr>
+                            <th>调用次数</th>
+                            <th>平均时间</th>
+                        </tr>
+
+
+                        </thead>
+                        <tbody class="">
+                        <c:forEach var="item" items="${list}">
+                            <tr class="action-stat-row">
+                                <td style="border-bottom: 1px solid #ccc; text-align: left">${item.actionPath}</td>
+                                <td style="border-bottom: 1px solid #ccc">${item.invokeTimesBetweens}</td>
+                                <td style="border-bottom: 1px solid #ccc" class="avg-time"><fmt:formatNumber type="number" value="${item.avgTimeCostBetweens}" pattern="0.00" maxFractionDigits="2"/></td>
+                            </tr>
+                        </c:forEach>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(function () {
+        var rows = $(".action-stat-row");
+        rows.on('click', function () {
+            rows.removeClass('row-active');
+            $(this).addClass("row-active");
+        });
+
+        $(document).keyup(function (e) {
+            var lastActive = $(".row-active");
+            var nextRow;
+            switch (e.keyCode) {
+                case 13: // Enter
+                    break;
+                case 38: // up
+                    nextRow = lastActive.prev();
+                    break;
+                case 40: // down
+                    nextRow = lastActive.next();
+                    break;
+            }
+            if (nextRow && nextRow.size() > 0) {
+                rows.removeClass('row-active');
+                nextRow.addClass('row-active');
+            }
+        });
+    });
+</script>
+</body>
+</html>

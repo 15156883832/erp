@@ -1,0 +1,288 @@
+@charset "utf-8";
+*{
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+}
+span,i,a,label,strong{ 
+	display: inline-block;
+	vertical-align: middle;
+}
+input{ background: none;}
+a:hover{ text-decoration: none;}
+
+.c-fe0101{ color: #fe0101;}
+.c-1e66b1{ color: #1e66b1;}
+
+.w-120{ width: 120px;}
+.w-160{ width: 160px;}
+.w-170{ width: 170px;}
+.w-560{ width: 560px;}
+.w-710{ width: 710px;}
+
+.jicon_update{
+	width: 10px;
+	height: 10px;
+	background: url(../images/icons_help.png) no-repeat 0 -30px;
+}
+.jicon_download,
+.jicon_play{
+	width: 16px;
+	height: 16px;
+	background: url(../images/icons_help.png) no-repeat ;
+}
+.jicon_download{ background-position: 0 -45px;}
+.jicon_play{ background-position: 0 -61px;}
+
+.jMain{ 
+	width: 1226px;
+	margin: 0 auto;
+}
+.headerWrap{
+	padding-top: 22px;
+	height: 90px;
+	background: #fff;
+}
+.headerWrap .jLogo{
+	width: 220px;
+	height: 48px;
+	background: url(../images/help/sflogo.png) no-repeat 0 0;
+}
+.headerWrap .pageTitle{
+  	height: 48px;
+  	line-height: 48px;
+  	border-left: 1px solid #cccccc;
+  	color: #666;
+  	font-size: 30px;
+  	padding-left: 20px;
+}
+.jFooterWrap{
+	background: #fff;
+	text-align: center;
+	height: 90px;
+	line-height: 90px;
+}
+.jpageWrap{
+	padding-top: 188px;
+	background: url(../images/help/bg_banner.jpg) no-repeat center 0;
+}
+.jpageWrap .jpageWrapBg{
+	width: 1250px;
+	margin: 0 auto;
+	padding: 12px 12px 0;
+	background: url(../images/help/bg_shadow.png) no-repeat center 0;
+}
+.joptguide .jMain{
+	background: #eee;
+	position: relative;
+	min-height: 990px;
+}
+.jAside{
+	position: absolute;
+	left: 0;
+	top: -1px;
+	bottom: 0;
+	width: 260px;
+	background: #fff;
+	border-right: solid #ccc 1px;
+}
+.jSection{
+	border-left: solid #ccc 1px;
+	width: 949px;
+}
+.jAside a{display: block;}
+.jAside .menu_dropdown .moduleTitle{
+	height: 52px;
+	line-height: 50px;
+	padding: 0 20px;
+	font-weight: 600;
+	font-size: 16px;
+	background: #eee;
+	border:solid #ccc;
+	border-width: 1px 0;
+}
+.jAside .menu_dropdown .currentModule{
+	background: #d4e8ff;
+	border-color: #d4e8ff;
+}
+.jAside .moduleList{
+	padding:4px 20px;
+}
+.jAside .moduleList .moduleItemTitle{
+	padding-top:4px;
+	line-height: 24px;
+	font-size: 13px;
+}
+.jAside .moduleList .currentModuleItem,
+.jAside .moduleList .moduleItemTitle:hover,
+.jAside .moduleList .currentModuleItem i,
+.jAside .moduleList .moduleItemTitle:hover i{
+	color: #0e8ee7;
+}
+.jSection .iframeWrap{
+}
+.jSection .iframeWrap iframe{
+    width: 100%;
+}
+.jpageTitle{
+	padding-top: 8px;
+	height: 64px;
+	line-height: 64px;
+	text-align: center;
+	color: #005aab;
+	font-size: 20px;
+	font-weight: 600;
+}
+.partTitle{
+	position: relative;
+	height: 40px;
+	line-height: 40px;
+	padding-left: 18px;
+	font-size: 14px;
+	background: #eee;
+	font-weight: 600;
+}
+.partTitle:before{
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 4px;
+	height: 100%;
+	background: #0e8ee7;
+}
+.helpNavbar .helpbar{
+	height: 40px;
+	line-height: 32px;
+	font-size: 16px;
+	color: #2A2A2A;
+	padding: 0 20px 8px;
+	position: relative;
+	
+}
+.helpNavbar .current{
+	color: #0e8ee7;
+}
+.helpNavbar .current:after{
+	content: '';
+	position: absolute;
+	bottom: -6px;
+	left: 50%;
+	margin-left: -6px;
+	width: 0;
+	height: 0;
+	border-width: 6px;
+	border-color: #0e8ee7 transparent transparent;
+	border-style: solid dashed dashed;
+}
+
+.helpNavbar .jicon_update{
+	display: none;
+	position: absolute;
+	top: 0px;
+	right: 10px;
+}
+
+.partContainer{
+	padding: 18px 18px 0;
+}
+.partContainer .partNote{
+	line-height: 24px;
+	font-size: 13px;
+}
+.partContainer .img{
+	display: block;
+	margin: 0 auto 25px;
+	max-width: 912px;
+}
+.partContainer .nextStep{
+	position: absolute;
+	top: 50%;
+	margin-top: -16px;
+	width: 32px;
+	height: 32px;
+	background: url(../images/help/nextStep.png) no-repeat center center;
+}
+
+.partContainer .nextStep1{ left: 288px;}
+.partContainer .nextStep2{ left: 592px;}
+.partContainer .nextStep3{ left: 201px;}
+.partContainer .nextStep4{ left: 434px;}
+.partContainer .nextStep5{ left: 273px;}
+.partContainer .nextStep6{ left: 575px;}
+
+.textIndent{
+	text-indent: 2em;
+}
+.sficon{
+	display: inline-block;
+	vertical-align: middle;
+	width: 20px;
+	height: 20px;
+	background: url(../images/icons.png) no-repeat;
+	position: relative;
+	bottom: 1px;
+}
+.sficon-add2{ background-position: -120px -380px;}
+.sficon-reduce2{ background-position: -120px -360px;}
+.sficon-add3{ background-position: -120px -600px;}
+
+.sficon_format{
+	width: 56px;
+	height: 57px;
+	background: url(../images/icon_format.png) no-repeat;
+}
+.sficon_format_ppt{ background-position: 0 0;}
+.sficon_format_excel{ background-position: 0 -57px;}
+.sficon_format_avi{ background-position: 0 -114px;}
+.sficon_format_word{ background-position: 0 -171px;}
+
+
+/* 文档与视频 */
+.jdoclistTitle{
+	background: #ebf6fe;
+	height: 40px;
+	padding: 0 15px;
+	
+}
+.jdoclistTitle span{
+	text-align: center;
+	line-height: 40px;
+}
+
+.jdoclist{
+	background: #fff;
+	padding: 0 15px 15px;
+}
+.jdoclist li{
+	padding: 14px 10px;
+	border-bottom: 1px dashed #ccc;
+	overflow: hidden;
+}
+.jdoclist .current{ background: #eeeeee;}
+.jdoclist .txt1{
+	color: #666;
+	text-align: center;
+	line-height: 56px;
+}
+.jdoclist .docWrap{
+	position: relative;
+	padding-left: 60px;
+	
+}
+.jdoclist .docWrap .sficon_format{
+	position: absolute;
+	left: 0;
+	top: 0;
+}
+.jdoclist .docWrap h3{
+	color: #005aab;
+	font-weight: 600;
+	font-size: 13px;
+	line-height: 28px;
+}
+.jdoclist .docWrap .jicon_update{
+	position: absolute;
+	left: 46px;
+	top: -3px;
+}

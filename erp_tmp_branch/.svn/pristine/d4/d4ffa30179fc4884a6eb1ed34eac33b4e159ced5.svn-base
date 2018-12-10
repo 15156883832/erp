@@ -1,0 +1,206 @@
+Date.prototype.format = function(fmt) { 
+     var o = { 
+        "M+" : this.getMonth()+1,                 //月份 
+        "d+" : this.getDate(),                    //日 
+        "h+" : this.getHours(),                   //小时 
+        "m+" : this.getMinutes(),                 //分 
+        "s+" : this.getSeconds(),                 //秒 
+        "q+" : Math.floor((this.getMonth()+3)/3), //季度 
+        "S"  : this.getMilliseconds()             //毫秒 
+    }; 
+    if(/(y+)/.test(fmt)) {
+            fmt=fmt.replace(RegExp.$1, (this.getFullYear()+"").substr(4 - RegExp.$1.length)); 
+    }
+     for(var k in o) {
+        if(new RegExp("("+ k +")").test(fmt)){
+             fmt = fmt.replace(RegExp.$1, (RegExp.$1.length==1) ? (o[k]) : (("00"+ o[k]).substr((""+ o[k]).length)));
+         }
+     }
+    return fmt; 
+};
+
+function fmtOrderStatus(rowData) {
+    var tmp;
+    var flag = "";
+    if (rowData.flag) {
+        var origin = fmtOrderStatus2(rowData);
+        flag = "<span class='oState state-refuse' title='标记工单：" + rowData.flag_desc + "'></span>";
+        tmp = origin.replace(/^\s*<span class='oState'><\/span>/, "");
+    } else {
+        tmp = fmtOrderStatus2(rowData);
+    }
+    var dispStatus = $fmtDispStatus(rowData);
+    if (dispStatus) {
+        return  flag + $fmtDispStatus(rowData)+tmp.replace(/^\s*<span class='oState'><\/span>/, "");
+    } else {
+        return flag + tmp;
+    }
+}
+
+function $fmtDispStatus(rowData) {
+    if ('1' == rowData.completion_result) {
+        return "<span title='服务反馈无效' class='oState state-wxgd2'></span>";
+    }
+    return "";
+}
+
+function fmtOrderStatus2(rowData) {
+    var emptyPrefix="<span class='oState'></span>";
+    var bookToday = rowData.promise_time == new Date().format("yyyy-MM-dd");
+    if ("0" == rowData.status) {
+        return emptyPrefix + "<span class='oState state-waitTakeOrder'>待接收&nbsp&nbsp&nbsp </span>";
+    } else if ("1" == rowData.status) {
+        var c = "";
+        if (parseInt(rowData.reject_count) > 0) {
+            c = "<span title='拒接工单' class='oState state-refuseOrder'>";
+        }
+        if (bookToday) {
+            return c + "<span class='oState state-book' title='今日预约'></span><span title='待派工' class='oState state-waitDispatch'>待派工 &nbsp&nbsp&nbsp</span>";
+        }
+        if (parseInt(rowData.reject_count) > 0) {
+            return "<span title='拒接工单' class='oState state-refuseOrder'></span><span title='待派工' class='oState state-waitDispatch'>待派工 &nbsp&nbsp&nbsp</span>";
+        } else {
+            return emptyPrefix + "<span title='待派工' class='oState state-waitDispatch'>待派工 &nbsp&nbsp&nbsp</span>";
+        }
+    } else if ("2" == rowData.status) {
+        if ('2' == rowData.fitting_flag) {
+            return "<span title='缺件中' class='oState state-quejian'></span><span title='服务中' class='oState state-serving'>服务中&nbsp&nbsp&nbsp</span>";
+        } else if("1" == rowData.fitting_flag) {
+            return "<span title='待备件' class='oState state-waitFittings'></span><span title='服务中' class='oState state-serving'>服务中&nbsp&nbsp&nbsp</span>";
+        }else {
+            return emptyPrefix + "<span title='服务中' class='oState state-serving'>服务中&nbsp&nbsp&nbsp</span>";
+        }
+    } else if ("3" == rowData.status) {
+        return emptyPrefix + "<span class='oState state-waitVisit'>待回访&nbsp&nbsp&nbsp</span>";//state-waitVisit
+    } else if ("4" == rowData.status) {
+        return emptyPrefix + "<span class='oState state-waitSettlement'>待结算 &nbsp&nbsp&nbsp</span>";
+    } else if ("5" == rowData.status) {
+        if("2"==rowData.review){
+            return "<span title='审核未通过' class='oState state-verify2nopass'></span><span class='oState state-finished ' >已完成&nbsp&nbsp&nbsp</span>";
+        }else{
+            return emptyPrefix + "<span class='oState state-finished'>已完成&nbsp&nbsp&nbsp</span>";
+        }
+
+    } else if ("6" == rowData.status) {
+        return emptyPrefix + "<span class='oState state-canceled'>取消工单</span>";
+    } else if ("7" == rowData.status) {
+        if (bookToday) {
+            return "<span title='今日预约' class='oState state-book'></span><span title='暂不派工' class='oState state-noDispatch'>暂不派工</span>";
+        } else {
+            return emptyPrefix + "<span title='暂不派工' class='oState state-noDispatch'>暂不派工</span>";
+        }
+    } else if("9" == rowData.status) {
+        return emptyPrefix + "<span title='未指派工单' class='oState state-invalid'>未指派</span>";
+    }else if("0" == rowData.status) {
+        return emptyPrefix + "<span title='待接收' class='oState state-invalid'>待接收</span>";
+    }
+    return emptyPrefix + "<span title='无效工单' class='oState state-invalid'>无效工单</span>";
+}
+
+//工单来源
+function fmtOrderType(rowData){
+	if("1"==rowData.order_type){
+		return "ERP系统录入";
+	}else if("2"==rowData.order_type){
+		return "美的厂家系统";
+	}else if("3"==rowData.order_type){
+		return "惠而浦厂家系统";
+	}else if("4"==rowData.order_type){
+		return "海信厂家系统";
+	}else if("5"==rowData.order_type){
+		return "海尔厂家系统";
+	}else if("6"==rowData.order_type){
+        return "一级网点派工";
+    }else if("7"==rowData.order_type){
+        return "厂家派工";
+    }else if("8"==rowData.order_type){
+        return "格力厂家系统";
+    }else if("9"==rowData.order_type){
+        return "奥克斯厂家系统";
+    }else if("f"==rowData.order_type){
+        return "美菱厂家系统";
+    }
+	return "--";
+}
+//信息等级
+function fmtOrderLevel(rowData){
+	if("1"==rowData.level){
+		return "紧急";
+	}else if("2"==rowData.level){
+		return "一般";
+	}
+	return "";
+}
+
+
+//保修类型
+function fmtOrderWarrantyType(rowData){
+	if("1"==rowData.warranty_type){
+		return "保内";
+	}else if("2"==rowData.warranty_type){
+		return "保外";
+	}else if("3"==rowData.warranty_type){
+		return "保外转保内";
+	}
+	return "";
+}
+//服务方式
+function fmtServiceMode(rowData){
+	if("1"==rowData.service_mode){
+		return "上门";
+	}else if("2"==rowData.service_mode){
+		return "拉修";
+	}
+	return "";
+}
+
+//交回卡单
+function fmtReturnCard(rowData){
+	if("0"==rowData.return_card){
+		return "否";
+	}else if("1"==rowData.return_card){
+		return "是";
+	}
+	return "";
+}
+
+/*//是否交款
+function fmtWhetherCollection(rowData) {
+	if (rowData.status == "3" || rowData.status == "4" ) {//|| rowData.status == "5"
+		if ("0" == rowData.whether_collection || "2" == rowData.whether_collection) {
+			return "<a style='color:blue;' onclick='confirmCollection(\"" + rowData.id + "\",\"" + rowData.auxiliary_cost + "\",\"" + rowData.serve_cost + "\",\"" + rowData.warranty_cost + "\",\"" + rowData.callback_cost + "\")'>确认</a>";
+		} else if ("1" == rowData.whether_collection) {
+			return "是";
+		} else {
+			return "--";
+		}
+	} else {
+		return "--";
+	}
+}
+
+function fmtRC(rowData) {//交单情况
+	if (rowData.status == "3" || rowData.status == "4" || rowData.status == "5" || rowData.status == "8" ) {
+		if ("0" == rowData.return_card || "2" == rowData.return_card) {
+			return "<a style='color:blue;' onclick='confirmCard(\"" + rowData.id + "\")'>确认</a>";
+		} else if ("1" == rowData.return_card) {
+			return "是";
+		} else {
+			return "--";
+		}
+	} else {
+		return "--";
+	}
+}*/
+
+//保修家电
+function fmtOrderAppliance(rowData){
+	if(rowData.appliance_brand!=null&&rowData.appliance_category!=null){
+		return rowData.appliance_brand+rowData.appliance_category;
+	}else if(rowData.appliance_brand===null){
+		return rowData.appliance_category;
+	}else{
+		return rowData.appliance_brand;
+	}
+	
+}

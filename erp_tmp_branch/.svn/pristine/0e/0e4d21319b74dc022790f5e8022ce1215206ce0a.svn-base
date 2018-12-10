@@ -1,0 +1,97 @@
+package com.jojowonet.modules.order.service;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.SmsTempletDao;
+import com.jojowonet.modules.order.entity.SmsTemplet;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.persistence.Page;
+import ivan.common.persistence.Parameter;
+import ivan.common.service.BaseService;
+import org.hibernate.SQLQuery;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by Administrator on 2018/1/15.
+ */
+@Component
+@Transactional(readOnly = true)
+public class SmsTempletService extends BaseService {
+    @Autowired
+    private SmsTempletDao smsTempletDao;
+    public Page<Record> smstempletList(Page<Record> page, Map<String, Object> map, String siteId){
+        List<Record> list = smsTempletDao.smstempletList(page,map,siteId);
+        long count = smsTempletDao.listcount(map,siteId);
+        page.setList(list);
+        page.setCount(count);
+        return page;
+    }
+
+    public void save(String number,String name,String content,String createBy,String createType,String siteId,String reviewStatus){
+        SmsTemplet st = new SmsTemplet();
+        st.setNumber(number);
+        st.setName(name);
+        st.setContent(content);
+        st.setCreateBy(createBy);
+        st.setCreateType(createType);
+        st.setSiteId(siteId);
+        st.setReviewsmsStatus(reviewStatus);
+        smsTempletDao.save(st);
+    }
+
+    public String deleteSms(String userId, String id){
+        String result = "";
+        Date deleteTime = new Date();
+       /* SQLQuery sqlQuery = smsTempletDao.getSession().createSQLQuery("update crm_site_sms_template as s set s.`status`='1' , s.delete_by= :p1, s.delete_time= :p2 where s.id = :p3");
+        sqlQuery.setParameter("p1", userId);
+        sqlQuery.setParameter("p2", deleteTime);
+        sqlQuery.setParameter("p3", id);
+        int i = sqlQuery.executeUpdate();*/
+        int i = smsTempletDao.deleteSms(userId,deleteTime,id);
+        if(i>0){
+            result = "ok";
+        }
+       return result;
+    }
+    public Record getByid(String id){
+        return smsTempletDao.getByid(id);
+    }
+    public void update(String name,String content,String siteId,String reviewStatus,String id,String number){
+        SmsTemplet st = smsTempletDao.get(id);
+        st.setNumber(number);
+        st.setName(name);
+        st.setContent(content);
+        st.setId(id);
+        st.setSiteId(siteId);
+        st.setReviewsmsStatus(reviewStatus);
+        smsTempletDao.save(st);
+    }
+    public List<Record> getnamelist(String name,String id,String siteId){
+        return  smsTempletDao.getnamelist(name,id,siteId);
+    }
+
+    public List<Record> getAlllist(){
+        return smsTempletDao.getAlllist();
+    }
+
+    public void updateSmsStatus(String status,String id){
+        smsTempletDao.updateSmsStatus(status,id);
+    }
+    public void updateSmsReason(String reason,String id){
+        smsTempletDao.updateSmsReason(reason,id);
+    }
+
+    public List<Record> getSmsmodel(String siteId){
+        return smsTempletDao.getsmsmodel(siteId);
+    }
+
+    public Record getsmsById(String id,String siteId){
+        return smsTempletDao.getsmsById(id,siteId);
+    }
+
+}

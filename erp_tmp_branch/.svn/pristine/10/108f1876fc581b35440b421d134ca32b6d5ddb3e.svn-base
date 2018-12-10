@@ -1,0 +1,231 @@
+package com.jojowonet.modules.operate.dao;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+
+/**
+ * 服务商管理DAO接口
+ * 
+ * @author yc
+ * @version 2017-08-14
+ */
+@Repository
+public class SiteManagerDao extends BaseDao<Site>{
+
+	public List<Record> siteList(Page<Record> page,Map<String,Object> map){
+		StringBuffer sf=new StringBuffer();
+		sf.append("SELECT t.* ,scs.set_value as scsType,(SELECT COUNT(1) FROM `crm_employe` AS e WHERE e.`site_id`=t.`id` AND e.`status` ='0') AS empcount, ");
+		sf.append(" (SELECT COUNT(1) FROM `crm_non_serviceman` AS c WHERE c.`site_id` =t.`id` AND c.`status` ='0') AS nonserviceman, ");
+		sf.append(" (SELECT m.name FROM `crm_area_manager` AS m WHERE m.id=t.`area_manager_id`) AS areamanager, ");
+		sf.append(" (SELECT COUNT(1) FROM `crm_order` AS o WHERE o.`site_id`=t.`id`) AS ordercount,");
+		sf.append(" (SELECT COUNT(1) FROM `crm_order_400` AS o WHERE o.`site_id`=t.`id` and o.is_convert in('0','1')) AS order400count,");
+		sf.append(" (SELECT COUNT(1) FROM `crm_site` AS s WHERE s.`share_code_site_parent_id` =t.`id`  AND s.status!='1' AND s.due_time IS NOT NULL) AS sharecount,");
+		sf.append(" u.`login_name`  FROM `crm_site` AS t INNER JOIN sys_user AS u ");
+		sf.append(" ON t.`user_id` =u.`id` AND u.`status` !='2'  ");
+		sf.append(" left join crm_site_common_setting scs on t.id=scs.site_id and scs.type='13' ");
+		if(StringUtil.checkParamsValid(map.get("areaId"))){
+			sf.append(" LEFT JOIN crm_area_manager_site_rel sd ON t.id=sd.site_id  ");
+		}
+	
+		sf.append(" WHERE t.`status` !='1'");
+		if(StringUtil.checkParamsValid(map.get("areaId"))){
+			sf.append(" AND  sd.area_manager_id = '"+(map.get("areaId"))+"' ");
+		}
+		sf.append(getCondition(map));
+		//sf.append(page.getSqlOrderBy());
+		sf.append(" ORDER BY t.`create_time` DESC ");
+		sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		return Db.find(sf.toString());
+	}
+
+	public long getListCount(Map<String,Object> map){
+		StringBuffer sf=new StringBuffer();
+		sf.append("SELECT COUNT(t.id) FROM `crm_site` AS t INNER JOIN sys_user AS u ");
+		sf.append("ON t.`user_id` =u.`id` AND u.`status` !='2'   ");
+		if(StringUtil.checkParamsValid(map.get("areaId"))){
+			sf.append(" LEFT JOIN crm_area_manager_site_rel sd ON t.id=sd.site_id  ");
+		}
+		sf.append(" WHERE t.`status` !='1'");
+		if(StringUtil.checkParamsValid(map.get("areaId"))){
+			sf.append(" AND  sd.area_manager_id = '"+(map.get("areaId"))+"' ");
+		}
+		sf.append(getCondition(map));
+		//sf.append(page.getSqlOrderBy());
+		sf.append(" ORDER BY t.`create_time` DESC ");
+		return Db.queryLong(sf.toString());
+	}
+	
+	public String getCondition(Map<String,Object> map){
+		StringBuffer sf = new StringBuffer();
+		Date now = new Date();
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String nowtime = sdf.format(now);
+		if(StringUtil.checkParamsValid(map.get("name"))){
+			sf.append(" and t.name like '%"+(map.get("name"))+"%' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("province"))){
+			sf.append(" and t.province like '%"+(map.get("province"))+"%' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("type"))){
+			sf.append(" and t.type = '"+(map.get("type"))+"' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("login_name"))){
+			sf.append(" and login_name like '%"+(map.get("login_name"))+"%' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("telephone"))){
+			sf.append(" and t.mobile like '%"+(map.get("telephone"))+"%' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("status"))){
+			sf.append(" and t.status  ='"+(map.get("status"))+"' ");
+		}
+		if (StringUtil.checkParamsValid(map.get("version"))){
+			if(map.get("version").toString().equals("1")){
+				sf.append(" and (t.due_time IS NULL or t.due_time < '"+nowtime+"') ");
+			}else if(map.get("version").toString().equals("2")){
+				sf.append(" and (t.due_time IS NOT NULL and t.due_time >='"+nowtime+"') ");
+			}else {
+				sf.append("");
+			}
+		}
+		 if(StringUtil.checkParamsValid(map.get("createTimemin"))){
+				sf.append(" and t.create_time >= '"+(map.get("createTimemin"))+" 00:00:00'  ");
+			}
+			 if(StringUtil.checkParamsValid(map.get("createTimemax"))){
+				sf.append(" and t.create_time <= '"+(map.get("createTimemax"))+" 23:59:59' ");
+			}
+			
+			
+			 if(StringUtil.checkParamsValid(map.get("dueTimemin"))){//接入时间
+				sf.append(" and t.due_time >= '"+(map.get("dueTimemin"))+" 00:00:00' ");
+			}
+			 if(StringUtil.checkParamsValid(map.get("dueTimemax"))){
+				sf.append(" and t.due_time <= '"+(map.get("dueTimemax"))+" 23:59:59' ");
+			}
+		return sf.toString();
+	}
+//添加服务商时查询服务商名是否重复
+	public int queryName(String name) {
+		int i=0;
+		String sql="";		
+        	  sql="select * from crm_site where name=? and status='0'";
+        	  i=Db.find(sql, name).size(); 
+          return i;
+	}
+
+	//添加服务商时查询登陆名是否重复
+	public int queryloginname(String loginName,String userId) {
+		int i=0;
+		if(StringUtils.isNotBlank(userId)){
+			String sql="";		
+      	  sql="select * from sys_user where  status='0' and id!='"+userId+"' and user_type!='4'  and  (login_name=? or mobile=?)";
+      	  i=Db.find(sql, loginName,loginName).size(); 
+		}else{
+			String sql="";		
+      	  sql="select * from sys_user where  status='0' and user_type!='4'  and  (login_name=? or mobile=?)";
+      	  i=Db.find(sql, loginName,loginName).size(); 
+		}
+	
+          return i;
+	}
+	//添加服务商时查询手机号是否重复
+	public int queryphone(String telephone,String siteId,String userId) {
+		int i=0;
+		if(StringUtils.isNotBlank(siteId)){
+	        String sql="select * from crm_site where mobile=? and status='0' and id!='"+siteId+"'";
+	        i=Db.find(sql, telephone).size(); 
+	        if(i<1){
+	        	String sql2="select * from sys_user where   status='0' and id!='"+userId+"' and  user_type!='4' and  (mobile=? or login_name=?)";
+	        	i=Db.find(sql2,telephone,telephone).size();
+	        }
+		}else{
+	        String sql="select * from crm_site where mobile=? and status='0'";
+	        i=Db.find(sql, telephone).size(); 
+	        if(i<1){
+	        	String sql2="select * from sys_user where   status='0' and user_type!='4' and  (mobile=? or login_name=?)";
+	        	i=Db.find(sql2,telephone,telephone).size();
+	        }
+		}
+        
+
+		return i;
+	}
+
+	//根据siteid查询user的id
+	public String getUserIdBysiteId(String siteId) {
+         String sql="select user_id from crm_site where id=? ";
+        return Db.queryStr(sql,siteId);
+	}
+
+	//停用服务商更新状态
+	public void stops(String siteId, String userId) {
+		String sql="update crm_site set status='3' where id=?";
+		String sql2="update sys_user set status='1' where id=?";
+		Db.update(sql, siteId);
+		Db.update(sql2,userId);
+		
+	}
+
+	//启用服务商更新状态
+	public void start(String siteId, String userId) {
+		String sql="update crm_site set status='0' where id=?";
+		String sql2="update sys_user set status='0' where id=?";
+		Db.update(sql, siteId);
+		Db.update(sql2,userId);
+		
+	}
+
+	//根据id查询改服务商所分享的其他服务商的列表
+	public List<Record> getsiteList(String id) {
+		StringBuffer sf=new StringBuffer();
+		sf.append("SELECT * FROM crm_site WHERE share_code_site_parent_id=? AND STATUS!='1' AND due_time IS NOT NULL ");
+		sf.append("ORDER BY create_time DESC");
+		return Db.find(sf.toString(), id);
+	}
+
+	//根据userid 查询登录名
+	public String queryUserBysiteId(String userId) {
+		String sql="select login_name from sys_user where id=?";
+		
+		return Db.queryStr(sql, userId);
+	}
+
+	//根据id查询服务商
+	public Record querySiteByid(String id) {
+		String sql="select * from crm_site where id=?";
+		return Db.findFirst(sql, id);
+	}
+//根据id更新服务商的到期时间
+	public void updateSiteDuetime(String id, String newduetime) {
+		String sql="update crm_site set due_time=? , update_time=? where id=?";
+		Db.update(sql,newduetime,new Date(),id);
+		
+		
+	}
+	//根据name查询服务商
+	public String queryIdByname(String name){
+		String sql="select id from crm_site where name=?";
+	    return 	Db.queryStr(sql,name);
+	}
+
+	public Record queryMsgSiteByid(String id) {
+		String sql="select a.*,u.login_name,(select count(1) from `crm_site` as s where s.`share_code_site_parent_id` =a.`id`  and s.status!='1' and s.due_time is not null) as sharecount  from crm_site as a inner join sys_user as u on a.`user_id` =u.`id` AND u.`status` !='2' where a.id=?";
+		return Db.findFirst(sql, id);
+	}
+
+	
+	
+}

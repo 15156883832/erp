@@ -1,0 +1,253 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+	<title>品牌设置</title>
+	<meta name="decorator" content="base"/>
+</head>
+<body>
+<div class="sfpagebg bk-gray">
+<div class="sfpage table-header-settable">
+	<div class="sfpage">
+		<div class="page-orderWait">
+		<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+		<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICECATE_TAB" html='<a class="btn-tabBar " href="${ctx}/order/category/headerList">服务品类</a> '></sfTags:pagePermission>
+		<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICEBRAND_TAB" html='<a class="btn-tabBar current" href="${ctx}/order/category/siteBrandRelList">服务品牌</a> '></sfTags:pagePermission>
+		<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_MSGORIGIN_TAB" html='<a class="btn-tabBar" href="${ctx}/order/orderOrigin">信息来源</a> '></sfTags:pagePermission>
+	<%-- 	<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_MALTIONTYPE_TAB" html='<a class="btn-tabBar" href="${ctx}/order/malfunction">故障类型</a>'></sfTags:pagePermission>  --%>
+			<a class="btn-tabBar" href="${ctx}/order/printdesign">工单打印模板</a>
+			<a class="btn-tabBar" href="${ctx}/order/orderMustFill/getMustFillInfo">工单必填项设置</a>
+			<a class="btn-tabBar " href="${ctx}/order/township">乡镇设置</a>
+			<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_MSGMALL_TAB" html='<a class="btn-tabBar " href="${ctx}/order/orderMall">购机商场</a>'></sfTags:pagePermission>
+			 <%-- <a class="btn-tabBar " href="${ctx}/order/siteSuperviseSetting">监督内容</a> --%>
+			<a class="btn-tabBar " href="${ctx}/order/serviceType">服务类型设置</a>
+			<a class="btn-tabBar " href="${ctx}/order/serviceMode">服务方式设置</a>
+		</div>
+		
+			<div class="mt-10 table-serverbrand">
+				<table class="table table-bg table-border table-bordered" id="tableBox">
+					<thead>
+						<tr class="text-c">
+							<th style="width: 260px;">服务品类</th>
+							<th>服务品牌</th>
+						</tr>
+					</thead>
+					
+					 <c:forEach items="${categoryList}" var="item" > 
+					<tr>
+						<td class="text-c">
+						<%-- <c:out value="${item.name}"/> --%>
+						${item.cname}
+						</td>
+						<td id="brand${item.cid}">
+							<c:forEach items="${item.brands}" var="brand" > 
+							<input type="hidden" name="sitebrandIds" value="${brand.id}">
+								<a href="javascript:;" class="serveb-label mr-10 f-l mb-5"  onclick="delBrand(${item.cid},${brand.id})" id="${item.cid}">${brand.name}</a>
+							</c:forEach>
+									<sfTags:pagePermission authFlag="SYSSETTLE_ORDERMSGSET_SERVICEBRAND_ADD_BTN" html='<a href="javascript:;" class="f-l lh-26" onclick="addBrand(${item.cid})" id="${item.cid}"><i class="sficon sficon-add3 " ></i></a>'></sfTags:pagePermission>
+						</td>
+					</tr>
+				   </c:forEach>  
+					
+				</table>
+			</div>
+		</div>
+		</div>
+	</div>
+	</div>
+</div>	
+
+
+
+<!-- 添加 -->
+<div class="popupBox serveBrand" id="addFuWu">
+	<h2 class="popupHead">
+		添加服务品牌
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer pos-r">
+		<div class="popupMain ">
+			<div class="priceWrap w-580 mb-10 ml-20">
+				<input type="text" class="input-text" id="queryname" placeholder="请输入搜索关键字"/>
+				<a href="javascript:;" class="unit" onclick = "queryByName()"><i class="sficon sficon-search-gray"></i></a>
+			</div>
+				 <div class="pcontent" id="brandsBox" >
+				</div>	 
+		</div>
+		<div class="text-c btnWrap">
+			<a href="javascript:;" class="sfbtn sfbtn-opt3 w-70 mr-5" onclick="saveBrand()">保存</a>
+			<a href="javascript:;" class="sfbtn sfbtn-opt w-70 mr-5" id="brand-add-cancel">取消</a>
+		</div>
+	</div>
+</div>
+<script type="text/javascript">
+	
+var queryname="";
+	
+	$(function(){
+		
+		$('#queryname').keyup(function(){
+			if($.trim($(this).val()) == "" || $.trim($(this).val()) == null ){
+				$('#brandsBox label').show(); 
+			}else{
+				$('#brandsBox label').hide()     
+				.filter(":contains('" +($(this).val()) + "')").show();
+			}
+		}).keyup();//DOM加载完时，绑定事件完成之后立即触发  
+		
+		$('#brand-add-cancel').on('click', function() {
+		//$('#editBox').empty();
+		$.closeDiv($('.serveBrand'));
+	    });
+//		$('.serveBrand').popup({fixedHeight:false});
+	
+		
+		initTableH();
+	});
+	
+	window.onresize = function(){
+		initTableH();
+	}
+	
+	function initTableH(){
+		var tHeight = $('.sfpagebg').height()-150;
+		$('.table-serverbrand').css({
+			'max-height':tHeight,
+			'overflow':'auto',
+		})
+	}
+	
+	function selectServeBrand(){
+		var brands = $('#brandsBox input[name="servebrand"]');
+		
+		brands.each(function(){
+			$(this).bind('click',function(){
+				if($(this).is(':checked')){
+					$(this).parent('label').addClass('serveb-labelSel');
+				}else{
+					$(this).parent('label').removeClass('serveb-labelSel');
+				}
+			});
+		});
+	}
+	
+	function delBrand(cid,bid){
+		$('body').popup({
+			level:3,
+			title:'提示信息',
+			content:'确定要删除'+$(cid,bid).text()+'吗？',
+			fnConfirm : function(){
+				$.ajax({
+					type: "POST",
+					url: "${ctx}/order/category/delSiteBrandRelList",
+					data:{
+						cid: cid,
+						bid: bid
+					},
+					success: function (data) {
+						if(data==true){
+							layer.msg("删除成功！")
+						//	$(cid,bid).remove();
+							window.location.reload(true);
+						}else{
+							layer.msg("删除失败！")
+						}
+					}
+				});
+			}
+		})
+	}
+
+	
+	function addBrand(cid){
+		$('#brandsBox').empty();
+	var bsa = new Array();
+	    $("#brand"+cid+" input[name='sitebrandIds']").each(function(idx){
+			bsa[idx] = parseInt($(this).val());
+		}); 
+
+		var cateId = cid;
+	 	$.ajax({
+			type: "POST",
+			url: "${ctx}/order/category/queryBrandname",
+			data:{
+				cid: cid,
+				queryname:queryname
+			},
+			success: function (data) {
+				for(var i=0;i<data.length;i++) {
+				var html ="";
+					if($.inArray(data[i].columns.id,bsa)>-1){
+						html += '<label class="f-l ml-20 mb-10 serveb-label  serveb-labelSel" for="servebrand'+(i+1)+'"  >'+
+						'<input type="checkbox" name="servebrand"  id="servebrand'+(i+1)+'" value="'+data[i].columns.name+'" checked="checked" onclick="brandT('+(i+1)+')"/>'+data[i].columns.name;
+					}else{
+						html += '<label class="f-l ml-20 mb-10 serveb-label " for="servebrand'+(i+1)+'"  >'+
+						'<input type="checkbox" name="servebrand"  id="servebrand'+(i+1)+'" value="'+data[i].columns.name+'" onclick="brandT('+(i+1)+')"/>'+data[i].columns.name;
+					}
+					html +='<input type="text" style="display:none" id="saveCid" value="'+cateId+'" />'+
+					'<input type="text" style="display:none" name="brandId"  value="'+data[i].columns.id+'" />'+
+				'</label>';
+					
+				$('#brandsBox').append(html);
+				}
+				$('.serveBrand').popup({fixedHeight:false});
+				//selectServeBrand();
+			}
+		}); 
+	}
+	
+	function brandT(id){
+	
+		if($("#servebrand"+id).is(':checked')){
+			$("#servebrand"+id).parent('label').addClass('serveb-labelSel');
+		}else{
+			$("#servebrand"+id).parent('label').removeClass('serveb-labelSel');
+		}
+	}
+	function isBlank(val) {
+		if(val==null || val=='' || val == undefined) {
+			return true;
+		}
+		return false;
+	}
+	
+	function saveBrand(){
+	    var cid = $('#saveCid').val();
+	    var bdName = $(".serveb-labelSel input[name='servebrand']"); // 选中品牌的名称
+		var bdId = $(".serveb-labelSel input[name='brandId']"); // 选中品牌的id
+		var IdVals = [];
+		var NameVals = [];
+		bdId.each(function(index,el){
+			IdVals[index] = $(el).val();
+		})
+		
+		bdName.each(function(index,el){
+			NameVals[index] = $(el).val();
+		})
+		if(NameVals.length < 1){
+			layer.msg("添加的品牌不能为空！")
+		}else{
+			
+				   $.ajax({
+							type:"POST",
+ 							traditional:true,
+							url:"${ctx}/order/category/saveBrand",
+							data:{IdVals:IdVals,cid:cid}, 
+							dataType:'json',
+							success:function(result){
+								if(result==true){
+									layer.msg("添加成功！");
+									$.closeDiv($(".serveBrand"))
+									location.reload(true);
+								}else{
+									layer.msg("添加失败！");
+								}
+							}
+						});
+				}
+	}
+
+</script> 
+</body>
+</html>

@@ -1,0 +1,590 @@
+package com.jojowonet.modules.goods.dao;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.entity.GoodsPlatformOrder;
+import com.jojowonet.modules.goods.entity.TeleDevice;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteService;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+import org.springframework.transaction.annotation.Transactional;
+
+
+/**
+ * 平台合作产品订单信息表DAO接口
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Repository
+public class PlatFormOrderDao extends BaseDao<GoodsPlatformOrder>{
+	
+	@Autowired
+	private SiteService siteService;
+	
+	@Autowired
+	private TeleDeviceDao teleDeviceDao;
+	
+	@Autowired
+	private NonServicemanService nonService;
+	
+	public List<Record> platformOrderList(Page<Record> page,String siteId,Map<String, Object> map) {
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT oc.id as ocId,oc.imgs as ocImgs,DATE_FORMAT(a.placing_order_time,'%Y-%m-%d %H:%i:%s') as xiadanTime,DATE_FORMAT(a.confirm_time,'%Y-%m-%d %H:%i:%s') as confirmTime,a.*,b.stocks,s.name as siteName FROM crm_goods_siteself_order a left join crm_goods_siteself b on a.good_id=b.id left join crm_site s on a.site_id=s.id LEFT JOIN crm_order_collections oc ON oc.order_id=a.id AND oc.source='1' AND oc.status='0'  WHERE a.good_brand='浩泽'  AND a.site_id='"+siteId+"' and b.site_id='"+siteId+"'");
+		stringBuilder.append(platFormOrderSql(map));
+		stringBuilder.append(" order by a.placing_order_time desc");
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+	}
+	public List<Record> platformOrderListMjl(Page<Record> page,String siteId,Map<String, Object> map) {
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT DATE_FORMAT(a.placing_order_time,'%Y-%m-%d %H:%i:%s') as xiadanTime,a.*,b.stocks,s.name as siteName FROM crm_goods_siteself_order a left join crm_goods_siteself b on a.good_id=b.id left join crm_site s on a.site_id=s.id  WHERE a.good_brand='美洁力'  AND a.site_id='"+siteId+"' and b.site_id='"+siteId+"'");
+		stringBuilder.append(platFormOrderSql(map));
+		stringBuilder.append(" order by a.placing_order_time desc");
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+	}
+	
+	public List<Record> msgGrid(Page<Record> page,Map<String, Object> map) {//短信列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT a.*,d.name AS site_name,d.province,d.city,d.area,d.address FROM crm_goods_platform_order a  LEFT JOIN crm_goods_category c ON c.name=a.good_category LEFT JOIN crm_site d ON d.id=a.site_id WHERE c.site_id IS NULL AND a.good_category='短信'  AND a.payment_time IS NOT NULL ");
+		stringBuilder.append(platFormOrderSql2(map));
+		stringBuilder.append(" order by a.placing_order_time desc ");
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		String sqlString = stringBuilder.toString();
+		return Db.find(stringBuilder.toString());
+	}
+	
+	public List<Record> msgGriderror(Page<Record> page,Map<String, Object> map) {//未完成短信列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT a.*,d.name AS site_name,d.province,d.city,d.area,d.address FROM crm_goods_platform_order a  LEFT JOIN crm_goods_category c ON c.name=a.good_category LEFT JOIN crm_site d ON d.id=a.site_id WHERE c.site_id IS NULL AND a.good_category='短信'  AND a.payment_time IS  NULL ");
+		stringBuilder.append(platFormOrderSql2(map));
+		stringBuilder.append(" order by a.placing_order_time desc ");
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		String sqlString = stringBuilder.toString();
+		return Db.find(stringBuilder.toString());
+	}
+	
+	public List<Record> bombScreenGrid(Page<Record> page,Map<String, Object> map) {//来电弹屏列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT a.*,d.name AS site_name,d.province,d.city,d.area,d.address FROM crm_goods_platform_order a  LEFT JOIN crm_goods_category c ON c.name=a.good_category LEFT JOIN crm_site d ON d.id=a.site_id left join crm_goods_platform gp on gp.id=a.good_id WHERE c.site_id IS NULL AND a.good_category like '%来电弹屏%' ");
+		stringBuilder.append(platFormOrderSql3(map));
+		stringBuilder.append(" order by a.placing_order_time desc ");
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+	}
+
+	public List<Record> qrCodeOrderList(Page<Record> page,Map<String, Object> map) {//二维码列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT a.*,d.name AS site_name,d.province,d.city,d.area,d.address FROM crm_goods_platform_order a  LEFT JOIN crm_goods_category c ON c.name=a.good_category LEFT JOIN crm_site d ON d.id=a.site_id left join crm_goods_platform gp on gp.id=a.good_id WHERE c.site_id IS NULL AND a.good_category like '%二维码%' ");
+		stringBuilder.append(platFormOrderSql3(map));
+		stringBuilder.append(" order by a.placing_order_time desc ");
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+	}
+	
+	public List<Record> platOrderGrid(Page<Record> page,Map<String, Object> map) {//净水列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT a.*,b.name AS supplier_name,s.name as siteName FROM crm_goods_platform_order a  LEFT JOIN crm_supplier b ON b.id=a.supplier_id LEFT JOIN crm_goods_category c ON c.name=a.good_category left join crm_site s on s.id=a.site_id WHERE c.site_id IS NULL AND (a.good_category like '%净水%') ");
+		stringBuilder.append(platFormSysOrderSql(map));
+		stringBuilder.append(" order by a.placing_order_time desc ");
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+	}
+	
+	
+	
+	public String  platFormSysOrderSql(Map<String, Object> map) {//净水条件查询
+		StringBuilder stringBuilder = new StringBuilder();
+		if(map != null){
+			if(map.get("number") != null && StringUtils.isNotEmpty((CharSequence)((String[])map.get("number"))[0])){
+				stringBuilder.append(" and a.number like '%"+((String[])map.get("number"))[0].trim()+"%' ");
+			}
+			if(map.get("status") != null && StringUtils.isNotEmpty(((String[])map.get("status"))[0])){
+				stringBuilder.append(" and a.status = '"+((String[])map.get("status"))[0]+"' ");
+			}
+			if(map.get("placingOrderBy") != null && StringUtils.isNotEmpty((CharSequence)((String[])map.get("placingOrderBy"))[0])){
+				String siteName = ((String[])map.get("placingOrderBy"))[0].trim();
+				Record rd = Db.findFirst("select * from crm_site a where a.name like '%"+siteName+"%'");
+				if(rd!=null){
+					stringBuilder.append(" and a.site_id = '"+rd.getStr("id")+"' ");
+				}else{
+					stringBuilder.append(" and a.site_id = '' ");
+				}
+				
+			}
+			if(map.get("goodName") != null && StringUtils.isNotEmpty((CharSequence)((String[])map.get("goodName"))[0])){
+				stringBuilder.append(" and a.good_name like '%"+((String[])map.get("goodName"))[0].trim()+"%' ");
+			}
+			if(map.get("goodCategory") != null && StringUtils.isNotEmpty(((String[])map.get("goodCategory"))[0])){
+				stringBuilder.append(" and a.good_category = '"+((String[])map.get("goodCategory"))[0]+"' ");
+			}
+			if(map.get("goodNumber") != null && StringUtils.isNotEmpty((CharSequence)((String[])map.get("goodNumber"))[0])){
+				stringBuilder.append(" and a.good_number like '%"+((String[])map.get("goodNumber"))[0].trim()+"%' ");
+			}
+			if(map.get("supplierId") != null && StringUtils.isNotEmpty((CharSequence)((String[])map.get("supplierId"))[0])){
+				stringBuilder.append(" and gp.distribution_type = '"+((String[])map.get("supplierId"))[0].trim()+"' ");
+			}
+			if(map.get("placingOrderTime") != null && StringUtils.isNotEmpty(((String[])map.get("placingOrderTime"))[0])){
+				stringBuilder.append(" and a.placing_order_time >= '"+((String[])map.get("placingOrderTime"))[0]+" 00:00:00' ");
+			}
+			if(map.get("placingOrderTime1") != null && StringUtils.isNotEmpty(((String[])map.get("placingOrderTime1"))[0])){
+				stringBuilder.append(" and a.placing_order_time <= '"+((String[])map.get("placingOrderTime1"))[0]+" 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+	
+	
+	
+	public String  platFormOrderSql2(Map<String, Object> map) {//短信条件查询
+		StringBuilder stringBuilder = new StringBuilder();
+		if(map != null){
+			if(map.get("siteName") != null && StringUtil.checkParamsValid(((String[])map.get("siteName"))[0])){
+				stringBuilder.append(" and d.name like '%"+((String[])map.get("siteName"))[0].trim()+"%' ");
+			}
+			if(map.get("paymentTime") != null && StringUtils.isNotEmpty(((String[])map.get("paymentTime"))[0])){
+				stringBuilder.append(" and a.payment_time >= '"+((String[])map.get("paymentTime"))[0]+"' ");
+			}
+			if(map.get("paymentTime1") != null && StringUtils.isNotEmpty(((String[])map.get("paymentTime1"))[0])){
+				stringBuilder.append(" and a.payment_time <= '"+((String[])map.get("paymentTime1"))[0]+" 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+	
+	public String  platFormOrderSql3(Map<String, Object> map) {//来电弹屏条件查询
+		StringBuilder stringBuilder = new StringBuilder();
+		if(map != null){
+			if(map.get("siteName") != null && StringUtils.isNotEmpty((CharSequence)((String[])map.get("siteName"))[0])){
+				stringBuilder.append(" and d.name like '%"+((String[])map.get("siteName"))[0].trim()+"%' ");
+			}
+			if(map.get("status") != null && StringUtils.isNotEmpty(((String[])map.get("status"))[0])){
+				stringBuilder.append(" and a.status = '"+((String[])map.get("status"))[0]+"' ");
+			}
+			if(map.get("paymentTime") != null && StringUtils.isNotEmpty(((String[])map.get("paymentTime"))[0])){
+				stringBuilder.append(" and a.payment_time >= '"+((String[])map.get("paymentTime"))[0]+"' ");
+			}
+			if(map.get("paymentTime1") != null && StringUtils.isNotEmpty(((String[])map.get("paymentTime1"))[0])){
+				stringBuilder.append(" and a.payment_time <= '"+((String[])map.get("paymentTime1"))[0]+" 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+	
+	public String platFormOrderSql(Map<String, Object> map) {
+		StringBuilder stringBuilder = new StringBuilder();
+		if (StringUtils.isNotEmpty(   (CharSequence) map.get("number")  ) ) {
+			String numb=map.get("number").toString().trim();
+			stringBuilder.append(" and a.number like '%"+numb+"%' ");
+		}
+		if (StringUtils.isNotEmpty(   (CharSequence) map.get("status")  ) ) {
+			String st=map.get("status").toString().trim();
+			if(st.equals("2x")){//已收款待下单
+				stringBuilder.append(" and a.status = '2' and (a.purchase_num > b.stocks) ");
+			}else if(st.equals("2c")){//已收款待出库
+				stringBuilder.append(" and a.status = '2' and (a.purchase_num <= b.stocks) ");
+			}else if(st.equals("3x")){//已下单
+				stringBuilder.append(" and a.status = '3' and a.outstock_type = '2' ");//平台发货
+			}else if(st.equals("3c")){//已出库
+				stringBuilder.append(" and a.status = '3' and a.outstock_type = '1' ");//公司库存
+			}else if(st.equals("4c")){//待付款已出库
+				stringBuilder.append(" and (a.status='4' and a.outstock_type in('0','1')) ");
+			}else if(st.equals("4x")){//待收款已下单
+				stringBuilder.append(" and (a.status='4' and a.outstock_type = '2') ");
+			}else if(st.equals("1x")){//待收款待下单
+				stringBuilder.append(" and (a.status='1' and (a.purchase_num > b.stocks) )");
+			}else if(st.equals("1c")){//待收款待出库
+				stringBuilder.append(" and (a.status='1' and (a.purchase_num <= b.stocks))");
+			}else{
+				stringBuilder.append(" and (a.status = '"+st+"' )");
+			}
+		}
+		if (StringUtils.isNotEmpty(   (CharSequence) map.get("placingOrderBy")  ) ) {
+			String numb=map.get("placingOrderBy").toString().trim();
+			stringBuilder.append(" and a.creator like '%"+numb+"%' ");
+		}
+		if (StringUtils.isNotEmpty(   (CharSequence) map.get("goodName")  ) ) {
+			String numb=map.get("goodName").toString().trim();
+			stringBuilder.append(" and a.good_name like '%"+numb+"%' ");
+		}
+		if (StringUtils.isNotEmpty(   (CharSequence) map.get("goodCategory")  ) ) {
+			String numb=map.get("goodCategory").toString().trim();
+			stringBuilder.append(" and a.good_category = '"+numb+"' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("xiaoNames"))){
+			String[] xiaoNames=((map.get("xiaoNames").toString())).split(",");
+			if(xiaoNames.length>0) {
+				stringBuilder.append("and (a.placing_name like "+StringUtil.joinInSqlforselforder(xiaoNames)+")");
+			}
+		}
+
+		if(StringUtil.checkParamsValid(map.get("placingOrderTimeMin"))){
+			String placingOrderTimeMin=map.get("placingOrderTimeMin").toString().trim();
+			stringBuilder.append(" and a.placing_order_time >= '"+placingOrderTimeMin+"' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("placingOrderTimeMax"))){
+			String placingOrderTimeMax=map.get("placingOrderTimeMax").toString().trim();
+			stringBuilder.append(" and a.placing_order_time <= '"+placingOrderTimeMax+"' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("confirmTimeMin"))){
+			String confirmTimeMin=map.get("confirmTimeMin").toString().trim();
+			stringBuilder.append(" and a.confirm_time >= '"+confirmTimeMin+"' ");
+		}
+		if(StringUtil.checkParamsValid(map.get("confirmTimeMax"))){
+			String confirmTimeMax=map.get("confirmTimeMax").toString().trim();
+			stringBuilder.append(" and a.confirm_time <= '"+confirmTimeMax+"' ");
+		}
+
+		return stringBuilder.toString();
+	}
+
+	private String getParamValue(Map<String, Object> map, String param) {
+		Object value = map.get(param);
+		return value == null ? null : ((String[]) map.get(param))[0];
+	}
+
+	private String getTrimmedParamValue(Map<String, Object> map, String param) {
+		return org.apache.commons.lang.StringUtils.trim(getParamValue(map, param));
+	}
+	
+	public Long queryCount(String siteId,Map<String, Object> map) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_siteself_order a left join crm_goods_siteself b on a.good_id=b.id  WHERE a.good_brand='浩泽' AND  a.site_id='"+siteId+"' and b.site_id='"+siteId+"'");
+		sb.append(platFormOrderSql(map));
+		return Db.queryLong(sb.toString());
+	}
+	public Long queryCountMjl(String siteId,Map<String, Object> map) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_siteself_order a left join crm_goods_siteself b on a.good_id=b.id  WHERE a.good_brand='美洁力' AND  a.site_id='"+siteId+"' and b.site_id='"+siteId+"'");
+		sb.append(platFormOrderSql(map));
+		return Db.queryLong(sb.toString());
+	}
+	
+	public Long queryCount2(Map<String, Object> map) {//短信总数
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_platform_order a LEFT JOIN crm_goods_category c ON c.name=a.good_category LEFT JOIN crm_site d ON d.id=a.site_id  WHERE c.site_id IS NULL AND a.good_category like '%短信%'  AND a.payment_time IS NOT NULL ");
+		sb.append(platFormOrderSql2(map));
+		return Db.queryLong(sb.toString());
+	}
+	
+	public Long queryCounterror2(Map<String, Object> map) {//未完成短信总数
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_platform_order a LEFT JOIN crm_goods_category c ON c.name=a.good_category LEFT JOIN crm_site d ON d.id=a.site_id  WHERE c.site_id IS NULL AND a.good_category like '%短信%'  AND a.payment_time IS  NULL ");
+		sb.append(platFormOrderSql2(map));
+		return Db.queryLong(sb.toString());
+	}
+	
+	public Long queryCount3(Map<String, Object> map) {//来电弹屏总数
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_platform_order a  LEFT JOIN crm_goods_category c ON c.name=a.good_category  WHERE c.site_id IS NULL AND a.good_category like '%来电弹屏%'  ");
+		sb.append(platFormOrderSql(map));
+		return Db.queryLong(sb.toString());
+	}
+	public Long queryCount4(Map<String, Object> map) {//二维码总数
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_platform_order a  LEFT JOIN crm_goods_category c ON c.name=a.good_category  WHERE c.site_id IS NULL AND a.good_category like '%二维码%'  ");
+		sb.append(platFormOrderSql(map));
+		return Db.queryLong(sb.toString());
+	}
+
+	public Long querySysCount(Map<String, Object> map) {//净水总数
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_platform_order a LEFT JOIN crm_goods_category c ON c.name=a.good_category  WHERE c.site_id IS NULL AND a.good_category like '%净水%' ");
+		sb.append(platFormSysOrderSql(map));
+		return Db.queryLong(sb.toString());
+	}
+	
+	public Long querySupplierCount(Map<String, Object> map, String supplierId) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_platform_order a JOIN crm_supplier cs on cs.id = a.supplier_id  WHERE a.good_category like '%净水%' ");
+		sb.append("and cs.user_id = '"+supplierId+"' ");
+		sb.append(platFormSysOrderSql(map));
+		return Db.queryLong(sb.toString());
+	}
+
+	public List<Record> platSupplierOrderGrid(Page<Record> page,Map<String, Object> map, String supplierId) {//净水列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT a.*,b.name AS supplier_name FROM crm_goods_platform_order a JOIN crm_supplier b ON b.id=a.supplier_id WHERE a.good_category like '%净水%'   ");
+		stringBuilder.append(" and b.user_id = '"+supplierId+"' ");
+		stringBuilder.append(platFormSysOrderSql(map));
+		stringBuilder.append(" order by a.placing_order_time desc ");
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+	}
+	
+	@Transactional
+	public Result<GoodsPlatformOrder> ljfk(String rowId, String siteId, String gId, Double pNum, String tradeNo,String xdCustomerName,String xdCustomerContact,String xdCustomerAddress){
+		User user = UserUtils.getUser();
+		Result<GoodsPlatformOrder> ret = new Result<>();
+		String name = "";
+		if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+			name = siteService.getUserSite(user.getId()).getName();
+		} else {
+			name = nonService.getNonServiceman(user).getName();
+		}
+		
+		// 被注释的内容将在至支付回调中处理
+//		Db.update("update crm_goods_siteself a set a.sales=(a.sales+'"+pNum+"') WHERE a.status='0' AND a.id='"+gId+"'");
+//		Db.update("UPDATE crm_goods_siteself_order a SET a.status='3',a.outstock_type='2' WHERE a.id='"+rowId+"'");
+		GoodsPlatformOrder gp = new GoodsPlatformOrder();
+		
+		Record rd = Db.findFirst("SELECT a.* FROM crm_goods_siteself_order a WHERE a.id='"+rowId+"'");
+		Record r = Db.findFirst("select * from crm_goods_platform where `number`=? and `status`='0' limit 1", rd.getStr("good_number"));
+		if(r==null){
+			ret.setCode("421");
+			return ret;
+		}
+		gp.setSiteselfOrderId(rowId);
+		gp.setNumber(rd.getStr("number"));
+		gp.setGoodId(r.getStr("id"));
+		gp.setGoodNumber(rd.getStr("good_number"));
+		gp.setGoodName(rd.getStr("good_name"));
+		gp.setGoodIcon(rd.getStr("good_icon"));
+		gp.setGoodBrand(rd.getStr("good_brand"));
+		gp.setGoodModel(rd.getStr("good_model"));
+		gp.setGoodCategory(rd.getStr("good_category"));
+		gp.setCustomerName(xdCustomerName);
+		gp.setCustomerContact(xdCustomerContact);
+		gp.setCustomerAddress(xdCustomerAddress);
+		gp.setPurchaseNum(rd.getBigDecimal("purchase_num"));
+		gp.setGoodAmount(rd.getBigDecimal("good_amount"));
+		gp.setPlacingOrderTime(new Date());
+		gp.setStatus("0");
+		gp.setSiteId(siteId);
+		gp.setCreator(name);
+		gp.setPlacingOrderBy(rd.getStr("placing_name"));
+		gp.setPayStatus("0");
+		gp.setTradeNo(tradeNo);
+		save(gp);
+		
+		Db.update("update crm_goods_siteself_order a set a.customer_name=?,a.customer_contact=?,a.customer_address=? where a.id=?",xdCustomerName,xdCustomerContact,xdCustomerAddress,rowId);
+		ret.setData(gp);
+		return ret;
+	}
+	
+	public  Record detailSysMsg(String rowId){
+		return Db.findFirst("SELECT a.*,b.unit,su.name AS sName FROM crm_goods_platform_order a LEFT JOIN crm_goods_platform b ON b.id = a.good_id LEFT JOIN (SELECT s.*,u.id AS uId FROM crm_site s LEFT JOIN sys_user u ON s.user_id=u.id  WHERE u.id=s.user_id) AS su ON su.uId = a.placing_order_by WHERE a.id ='"+rowId+"'");
+	}
+	
+	public  List<Record> supplierPlatgoodsList(String goodId){
+		return Db.find("SELECT a.*,b.name AS spname FROM crm_goods_platform_supplier_rel a LEFT JOIN crm_supplier b ON b.id=a.supplier_id WHERE  a.good_platform_id='"+goodId+"'");
+	}
+	
+	public  Boolean confirmFenpei(String rowId,String supplierId){
+		Db.update("UPDATE crm_goods_platform_order a SET a.confirm_time=NOW(),a.status='2',a.supplier_id='"+supplierId+"' WHERE a.id='"+rowId+"'");
+		return true;
+	}
+	
+	public  List<Record> orderFenpei(){
+		return Db.find("SELECT * FROM  crm_supplier WHERE status='0'");
+	}
+
+	public  Record detailBombScreen(String rowId,String siteId){//来电弹屏详情
+		return Db.findFirst("SELECT a.*,b.name AS site_name FROM crm_goods_platform_order a LEFT JOIN crm_site b ON b.id=a.site_id  WHERE a.id='"+rowId+"'");
+	}
+	
+	public  List<Record> detailBombScreen1(String siteId){
+		return Db.find("SELECT * FROM  crm_site_tele_device WHERE status='0' AND site_id='"+siteId+"'");
+	}
+	
+	public  Boolean confirmSendGood(String rowId,String logisticsName,String logisticsNo,String[] serialNoVals,String siteId){
+		for(int i=0;i<serialNoVals.length;i++){
+			TeleDevice teleDevice = new TeleDevice();
+			teleDevice.setCreateTime(new Date());
+			teleDevice.setSerialNo(serialNoVals[i]);
+			teleDevice.setSiteId(siteId);
+			teleDevice.setStatus("0");
+			teleDeviceDao.save(teleDevice);
+		}
+		Db.update("UPDATE crm_goods_platform_order a SET a.status='3',a.sendgood_time=NOW(),a.logistics_name='"+logisticsName+"',a.logistics_no='"+logisticsNo+"' WHERE a.id='"+rowId+"'");
+		return true;
+	}
+	
+	/*
+	 * 供应商权限
+	 * */
+	public List<Record> orderManageGrid(Page<Record> page,Map<String, Object> map, String supplierId,List<String> goodsstrlist) {//订单管理列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT a.*,b.name AS supplier_name,s.name as sName  FROM crm_goods_platform_order a  LEFT JOIN crm_supplier b ON b.id=a.supplier_id LEFT JOIN crm_goods_category c ON c.name=a.good_category  left join crm_site s on s.user_id=a.placing_order_by  WHERE c.site_id IS NULL   AND a.supplier_id='"+supplierId+"' ");
+		stringBuilder.append(platFormSysOrderSql5(goodsstrlist));
+		stringBuilder.append(platFormSysOrderSql4(map));
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+	}
+	private String platFormSysOrderSql5(List<String> goodsstrlist) {
+		StringBuilder stringBuilder = new StringBuilder();
+		if(goodsstrlist!=null){
+			if(goodsstrlist.size()==1){
+				stringBuilder.append(" and a.good_id = '"+goodsstrlist.get(0)+"' ");
+			}else{
+				stringBuilder.append(" and (a.good_id = '"+goodsstrlist.get(0)+"' ");
+				for (int i=1;i<goodsstrlist.size();i++) {
+					stringBuilder.append(" or a.good_id = '"+goodsstrlist.get(i)+"' ");
+				}
+				stringBuilder.append(")");
+			}
+		
+		}
+		return stringBuilder.toString();
+	}
+
+	public Long querySysCount2(Map<String, Object> map,String supplierId,List<String> goodsstrlist) {//净水总数
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_goods_platform_order a LEFT JOIN crm_supplier b ON b.id=a.supplier_id LEFT JOIN crm_goods_category c ON c.name=a.good_category  WHERE c.site_id IS NULL  AND a.supplier_id='"+supplierId+"' ");
+		sb.append(platFormSysOrderSql5(goodsstrlist));
+		sb.append(platFormSysOrderSql(map));
+		return Db.queryLong(sb.toString());
+	}
+	
+	public  Boolean confirmSendGoods(String rowId,String logisticsName,String logisticsNo,String sendgoodDate){//确定发货
+		Db.update("UPDATE crm_goods_platform_order a SET a.status='3',a.logistics_name='"+logisticsName+"',a.logistics_no='"+logisticsNo+"',a.sendgood_time='"+sendgoodDate+"' WHERE a.id='"+rowId+"'");
+		return true;
+	}
+	
+	public  Boolean confirmEnd(String rowId){//确定已完成
+		Db.update("UPDATE crm_goods_platform_order a SET a.status='4',a.finish_time=NOW() WHERE a.id='"+rowId+"' ");
+		return true;
+	}
+	
+	public String  platFormSysOrderSql4(Map<String, Object> map) {//订单管理查询条件
+		StringBuilder stringBuilder = new StringBuilder();
+		if(map != null){
+			if(map.get("number") != null && StringUtils.isNotEmpty(((String[])map.get("number"))[0])){//
+				stringBuilder.append(" and a.number = '"+((String[])map.get("number"))[0]+"' ");
+			}
+			if(map.get("status") != null && StringUtils.isNotEmpty(((String[])map.get("status"))[0])){//
+				stringBuilder.append(" and a.status = '"+((String[])map.get("status"))[0]+"' ");
+			}
+			if(map.get("placingOrderBy") != null && StringUtils.isNotEmpty(((String[])map.get("placingOrderBy"))[0])){//
+				stringBuilder.append(" and a.placing_order_by = '"+((String[])map.get("placingOrderBy"))[0]+"' ");
+			}
+			if(map.get("goodName") != null && StringUtils.isNotEmpty(((String[])map.get("goodName"))[0])){//
+				stringBuilder.append(" and a.good_name = '"+((String[])map.get("goodName"))[0]+"' ");
+			}
+			if(map.get("goodModel") != null && StringUtils.isNotEmpty(((String[])map.get("goodModel"))[0])){//
+				stringBuilder.append(" and a.good_model = '"+((String[])map.get("goodModel"))[0]+"' ");
+			}
+			if(map.get("placingOrderTime") != null && StringUtils.isNotEmpty(((String[])map.get("placingOrderTime"))[0])){//
+				stringBuilder.append(" and a.placing_order_time >= '"+((String[])map.get("placingOrderTime"))[0]+"' ");
+			}
+			if(map.get("placingOrderTime1") != null && StringUtils.isNotEmpty(((String[])map.get("placingOrderTime1"))[0])){//
+				stringBuilder.append(" and a.placing_order_time <= '"+((String[])map.get("placingOrderTime1"))[0]+" 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+
+	public List<Record> getGoodsList(String supplierId) {
+		String sql="select * from crm_goods_platform_supplier_rel where supplier_id=?";
+		List<Record> list=Db.find(sql,supplierId);
+		return list;
+	}
+	
+	public List<Record> vipOrderList(Page<Record> page,Map<String, Object> map){
+		StringBuilder sf = new StringBuilder();
+		sf.append("select a.*,s.name as siteName,(select t.province from crm_site as t where t.id=a.site_id ) as province  from crm_goods_platform_order a left join crm_site s on a.placing_order_by=s.user_id  where a.good_id is null and a.pay_status='1' ");
+		sf.append(vipOrderSql(map));
+		sf.append(" order by a.placing_order_time desc");
+		if(page!=null){
+			sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(sf.toString());
+	}
+	
+	public Long queryVipOrderCount(Map<String, Object> map){
+		StringBuilder sf = new StringBuilder();
+		sf.append("select count(*) from crm_goods_platform_order a left join crm_site s on a.placing_order_by=s.user_id where good_id is null and a.pay_status='1' ");
+		sf.append(vipOrderSql(map));
+		return Db.queryLong(sf.toString());
+	}
+
+
+	public List<Record> nopayvipOrderList(Page<Record> page,Map<String, Object> map){
+		StringBuilder sf = new StringBuilder();
+		sf.append("select a.*,s.name as siteName,(select t.province from crm_site as t where t.id=a.site_id ) as province from crm_goods_platform_order a left join crm_site s on a.placing_order_by=s.user_id where a.good_id is null and a.pay_status='0' ");
+		sf.append(vipOrderSql(map));
+		sf.append(" order by a.placing_order_time desc");
+		if(page!=null){
+			sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(sf.toString());
+	}
+
+	public Long querynopayVipOrderCount(Map<String, Object> map){
+		StringBuilder sf = new StringBuilder();
+		sf.append("select count(*) from crm_goods_platform_order a left join crm_site s on a.placing_order_by=s.user_id where good_id is null and a.pay_status='0' ");
+		sf.append(vipOrderSql(map));
+		return Db.queryLong(sf.toString());
+	}
+	
+	public String vipOrderSql(Map<String, Object> map){
+		StringBuilder stringBuilder = new StringBuilder();
+		if(map != null){
+			if(StringUtil.checkParamsValid(map.get("number"))){//
+				stringBuilder.append(" and a.number like '%"+map.get("number")+"%' ");
+			}
+			if(StringUtil.checkParamsValid(map.get("goodName"))){//
+				stringBuilder.append(" and a.good_name like '%"+map.get("goodName")+"%' ");
+			}
+			if(StringUtil.checkParamsValid(map.get("payStatus"))){//支付方式
+				stringBuilder.append(" and a.pay_status = '"+map.get("payStatus")+"' ");
+			}
+			if(StringUtil.checkParamsValid(map.get("placingOrderBy"))){//下单人
+				stringBuilder.append(" and s.name like '%"+map.get("placingOrderBy")+"%' ");
+			}
+			if(StringUtil.checkParamsValid(map.get("customerName"))){//
+				stringBuilder.append(" and a.customer_name like '%"+map.get("customerName")+"%' ");
+			}
+			if(StringUtil.checkParamsValid(map.get("customerAddress"))){//
+				stringBuilder.append(" and a.customer_address like '%"+map.get("customerAddress")+"%' ");
+			}
+			if(StringUtil.checkParamsValid(map.get("customerContact"))){//
+				stringBuilder.append(" and a.customer_contact like '%"+map.get("customerContact")+"%' ");
+			}
+			if(StringUtil.checkParamsValid(map.get("placingOrderTime"))){//
+				stringBuilder.append(" and a.placing_order_time >= '"+map.get("placingOrderTime")+" 00:00:00' ");
+			}
+			if(StringUtil.checkParamsValid(map.get("placingOrderTime1"))){//
+				stringBuilder.append(" and a.placing_order_time <= '"+map.get("placingOrderTime1")+" 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+
+
+	
+}

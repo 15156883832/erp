@@ -1,0 +1,357 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+  <head>
+    
+    <meta name="decorator" content="base"/>
+	<!--
+	<link rel="stylesheet" type="text/css" href="styles.css">
+	-->
+<script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/> 
+<script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+	  <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+	  <script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.js"></script>
+	  <style>
+		  .dropdown-single .dropdown-clear-all{ line-height: 24px;}
+
+		  .dropdown-chose-list{font-size:10px;}
+	  </style>
+  </head>
+  
+  <body>
+  <div class="popupBox gcsjsmxhzWrap ceshiyixia">
+	<h2 class="popupHead">
+		工程师结算明细
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain pd-15" >
+		<form action="" id="searchForm" method="post">
+		<input type="hidden" name="page" id="pageNo" value="1">
+		<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+			<div class="cl mb-10">
+				<label class="f-l" style="margin-left: 12px;">服务工程师：</label>
+				<span class=" f-l w-120">
+				<select class="select f-l w-120" name="employeName" id="employeName">
+					<option value="">请选择</option>
+					<c:forEach items="${empList }" var="el">
+						<option value="${el.columns.employe_name }" <c:if test="${empName==el.columns.employe_name }">selected="selected"</c:if>>${el.columns.employe_name }</option>
+					</c:forEach>
+				</select>
+				</span>
+
+				<label class="f-l ml-10">&#12288;&#12288;&#12288;结算审核：</label>
+				<span class=" f-l w-120">
+					<select class="select" name="review">
+						<option value="">请选择</option>
+						<option value="0">未审核</option>
+						<option value="1">审核通过</option>
+						<option value="2">审核未通过</option>
+					</select>
+				</span>
+
+				<label class="f-l ml-10">&#12288;&#12288;&#12288;家电品类：</label>
+				<span class=" f-l w-120">
+					<select class="select" name="applianceCategory">
+						<option value="">请选择</option>
+						<c:forEach items="${category }" var="ca">
+							<option value="${ca.columns.name }">${ca.columns.name }</option>
+						</c:forEach>
+					</select>
+				</span>
+				<label class="f-l" style="margin-left: 24px;">家电品牌：</label>
+				<span class="f-l w-120 dropdown-sin-2">
+				<select class="select w-120"  id="applianceBrand" style="display:none"  placeholder="请选择" multiline="true" name="applianceBrand"  >
+				<%--<select class="select w-140 " style="position: absolute;z-index: 1;"  class="choose" onmousedown="if(this.options.length>6){this.size=8}" onblur="this.size=0" onchange="this.size=0"  name="applianceBrand" id="applianceBrand"  >--%>
+					<option value="">请选择</option>
+					<c:forEach items="${brand }" var="ba" varStatus="sta">
+						<option value="${ba.key }">${ba.value }</option>
+					</c:forEach>
+				</select>
+				</span>
+
+			</div>
+			<div class="cl">
+				<label class="f-l">&#12288;&#12288;保修类型：</label>
+				<span class=" f-l w-120">
+					<select class="select" name="warrantyType">
+						<option value="">请选择</option>
+						<option value="1">保内</option>
+						<option value="2">保外</option>
+					</select>
+				</span>
+
+				<label class="f-l ml-10">&#12288;&#12288;&#12288;服务类型：</label>
+				<span class=" f-l w-120">
+					<select class="select" id="serviceType" name="serviceType">
+						<option value="">请选择</option>
+						<c:forEach items="${fns:getServiceType() }" var="stype">
+							<option value="${stype.columns.name }">${stype.columns.name }</option>
+						</c:forEach>
+					</select>
+				</span>
+
+				<label class="f-l" style="margin-left: 22px;">结算归属日期：</label>
+				<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'settlementTimeMax\')||\'%y-%M-%d\'}'})" id="settlementTimeMin" name="settlementTimeMin" value="${settlementTimeMin }" class="input-text Wdate f-l w-120" style="width:120px">
+				<span class="pd-5 f-l"> 至</span>
+				<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'settlementTimeMin\')}',maxDate:'%y-%M-%d'})" id="settlementTimeMax" name="settlementTimeMax" value="${settlementTimeMax }" class="input-text Wdate f-l w-120" style="width:120px">
+			</div>
+			<div class="cl mt-10">
+				<label class="f-l w-80 text-r" style="margin-left: 4px;">报修时间：</label>
+				<input type="text" onfocus="WdatePicker({onpicking: cDayFuncmin,maxDate:'#F{$dp.$D(\'repairTimeMax\')||\'%y-%M-%d\'}'})" id="repairTimeMin" name="repairTimeMin" value="${map1.repairTimeMin }" class="input-text Wdate f-l w-120" style="width:120px">
+				<span class="pd-5 f-l"> 至</span>
+				<input type="text" onfocus="WdatePicker({onpicking: cDayFuncmax,minDate:'#F{$dp.$D(\'repairTimeMin\')}',maxDate:'%y-%M-%d'})" id="repairTimeMax" name="repairTimeMax" value="${map1.repairTimeMax }" class="input-text Wdate f-l w-120" style="width:120px">
+
+				<label class="f-l w-80 text-r" style="margin-left: 110px">完工时间：</label>
+				<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'endTimeMax\')||\'%y-%M-%d\'}'})" id="endTimeMin" name="endTimeMin" value="${endTimeMin }" class="input-text Wdate f-l w-120" style="width:120px">
+				<span class="pd-5 f-l"> 至</span>
+				<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'endTimeMin\')}',maxDate:'%y-%M-%d'})" id="endTimeMax" name="endTimeMax" value="${endTimeMax }" class="input-text Wdate f-l w-120" style="width:120px">
+			</div>
+		</form>
+			<div class="mt-15" id="gcsjsmx">
+				<div class="tabBarP2 mb-15">
+					<a class="radiobox radiobox-selected mr-15" onclick="huizong1()"  >明细</a>
+					<a class="radiobox"  onclick="huizong()" >汇总</a>
+					
+					<a class="sfbtn sfbtn-opt w-70 f-r ml-10" target="_blank" onclick="return exports()"><i class="sficon sficon-export"></i>导出</a> 
+					<a class="sfbtn sfbtn-opt w-70 f-r ml-10" href="javascript:search();"><i class="sficon sficon-search"></i>查询</a>
+					<!-- <a href="javascript:reset();" class="sfbtn sfbtn-opt w-70 f-r ml-10" id="reset"><i class="sficon sficon-reset"></i>重置</a> -->
+				</div>
+				
+				<div >
+					<table class="table" id="table-waitdispatchqa">
+						<!-- 明细的表格 -->
+					</table>
+				</div>
+				<div class="cl mt-10">
+					<!-- 分页 -->
+					<div class="pagination"></div>
+				</div>
+				
+			</div>
+		</div>
+	</div>
+</div>
+   
+<script type="text/javascript">
+var sfGrid;
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+
+
+function dealRepairTime(){
+    var repairTimeMin = $("#repairTimeMin").val();
+    var repairTimeMax = $("#repairTimeMax").val();
+    if(isBlank(repairTimeMin)){
+        layer.msg("报修时间查询起始时间不能为空！");
+        return false;
+    }
+    if(isBlank(repairTimeMax)){
+        layer.msg("报修时间查询结束时间不能为空！");
+        return false;
+    }
+    if(repairTimeMin.substring(0,4)!=repairTimeMax.substring(0,4)){
+        layer.msg("报修时间查询不能跨年！");
+        return false;
+    }
+    return true;
+
+}
+
+$(function(){
+   /* $('#repairTimeMin').bind('input oninput', function() {
+        dealRepairTime();
+    })
+    $('#repairTimeMax').bind('input oninput', function() {
+        dealRepairTime();
+    })*/
+    $('#repairTimeMin').bind('blur', function() {
+        dealRepairTime();
+    })
+    $('#repairTimeMax').bind('blur', function() {
+        dealRepairTime();
+    })
+	initTableH();
+	$('.gcsjsmxhzWrap').popup();
+	initSfGrid();
+    $('.dropdown-sin-2').dropdown({
+        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+    });
+	$.setPos($('.gcsjsmxhzWrap'));
+	
+	$('#employeName').select2();
+	$(".selection").css("width","120px");
+	
+	window.onresize = function(){
+		var tableHeight_=$(window).height()-400
+		$("#table-waitdispatchqa").setGridWidth(950);
+		$("#table-waitdispatchqa").setGridHeight(tableHeight_);
+	}
+})
+
+function huizong(){
+	window.location.href="${ctx}/finance/revenue/toCostAll?map="+$("#searchForm").serialize();
+	$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+}
+
+function huizong1(){
+	window.location.href="${ctx}/finance/revenue/toEmployeDetail?map="+$("#searchForm").serialize();
+	$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+}
+
+//初始化jqGrid表格，传递的参数按照说明
+function initSfGrid(){
+
+	
+var tableHeight_=$(window).height()-400;
+    dealRepairTime();
+	var url = "${ctx}/finance/revenue/toEmployeDetailGrid";
+	sfGrid = $("#table-waitdispatchqa").sfGrid({
+		url:url, 
+		sfHeader:defaultHeader,
+		sfSortColumns:sortHeader,
+		postData:$("#searchForm").serializeJson(),
+		//shrinkToFit: true,
+		multiselect: false,
+		width:950,
+		height:tableHeight_,
+		rownumbers : true,
+		gridComplete:function(){
+			_order_comm.gridNum();
+		}
+	});
+}
+
+	function search() {
+        if(!dealRepairTime()){
+            return;
+        }
+		var pageSize = $("#pageSize").val();
+		if ($.trim(pageSize) == '' || pageSize == null) {
+			$("#pageSize").val(20);
+		}
+		$("#table-waitdispatchqa").sfGridSearch({
+			postData : $("#searchForm").serializeJson()
+		});
+	}
+
+	function initTableH() {
+		var h2 = $('#boxWrapTable table').height();
+		if (h2 > 470) {
+			$('#boxWrapHead').css({
+				'padding-right' : '17px'
+			});
+		}
+	}
+
+	//保修类型
+	function protectType(row) {
+		if (row.warranty_type == '1') {
+			return "保内";
+		} else if (row.warranty_type == '2') {
+			return "保外";
+		} else if (row.warranty_type == '3') {
+			return "保外转保内";
+		} else {
+			return "---";
+		}
+	}
+
+	function reset() {
+		$("#endTimeMin").val('');
+		$("#endTimeMax").val('');
+		$("#settlementTimeMin").val('');
+		$("#settlementTimeMax").val('');
+	}
+
+	function toCostAll() {
+		//$.closeDiv($(".gcsjsmxhzWrap"));
+		layer.open({
+			type : 2,
+			content : '${ctx}/finance/revenue/toCostAll',
+			title : false,
+			area : [ '100%', '100%' ],
+			closeBtn : 0,
+			shade : 0,
+			anim : -1
+		});
+
+	}
+
+	function exports() {
+		var idArr = $("#table-waitdispatchqa").jqGrid('getGridParam', 'records')
+		var content = "共" + idArr + "条数据，本次允许导出前10000条，确定继续导出吗？";
+		if (idArr > 10000) {
+			$('body')
+					.popup(
+							{
+								level : 3,
+								title : "导出",
+								content : content,
+								fnConfirm : function() {
+									location.href = "${ctx}/finance/revenue/employeDetailExport?formPath=/a/finance/revenue/toEmployeDetail&&maps="
+											+ $("#searchForm").serialize();
+								}
+							});
+		} else {
+			location.href = "${ctx}/finance/revenue/employeDetailExport?formPath=/a/finance/revenue/toEmployeDetail&&maps="
+					+ $("#searchForm").serialize();
+		}
+
+	}
+
+function isBlank(val) {
+    if(val==null || $.trim(val)=='' || val == undefined) {
+        return true;
+    }
+    return false;
+}
+
+function dealRepairTimeOne(dp,type){
+    if(type=='min'){
+        var repairTimeMax = $("#repairTimeMax").val();
+        if(isBlank(dp)){
+            layer.msg("报修时间查询起始时间不能为空！");
+            return false;
+        }
+        if(isBlank(repairTimeMax)){
+            layer.msg("报修时间查询结束时间不能为空！");
+            return false;
+        }
+        if(dp.substring(0,4)!=repairTimeMax.substring(0,4)){
+            layer.msg("报修时间查询不能跨年！");
+            return false;
+        }
+        return true;
+    }else{
+        var repairTimeMin = $("#repairTimeMin").val();
+        if(isBlank(repairTimeMin)){
+            layer.msg("报修时间查询起始时间不能为空！");
+            return false;
+        }
+        if(isBlank(dp)){
+            layer.msg("报修时间查询结束时间不能为空！");
+            return false;
+        }
+        if(dp.substring(0,4)!=repairTimeMin.substring(0,4)){
+            layer.msg("报修时间查询不能跨年！");
+            return false;
+        }
+        return true;
+    }
+}
+
+function cDayFuncmin(dp){
+    var date = dp.cal.getNewDateStr();
+    dealRepairTimeOne(date,"min");
+}
+
+function cDayFuncmax(dp){
+    var date = dp.cal.getNewDateStr();
+    dealRepairTimeOne(date,"max");
+}
+</script>
+  </body>
+</html>

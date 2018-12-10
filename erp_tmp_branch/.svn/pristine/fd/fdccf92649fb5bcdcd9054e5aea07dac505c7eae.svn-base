@@ -1,0 +1,58 @@
+package com.jojowonet.modules.operate.service;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jojowonet.modules.operate.entity.ReceivedSms;
+import com.jojowonet.modules.operate.utils.DateUtils;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.ReceivedSmsDao;
+
+
+
+@Component
+@Transactional(readOnly = true)
+public class ReceivedSmsService extends BaseService{
+	
+	@Autowired
+	private ReceivedSmsDao receivedSmsDao;
+	public Page<Record> getReceivedList(Page<Record> page ,String siteId,Map<String,Object> map){
+		List<Record> receivedList=receivedSmsDao.getReceivedList(page, siteId, map);
+		long count=receivedSmsDao.getreceivedcount(siteId, map);
+		page.setList(receivedList);
+		page.setCount(count);
+		return page;
+	}
+
+
+	//短信回复接口
+	public void addDRveivedMsg(Map<String, Object> map) {
+		String mobile = map.get("mobile").toString();
+		String content = map.get("content").toString();
+		String receiveTime = map.get("receiveTime").toString();
+		String extNo = map.get("extNo").toString();
+
+		Record record = Db.findFirst("select * from crm_sended_sms a where a.mobile=? order by a.create_time desc limit 1 ",mobile);
+
+		ReceivedSms sms = new ReceivedSms();
+		sms.setContent(content);
+		sms.setCreateTime(new Date());
+		sms.setExtno(extNo);
+		sms.setMobile(mobile);
+		sms.setSendTime(DateUtils.parseDate(receiveTime, "yyyy-MM-dd HH:mm:ss"));
+		sms.setStatus("0");
+		sms.setSiteId(record.getStr("site_id"));
+		sms.setOrderId(record.getStr("order_id"));
+		receivedSmsDao.save(sms);
+	}
+
+}

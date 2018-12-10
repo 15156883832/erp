@@ -1,0 +1,322 @@
+package com.jojowonet.modules.fitting.dao;
+
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.entity.OldFitting;
+import com.jojowonet.modules.operate.dao.NonServicemanDao;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.operate.service.SiteService;
+
+/**
+ * 旧件DAO
+ * 
+ * @author dongqing
+ * @version 2017-05-22
+ */
+@Repository
+public class OldFittingDao extends BaseDao<OldFitting> {
+	@Autowired
+    private SiteDao siteDao;
+	@Autowired
+    private NonServicemanDao noDao;
+	@Autowired
+	private SiteService siteService;
+	
+	// 查询所有旧件信息(旧件登记)
+	public List<Record> getAll(Page<Record> page, String siteId,
+			Map<String, Object> map) {
+		StringBuffer str = new StringBuffer();
+		str.append("SELECT o.* ");
+		str.append(" FROM crm_site_old_fitting o ");
+		//str.append(" LEFT JOIN crm_employe e ON o.employe_id=e.id AND e.site_id = '"+ siteId + "' ");
+		//str.append(" LEFT JOIN crm_order od ON o.order_id=od.id");
+		str.append(" WHERE ");
+		str.append("  o.site_id='" + siteId + "'");
+		str.append(" AND o.status='0' ");
+		str.append(getqueryCriteria(map));
+		str.append(createOrderBy(map," ORDER BY o.create_time DESC "));
+
+		if (page != null) {
+			str.append(" limit " + page.getPageSize() + " offset "
+					+ (page.getPageNo() - 1) * page.getPageSize());
+		}
+		List<Record> list = Db.find(str.toString());
+		 
+		return list;
+	}
+
+	// 查询所有旧件信息(旧件库存)
+		public List<Record> getAllStock(Page<Record> page, String siteId,
+				Map<String, Object> map) {
+			StringBuffer str = new StringBuffer();
+			str.append("SELECT o.* ");
+			str.append(" FROM crm_site_old_fitting o ");
+			//str.append(" LEFT JOIN crm_employe e ON o.employe_id=e.id AND e.site_id = '" + siteId + "' ");
+			//str.append(" LEFT JOIN crm_order od ON o.order_id=od.id");
+			str.append(" WHERE ");
+			str.append("  o.site_id='" + siteId + "'");
+			str.append(" AND o.status in ('1','3','4') ");
+			str.append(getqueryCriteria(map));
+			str.append(createOrderBy(map," ORDER BY o.confirm_time DESC "));
+
+			if (page != null) {
+				str.append(" limit " + page.getPageSize() + " offset "
+						+ (page.getPageNo() - 1) * page.getPageSize());
+			}
+			List<Record> list = Db.find(str.toString());
+			 
+			return list;
+		}
+	
+	//表头排序
+	private String createOrderBy(Map<String, Object> map, String defaultOrderBy) {
+		String sort = null;
+		String dir = null;
+		if(map.get("sidx")!=null){
+			if (StringUtils.isNotBlank(map.get("sidx").toString())) {
+				sort = map.get("sidx").toString();
+			}
+		}
+	if(map.get("sord")!=null){
+		if (StringUtils.isNotBlank(map.get("sord").toString())) {
+			dir = map.get("sord").toString();
+		}
+	}
+	
+		return (StringUtils.isNotBlank(sort) && StringUtils.isNotBlank(dir)) ? ("order by `"
+				+ sort + "` " + dir)
+				: defaultOrderBy;
+	}
+	
+	// 计算当前服务商旧件总数(已登记)
+	public long getOldFittingCount(String siteId, 
+			Map<String, Object> map) {
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT count(*) as count FROM crm_site_old_fitting o ");
+		//sf.append(" LEFT JOIN crm_employe e ON o.employe_id=e.id");
+		//sf.append(" LEFT JOIN crm_order od ON o.order_id=od.id");
+		sf.append(" WHERE ");
+		sf.append("  o.site_id=?");
+		sf.append(" and o.status='0' ");
+		if(map!=null){
+			sf.append(getqueryCriteria(map));
+		}
+		return Db.queryLong(sf.toString(), siteId);
+	}
+	
+	// 计算当前服务商旧件总数(库存)
+	public long getOldStocksFittingCount(String siteId, 
+			Map<String, Object> map) {
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT count(*) as count FROM crm_site_old_fitting o ");
+		//sf.append(" LEFT JOIN crm_employe e ON o.employe_id=e.id");
+		//sf.append(" LEFT JOIN crm_order od ON o.order_id=od.id");
+		sf.append(" WHERE ");
+		sf.append("  o.site_id=?");
+		sf.append(" and o.status in('1','3','4') ");
+		if(map!=null){
+			sf.append(getqueryCriteria(map));
+		}
+		return Db.queryLong(sf.toString(), siteId);
+	}
+
+	// 旧件查询条件
+	public String getqueryCriteria(Map<String, Object> ma) {
+		StringBuffer sf = new StringBuffer();
+
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("code")  ) ) {
+			String nub=ma.get("code").toString().trim();
+			sf.append(" and o.code like '%" + nub + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("name"))) {
+			String nam=ma.get("name").toString().trim();
+			sf.append(" and o.name like '%" + nam + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("oumber"))) {
+			String onumb=ma.get("oumber").toString().trim();
+			sf.append(" and o.order_number like '%" + onumb + "%' ");// 工单编号
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("yrpz_flag"))) {
+			sf.append(" and o.yrpz_flag = '" + ma.get("yrpz_flag") + "' ");// 是否原配
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("employs"))) {// 服务工程师
+			String n=ma.get("employs").toString().trim();
+			String na[]=n.split(",");
+			sf.append(" and o.employe_name in( ");
+			for(int i=0;i<na.length;i++){
+				if(i!=na.length-1){
+					sf.append(" '"+na[i]+"', ");
+				}else{
+					sf.append(" '"+na[i]+"' ");
+				}
+			}
+			sf.append(")");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("customerMobile"))) {
+			String mob=ma.get("customerMobile").toString().trim();
+			sf.append(" and o.customer_mobile like '%" + mob + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("warrantyType"))) {// 保修类型
+			sf.append(" and o.warranty_type = '" + ma.get("warrantyType")+ "' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("status"))) {// 旧件状态
+			sf.append(" and o.status = '" + ma.get("status")+ "' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("endTimeMax"))) {//截止时间（登记）
+			sf.append(" and o.create_time <= '" + ma.get("endTimeMax") + "' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("endTimeMin"))) {//起始时间（登记）
+			sf.append(" and o.create_time >= '" + ma.get("endTimeMin") + " 23:59:59' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("endconfirmTimeMax"))) {//截止时间（入库）
+			sf.append(" and o.confirm_time <= '" + ma.get("endconfirmTimeMax") + "23:59:59' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("endconfirmTimeMin"))) {//起始时间（入库）
+			sf.append(" and o.confirm_time >= '" + ma.get("endconfirmTimeMin") + "' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("returnMax"))) {//截止时间（返厂）
+			sf.append(" and o.return_time <= '" + ma.get("returnMax") + " 23:59:59' and o.status='3' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("returnMin"))) {//起始时间（返厂）
+			sf.append(" and o.return_time >= '" + ma.get("returnMin") + "' and o.status='3' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("baofeiMax"))) {//截止时间（报废）
+			sf.append(" and o.return_time <= '" + ma.get("baofeiMax") + " 23:59:59' and o.status='4' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("baofeiMin"))) {//截止时间（报废）
+			sf.append(" and o.return_time >= '" + ma.get("baofeiMin") + "'  and o.status='4' ");
+		}
+		return sf.toString();
+	}
+
+	// 旧件入库（修改旧件状态信息【status】为1）,可批量入库,根据编号进行修改
+	@Transactional
+	public int putOldFitting(String[] ids,String type) {
+		int num = 1;
+		User user = UserUtils.getUser();
+		SimpleDateFormat sf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		
+		//入库时间
+		Date now =new Date();
+		String date=sf.format(now);
+		//入库人
+		String name="";
+		if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+			name = siteService.getUserSite(user.getId()).getName();
+		} else {
+			name = noDao.getNonServiceman(user).getName();
+		}
+		if(StringUtils.isNotBlank(type)){
+			/**
+			 * 返厂/报废
+			 */
+			for (int i = 0; i < ids.length; i++) {
+				String sql="update crm_site_old_fitting set status="+ type + ",return_time='"+date+"',return_name='"+name+"' where id='"+ids[i]+"' ";
+				int result = Db.update(sql);
+				if (result < 1) {
+					num = 0;
+				}
+			}
+		}else{
+			//入库
+			for (int i = 0; i < ids.length; i++) {
+				String sql="update crm_site_old_fitting set status="+ 1 + ",confirm_time='"+date+"',confirm_name='"+name+"' where id='"+ids[i]+"' ";
+				int result = Db.update(sql);
+				if (result < 1) {
+					num = 0;
+				}
+			}
+		}
+		
+		return num;
+	}
+
+	// 根据id查询当前旧件信息
+	public OldFitting getOldFittingById(String id,String siteId) {
+		OldFitting oldFitting = new OldFitting();
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT of.*,of.employe_name as employeName FROM crm_site_old_fitting of");
+		//sf.append(" LEFT JOIN crm_employe e ON of.employe_id=e.id AND e.site_id = '"+ siteId + "' ");
+		sf.append(" where of.id=?");
+		Record record = Db.findFirst(sf.toString(), id);
+		
+		if(StringUtils.isNotEmpty((CharSequence) record.getStr("employeName"))){
+			oldFitting.setEmployeName(record.getStr("employeName"));
+		}
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("number"))){
+			oldFitting.setNumber(record.getStr("number"));
+		}
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("order_number"))){
+			oldFitting.setOrderNumber(record.getStr("order_number"));
+		}//工单编号
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("customer_name"))){
+			oldFitting.setCustomerName(record.getStr("customer_name"));
+		}//用户姓名
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("customer_mobile"))){
+			oldFitting.setCustomerMobile(record.getStr("customer_mobile"));
+		}//用户联系方式
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("customer_address"))){
+			oldFitting.setCustomerAddress(record.getStr("customer_address"));
+		}//用户详细地址
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("warranty_type"))){
+			oldFitting.setWarrantyType(record.getStr("warranty_type"));
+		}//报修类型
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("appliance_brand"))){
+			oldFitting.setApplianceBrand(record.getStr("appliance_brand"));
+		}//家电品牌
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("appliance_category"))){
+			oldFitting.setApplianceCategory(record.getStr("appliance_category"));
+		}//家电种类
+		
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("id"))){
+			oldFitting.setId(record.getStr("id"));
+		}
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("status"))){
+			oldFitting.setStatus(record.getStr("status"));
+		}
+		if (StringUtils.isNotEmpty((CharSequence)  record.getStr("code"))) {
+			oldFitting.setCode(record.getStr("code"));// 旧件条码
+		}
+		if (StringUtils.isNotEmpty((CharSequence)  record.getStr("name"))) {
+			oldFitting.setName(record.getStr("name"));// 旧件名称
+		}
+		if (StringUtils.isNotEmpty((CharSequence)  record.getStr("version"))) {
+			oldFitting.setVersion(record.getStr("version"));// 旧件型号
+		}
+		if (StringUtils.isNotEmpty((CharSequence)  record.getStr("brand"))) {
+			oldFitting.setBrand(record.getStr("brand"));// 旧件品牌
+		}
+		if(StringUtils.isNotEmpty((CharSequence) record.getStr("yrpz_flag"))){
+			oldFitting.setYrpzFlag(record.getStr("yrpz_flag"));// 是否原配
+		}
+		if(StringUtils.isNotEmpty((CharSequence)  record.getStr("orderId"))){
+			oldFitting.setOrderId(record.getStr("orderId"));//关联工单id
+		}
+		if (record.getBigDecimal("num")!=null) {
+			oldFitting.setNum(record.getBigDecimal("num"));// 登记数量
+		}
+		if (StringUtils.isNotEmpty((CharSequence)   record.getStr("img"))) {
+			oldFitting.setImg(record.getStr("img"));// 旧件图片地址
+		}
+		if(record.getBigDecimal("unit_price")!=null && !"".equals(record.getBigDecimal("unit_price"))){
+			oldFitting.setUnitPrice(record.getBigDecimal("unit_price").doubleValue());
+		}
+		return oldFitting;
+	}
+}

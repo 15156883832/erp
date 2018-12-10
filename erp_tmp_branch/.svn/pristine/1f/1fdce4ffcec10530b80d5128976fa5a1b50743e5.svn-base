@@ -1,0 +1,124 @@
+package com.jojowonet.modules.operate.service;
+
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.GpsRecordDao;
+import com.jojowonet.modules.order.utils.CrmUtils;
+
+import ivan.common.service.BaseService;
+import ivan.common.utils.UserUtils;
+
+/**
+ * 工程师定位Service
+ * 
+ * @author Ivan
+ * @version 2017-06-13
+ */
+@Component
+@Transactional(readOnly = true)
+public class EmployeOrientationService extends BaseService{
+	@Autowired
+	private GpsRecordDao gpsRecordDao; 
+	
+	public List<Record> getEmployeList(String siteId){//获取该服务商下所有正常的服务工程师列表
+		return gpsRecordDao.getEmployeList(siteId);
+	} 
+	
+	public List<Record> discEmploye(String siteId,String empId){//获取服务工程师今天最近的定位信息
+		return gpsRecordDao.discEmploye(siteId,empId);
+	} 
+	
+	public Boolean createDate(String createDate){//获取服务工程师今天最近的定位信息
+		return gpsRecordDao.createDate(createDate);
+	}
+	
+	public List<Record> discEmployeNoPoint(String siteId){
+		return gpsRecordDao.discEmployeNoPoint(siteId);
+	}
+	
+	public Long queryNoPointCount(String siteId){
+		return gpsRecordDao.queryNoPointCount(siteId);
+	}
+	
+	public List<Record> orbitSearch(String empId,String siteId){//获取该服务工程师所有未完工订单消息
+		return gpsRecordDao.orbitSearch(siteId,empId);
+	}
+	
+	public List<Record> orbitSearchEnd(String empId,String siteId,String orbitDate){//获取该服务工程师所有今天完工订单消息
+		return gpsRecordDao.orbitSearchEnd(siteId,empId,orbitDate);
+	}
+	
+	public Long count(String empId,String siteId){//获取该服务工程师所有未完工订单总数count
+		return gpsRecordDao.count(empId, siteId);
+	}
+	
+	public Long countEnd(String empId,String siteId){//获取该服务工程师所有今天完工订单总数countEnd
+		return gpsRecordDao.countEnd(empId, siteId);
+	}
+	
+	public List<Record> todayLine(String empId,String siteId){//获取工程师当天的路线坐标
+	    return gpsRecordDao.todayLine(empId, siteId);
+	}
+
+	public List<Record> dateLine(String empId, String siteId, String date) {//获取工程师指定日期的路线坐标
+		return gpsRecordDao.dateLine(empId, siteId, date);
+	}
+
+	/**
+	 * 根据经纬度算出估计的最大值和最小值
+	 * @param todayLine
+	 * @return
+	 */
+	public String getSimpleMinMax(List<Record> todayLine){
+		String ret = "";
+		Double lngMax = 0d;
+		Double lngMin = 0d;
+		Double latMax = 0d;
+		Double latMin = 0d;
+		for(int i = 0; i < todayLine.size(); i++){
+			Record item = todayLine.get(i);
+			if(item != null){
+				String lng = item.getStr("longitude");
+				String lat = item.getStr("latitude");
+				if(lng != null && lat != null){//lng和lat同时是数字
+					Double lngd = Double.valueOf(lng);
+					Double latd = Double.valueOf(lat);
+					if(i == 0){
+						lngMax = lngd;
+						lngMin = lngd;
+						latMax = latd;
+						latMin = latd;
+					}else{
+						if(lngMax < lngd){
+							lngMax = lngd;
+						}
+						if(lngMin > lngd){
+							lngMin = lngd;
+						}
+						if(latMax < latd){
+							latMax = latd;
+						}
+						if(latMin > latd){
+							latMin = latd;
+						}
+					}
+				}
+			}
+		}
+		if(lngMin > 0 && lngMax > 0 && latMin > 0 && latMax > 0){
+			ret = lngMin + "," + latMin + "_" + lngMax + "," + latMin;
+		}
+		return ret;
+	}
+}

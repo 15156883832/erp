@@ -1,0 +1,353 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="decorator" content="base"/>
+<title>全部工单</title>
+<script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/>
+</head>
+<body>
+	<div class="sfpagebg bk-gray"><div class="sfpage">
+<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+			<sfTags:pagePermission authFlag="SECONDFITTINF_WAITVERIFY_TAB" html='<a class="btn-tabBar "  href="${ctx }/fitting/fittingOuterApply/waitShenheHeader">待审核<sup  id="tab_c1">0</sup></a>'></sfTags:pagePermission>
+			<sfTags:pagePermission authFlag="SECONDFITTINF_WAITOUTSTOCKS_TAB" html='<a class="btn-tabBar current"  href="${ctx }/fitting/fittingOuterApply/waitChukuHeader">待出库<sup  id="tab_c2">0</sup></a>'></sfTags:pagePermission>
+			<sfTags:pagePermission authFlag="SECONDFITTINF_ALLAPPLYFITTING_TAB" html='<a class="btn-tabBar" href="${ctx }/fitting/fittingOuterApply/allApplyHeader">全部申请</a>'></sfTags:pagePermission>
+			<p class="f-r btnWrap">
+				<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:reset();" class="sfbtn sfbtn-opt resetSearchBtn"><i class="sficon sficon-reset"></i>重置</a>
+			</p>
+		</div>
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+                    <input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+                    <div class="bk-gray pt-10 pb-5">
+                        <table class="table table-search">
+                            <tr>
+                                <th style="width: 76px;" class="text-r">备件条码：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="fittingCode"/>
+                                </td>
+                                <th style="width: 76px;" class="text-r">备件名称：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="fittingName"/>
+                                </td>
+                               <th style="width: 76px;" class="text-r">二级网点：</th>
+								<td>
+									<span class="f-l w-140  readonly" >
+										<select class="select w-140" name="secondSiteName" id="secondSiteName">
+											<option value="">请选择</option>
+											<c:forEach items="${listSecondList}" var="lsd">
+												<option value="${lsd.columns.name}" <c:if test="${map.secondSiteName == lsd.columns.name }">selected="selected"</c:if>>${lsd.columns.name}</option>
+											</c:forEach>
+										</select>
+									</span>
+								</td>
+                                </td>
+                                <th style="width: 76px;" class="text-r">申请人：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="employeName"/>
+                                </td>
+                               <th style="width: 76px;" class="text-r">备件品牌：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="suitBrand"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="width: 76px;" class="text-r">适用品类：</th>
+                                <td>
+								<span class="select-box">
+									<select class="select" name="suitCategory">
+										<option value="">请选择</option>
+										<c:forEach var="category" items="${listR}">
+                                            <option value="${category.columns.name}">${category.columns.name}</option>
+                                        </c:forEach>
+									</select>
+								</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+			</form>
+					<div class="pt-10 pb-5 cl">
+				<div class="f-r">
+					<sfTags:pagePermission authFlag="SECONDFITTINF_WAITOUTSTOCKS_PILIANGCHUKU_BTN" html='<a href="javascript:batchOutStock();" class="sfbtn sfbtn-opt2"><i class="sficon sficon-plck"></i>批量出库</a>'></sfTags:pagePermission>
+					<sfTags:pagePermission authFlag="SECONDFITTINF_WAITOUTSTOCKS_HEADERSET_BTN" html='<a href="javascript:;" class="sfbtn sfbtn-opt2" id="setHeadersBtn"><i class="sficon sficon-setting"></i>表头设置</a>'></sfTags:pagePermission>
+				</div>
+				</div>
+			<div>
+				<table id="table-waitdispatch" class="table"></table>
+					<div class="cl pt-10">
+						
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+				
+			</div>
+		</div>
+		
+	</div>
+</div>
+</div>
+</div>
+
+ <!-- 表头设置 -->
+		<div class="">
+			<div>
+				<h2></h2>
+			</div>
+		</div>
+
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+<script type="text/javascript">
+var id = '${headerData.id}';						//服务商表格的ID
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var defaultId = '${headerData.defaultId}';			//系统表格的ID
+
+$(function () {
+	tabSearch();
+
+    $.Huitab("#tab-system .tabBar span", "#tab-system .tabCon", "current", "click", "0");
+    $.tabfold("#moresearch", ".moreCondition", 1, "click");
+    $('#setHeadersBtn').click(function () {
+        $('.addHeaders').tableHeaderSetting({
+            id: id,
+            defaultId: defaultId,
+            sfHeader: defaultHeader,
+            sfSortColumns: sortHeader,
+            tableHeaderSaveUrl: '${ctx}/operate/site/saveTableHeader'
+        }).popup();
+    });
+
+    initSfGrid();
+    $("select[name='secondSiteName']").select2();
+	$(".selection").css("width","140px");
+});
+
+function tabSearch(){
+	$.post("${ctx}/fitting/fittingOuterApply/twoStatusCount2", function (result) {
+        $("#tab_c1").text(result.ct1);
+        $("#tab_c2").text(result.ct2);
+    });
+}
+
+function isBlank(val) {
+    if (val == null || val == '' || val == undefined) {
+        return true;
+    }
+    return false;
+}
+
+function initSfGrid() {
+    $("#table-waitdispatch").sfGrid({
+        multiselect: true,
+        url: '${ctx}/fitting/fittingOuterApply/getWaitChukuHeaderList',
+        sfHeader: defaultHeader,
+        sfSortColumns: sortHeader,
+        rownumbers : true,
+        shrinkToFit: true,
+		gridComplete : function() {
+			_order_comm.gridNum();
+		}
+    });
+}
+
+
+function fmtOper(rowData){
+	var html = '';
+	var fitName = rowData.fitting_name;
+	if('${fns:checkBtnPermission("SECONDFITTINF_WAITOUTSTOCKS_CHUKU_BTN")}' === 'true'){
+        if (fitName && fitName.indexOf("'") !== -1) {
+            fitName = fitName.replace(/'/g, '');
+        }
+		html = '<a href="javascript:Thelibrary(\''+rowData.id+'\',\''+rowData.apply_fitting_name+'\',\''+rowData.apply_fitting_version+'\',\''+rowData.audit_fitting_num+'\',\''+rowData.fitStocks+'\');"  class="oState state-qrck c-0383dc">出库</a>';
+		html += '<a href="javascript:RejectFitting(\''+rowData.id+'\',\''+rowData.apply_fitting_name+'\',\''+rowData.apply_fitting_version+'\',\''+rowData.audit_fitting_num+'\');"  class="ml-10 c-0383dc"><i class="sficon sficon-bohui"></i>驳回</a>';
+	}
+	return html;
+}
+//出库
+var outStocking = false;
+
+function Thelibrary(id, name, version, auditNum, warning) {
+    if (parseFloat(auditNum) > parseFloat(warning)) {
+        layer.msg("库存数量不足");
+    } else {
+        var content = "确认" + name + "(" + version + ")*" + auditNum + "出库？";
+        $('body').popup({
+            level: 3,
+            type:"2",
+            title: "备件出库",
+            content: content,
+            fnConfirm: function () {
+                if (outStocking) {
+                    return;
+                }
+                outStocking = true;
+                $.ajax({
+                    type: "POST",
+                    url: "${ctx}/fitting/fittingOuterApply/applyOutStocks",
+                    data: {
+                        id: id
+                    },
+                    success: function (result) {
+                        if (result == "422") {
+                            layer.msg("审核数量要求大于0！");
+                        } else if (result == "420") {
+                            layer.msg("备件不存在！");
+                        }else if (result == "421") {
+                            layer.msg("该备件库存不足！");
+                        } else if (result == "423") {
+                            layer.msg("审核数量要大于审核通过待出库数量！");
+                        }  else if (result == "200") {
+                            layer.msg("出库成功！");
+                            search();
+                            tabSearch();
+                        }else if (result == "424") {
+                        	layer.msg("出库失败，备件已出库或已被驳回，请刷新！");
+                        } else {
+                            layer.msg("出库失败，请检查！");
+                        }
+                        return;
+                    },
+                    complete: function () {
+                        outStocking = false;
+                    }
+                });
+            }
+        });
+    }
+}
+//驳回
+var bohui = false;
+function RejectFitting(id, name, version, auditNum) {
+    var content = "确认" + name + "(" + version + ")*" + auditNum + "驳回？";
+    $('body').popup({
+        level: 3,
+        type:"2",
+        title: "驳回审核通过",
+        content: content,
+        fnConfirm: function () {
+            if (bohui) {
+                return;
+            }
+            bohui = true;
+            $.ajax({
+                type: "POST",
+                url: "${ctx}/fitting/fittingOuterApply/RejectFittingApply",
+                data: {
+                    id: id
+                },
+                success: function (result) {
+                    if (result == "200") {
+                        layer.msg("驳回成功！");
+                        tabSearch();
+                        search();
+                    }else if (result == "420") {
+                        layer.msg("备件不存在！");
+                    } else if (result == "421") {
+                        layer.msg("驳回失败，备件已被驳回或已出库，请刷新！");
+                    } else if (result == "421") {
+                        layer.msg("备件的已审核待出库数量信息有误！");
+                    } else {
+                        layer.msg("驳回失败，请检查！");
+                    }
+                    return;
+                },
+                complete: function () {
+                	bohui = false;
+                }
+            });
+        }
+    });
+}
+
+function fmtStatus(rowData) {
+    if (rowData.warranty_type == 1) {
+        return "<span>保内</span>";
+    } else if (rowData.warranty_type == 2) {
+        return "<span>保外</span>";
+    } else {
+        return "<span>---</span>";
+    }
+    return "<span>---</span>";
+}
+
+function search() {
+	var pageSize = $("#pageSize").val();
+	if($.trim(pageSize)=='' || pageSize==null){
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch({
+        postData: $("#searchForm").serializeJson()
+    });
+}
+
+var batchOutStocking = false;
+function batchOutStock() {
+    var id = $('#table-waitdispatch').jqGrid('getGridParam', 'selarrrow');
+    if (id.length < 1) {
+        layer.msg("请选择数据！");
+    } else {
+        $('body').popup({
+            level: 3,
+            type:"2",
+            title: "批量出库",
+            content: "确认执行执行批量出库吗？",
+            fnConfirm: function () {
+                if (batchOutStocking) {
+                    return;
+                }
+
+                batchOutStocking = true;
+                $.ajax({
+                    type: "POST",
+                    url: "${ctx}/fitting/fittingOuterApply/batchOutStock",
+                    data: {
+                        id: id
+                    },
+                    success: function (result) {
+                    	if (result.code == "422") {
+                            layer.msg("审核数量要求大于0！");
+                        } else if (result.code == "420") {
+                            layer.msg("备件不存在！");
+                        }else if (result.code == "421") {
+                            layer.msg("该备件库存不足！");
+                        } else if (result.code == "423") {
+                            layer.msg("审核数量要大于审核通过待出库数量！");
+                        }  else if (result.code == "200") {
+                            layer.msg("批量出库成功！");
+                            search();
+                            tabSearch();
+                        }else if (result.code == "424") {
+                        	layer.msg("批量出库失败，备件已出库或已被驳回，请刷新！");
+                        } else {
+                            layer.msg("批量出库失败，请检查！");
+                        }
+                        return;
+                        search();
+                    },
+                    complete: function () {
+                        batchOutStocking = false;
+                    }
+                });
+            }
+        });
+    }
+}
+
+function reset(){
+	$("#secondSiteName").select2('val', '请选择');
+}
+
+
+</script>
+	
+</body>
+</html>

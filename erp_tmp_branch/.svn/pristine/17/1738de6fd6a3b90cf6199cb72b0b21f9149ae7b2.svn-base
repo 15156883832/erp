@@ -1,0 +1,114 @@
+package com.jojowonet.modules.operate.dao;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.entity.GpsRecord;
+import com.jojowonet.modules.order.utils.SqlKit;
+import ivan.common.persistence.BaseDao;
+import ivan.common.utils.StringUtils;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public class GpsRecordDao extends BaseDao<GpsRecord>{
+	
+	public List<Record> getEmployeList(String siteId){//获取该服务商下所有正常的服务工程师列表
+		return Db.find("SELECT a.* FROM crm_employe a WHERE a.status='0' AND a.site_id='"+siteId+"'");
+	}
+
+	public List<Record> discEmploye(String siteId, String empId) {//网点所有工程师的当天信息
+		SqlKit sf = new SqlKit();
+		sf.append("SELECT e.id, e.name,  ot3.latitude, ot3.longitude, ot3.create_date ");
+		sf.append(" FROM crm_employe e ");
+		sf.append("LEFT JOIN crm_gps_record_lastest  ot3");
+		sf.append("ON ot3.role_id = e.id  AND DATE(ot3.create_date) = CURDATE()");
+		sf.append(" WHERE e.site_id=? AND e.status='0' ");
+		if (StringUtils.isNotEmpty(empId)) {
+			sf.append(" and  e.id ='" + empId + "' ");
+		}
+		return Db.find(sf.toString(), siteId);
+	}
+
+	public List<Record> discEmployeNoPoint(String siteId) {
+		SqlKit sf = new SqlKit();
+		sf.append("SELECT e.name");
+		sf.append("FROM crm_employe AS e");
+		sf.append("LEFT JOIN crm_gps_record_lastest AS r");
+		sf.append("ON r.role_id=e.`id` AND DATE(r.create_date) = CURDATE()");
+		sf.append("WHERE e.site_id=? AND e.status='0' AND r.create_date IS NULL");
+		return Db.find(sf.toString(), siteId);
+	}
+	
+	public Long queryNoPointCount(String siteId){
+		SqlKit sf = new SqlKit();
+		sf.append("SELECT count(1)");
+		sf.append("FROM crm_employe AS e");
+		sf.append("LEFT JOIN crm_gps_record_lastest AS r");
+		sf.append("ON r.role_id=e.`id` AND DATE(r.create_date) = CURDATE()");
+		sf.append("WHERE e.site_id=? AND e.status='0' AND r.create_date IS NULL");
+		return Db.queryLong(sf.toString(), siteId);
+	}
+	
+	public Boolean createDate(String createDate){//获取服务工程师今天最近的定位信息
+		return true;
+	}
+	
+	
+	/*
+	 * 轨迹查询
+	 * */
+	public List<Record> orbitSearch(String empId,String siteId){//获取该服务工程师所有未完工订单消息
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT a.* FROM crm_order a ");
+		sf.append(" WHERE a.employe_id=? AND a.site_id=? AND a.status='2'");
+		return Db.find(sf.toString(),empId,siteId);
+	}
+	
+	public Long count(String empId,String siteId){//获取该服务工程师所有未完工订单总数count
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT count(*) FROM crm_order a ");
+		sf.append(" WHERE a.employe_id=? AND a.site_id=? AND a.status='2'");
+		return Db.queryLong(sf.toString(),empId,siteId);
+	}
+
+	public List<Record> orbitSearchEnd(String empId,String siteId,String orbitDate){//获取该服务工程师所有今天完工订单消息
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT a.* FROM crm_order a WHERE a.employe_id=? AND a.site_id=? AND a.end_time IS NOT NULL ");
+		if(StringUtils.isNotBlank(orbitDate)){
+			sf.append(" AND a.end_time >= '"+orbitDate+" 00:00:00' and a.end_time <= '"+orbitDate+" 23:59:59'  ");
+		}else{
+			sf.append(" AND DATE(a.end_time) = CURDATE() ");
+		}
+		sf.append(" ORDER BY a.end_time ASC ");
+		return Db.find(sf.toString(),empId,siteId);
+	}
+	
+	public Long countEnd(String empId,String siteId){//获取该服务工程师所有今天完工订单总数countEnd
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT count(*) FROM crm_order a WHERE a.employe_id=? AND a.site_id=? AND a.end_time IS NOT NULL AND DATE(a.end_time) = CURDATE() ORDER BY a.end_time ASC");
+		return Db.queryLong(sf.toString(),empId,siteId);
+	}
+	
+	public List<Record> todayLine(String empId,String siteId){//获取工程师当天的路线坐标
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT a.* from crm_gps_record a where a.role_id=? AND a.site_id=? AND DATE(a.create_date)= CURDATE() order by a.create_date asc");
+	    return Db.find(sf.toString(),empId,siteId);
+	}
+
+	public Record dateLine(String empId, String siteId, String date) {//获取工程师当天的路线坐标
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT a.* from crm_gps_record a where a.role_id=? AND a.site_id=? AND DATE(a.create_date)=? order by a.create_date asc");
+		Record rd = Db.findFirst(sf.toString(), empId, siteId, date);
+		if(rd!=null) {
+			String lgt = rd.getStr("lnglat_info");
+			if(StringUtils.isNotBlank(lgt)) {
+				rd.set("lnglat_info", "["+lgt+"]");
+			}else {
+				rd.set("lnglat_info", "[]");
+			}
+		}
+		return rd;
+	}
+
+}

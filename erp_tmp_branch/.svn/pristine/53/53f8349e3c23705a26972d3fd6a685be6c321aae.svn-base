@@ -1,0 +1,22 @@
+@charset "utf-8";
+/* reference: http://www.cnblogs.com/moqiutao/p/4783526.html */
+
+/* 设置滚动条的样式 */
+::-webkit-scrollbar {
+width:12px;
+}
+/* 滚动槽 */
+::-webkit-scrollbar-track {
+-webkit-box-shadow:inset006pxrgba(150,200,240,0.8);
+border-radius:10px;
+}
+/* 滚动条滑块 */
+::-webkit-scrollbar-thumb {
+border-radius:10px;
+background:rgba(150,200,240,0.8);
+-webkit-box-shadow:inset006pxrgba(150,200,240,0.8);
+}
+::-webkit-scrollbar-thumb:window-inactive {
+background:rgba(100,160,180,0.8);
+}
+

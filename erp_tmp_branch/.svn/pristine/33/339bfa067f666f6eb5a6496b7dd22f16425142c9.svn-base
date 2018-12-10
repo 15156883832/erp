@@ -1,0 +1,93 @@
+package com.jojowonet.modules.order.entity;
+
+import java.io.Serializable;
+import java.util.Date;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+/*
+ * 服务商权限待办事项 entity
+ * */
+@Entity
+@Table(name="crm_site_schedule")
+//@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class SiteSchedule implements Serializable{
+	private static final long serialVersionUID = 1L;
+	
+	private String id;
+	private String siteId;
+	private String status;
+	private String content;
+	private String createName;
+	private Date startTime;
+	private Date endTime;
+	private String userId;
+	private String type;
+
+	@Id
+	@GeneratedValue(generator = "idGenerator")
+	@GenericGenerator(name ="idGenerator" , strategy ="uuid")
+	public String getId() {
+		return id;
+	}
+	public void setId(String id) {
+		this.id = id;
+	}
+	
+	public String getUserId() {
+		return userId;
+	}
+	public void setUserId(String userId) {
+		this.userId = userId;
+	}
+	public String getSiteId() {
+		return siteId;
+	}
+	public void setSiteId(String siteId) {
+		this.siteId = siteId;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	public String getContent() {
+		return content;
+	}
+	public void setContent(String content) {
+		this.content = content;
+	}
+	public String getCreateName() {
+		return createName;
+	}
+	public void setCreateName(String createName) {
+		this.createName = createName;
+	}
+	public Date getStartTime() {
+		return startTime;
+	}
+	public void setStartTime(Date startTime) {
+		this.startTime = startTime;
+	}
+	public Date getEndTime() {
+		return endTime;
+	}
+	public void setEndTime(Date endTime) {
+		this.endTime = endTime;
+	}
+	public void setType(String type) {
+		this.type = type;
+	}
+	public String getType() { return type; }
+	
+	
+
+}

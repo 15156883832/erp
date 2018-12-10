@@ -1,0 +1,199 @@
+package com.jojowonet.modules.operate.dao;
+
+import java.math.BigDecimal;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+import org.apache.http.impl.cookie.DateUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.entity.EmployeDailySign;
+import com.jojowonet.modules.operate.entity.SiteSignRule;
+import com.jojowonet.modules.order.utils.CrmUtils;
+
+/**
+ * 员工每日签到记录表DAO接口
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Repository
+public class EmployeDailySignDao extends BaseDao<EmployeDailySign>{
+	@Autowired
+	private SiteSignRuleDao siteSignRuleDao;
+	
+	public List<Record> employeDailySignList(Page<Record> page,String siteId,Map<String,Object> map){//查询grid表格
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT e.name as empName,a.*,SUBSTRING(a.sign_time, 12, 5) AS hm,SUBSTRING(a.sign_time, 1, 10) AS ymd FROM crm_employe e LEFT JOIN crm_employe_daily_sign a ON a.employe_id = e.id AND a.status='0'  ");
+		sb.append(employeDailySignConditions(map));
+		sb.append(" WHERE e.status = '0' AND e.site_id = '"+siteId+"'");
+		sb.append(employeDailySignConditions1(map));
+		sb.append(" order by a.create_time desc");
+		if(page!=null){
+			sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(sb.toString());
+	}
+	
+	public Long queryCount(String siteId,Map<String,Object> map){//查询数据总条数
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT count(*) FROM crm_employe e LEFT JOIN crm_employe_daily_sign a ON a.employe_id = e.id  AND a.status='0'");
+		sb.append(employeDailySignConditions(map));
+		sb.append(" WHERE e.status = '0' AND e.site_id = '"+siteId+"'");
+		sb.append(employeDailySignConditions1(map));
+		return Db.queryLong(sb.toString());
+		
+	}
+	
+	public String employeDailySignConditions1(Map<String, Object> map) {//查询条件
+		StringBuilder stringBuilder = new StringBuilder();
+		if(map != null){
+			if(map.get("employeName") != null && StringUtils.isNotEmpty(((String[])map.get("employeName"))[0])){
+				stringBuilder.append(" and e.name = '"+(((String[])map.get("employeName"))[0]).trim()+"' ");
+			}
+			if(map.get("signType") != null && StringUtils.isNotEmpty(((String[])map.get("signType"))[0])){
+				stringBuilder.append(" and a.sign_type = '"+((String[])map.get("signType"))[0]+"' ");
+			}
+			if(map.get("signResult") != null && StringUtils.isNotEmpty(((String[])map.get("signResult"))[0])){
+				String rt = ((String[])map.get("signResult"))[0];
+				if("4".equals(rt)) {
+					stringBuilder.append(" and a.id is null ");
+				}else {
+					stringBuilder.append(" and a.sign_result = '"+((String[])map.get("signResult"))[0]+"' ");
+				}
+			}
+		}
+		return stringBuilder.toString();
+	}
+	
+	public String employeDailySignConditions(Map<String, Object> map) {//查询条件
+		StringBuilder stringBuilder = new StringBuilder();
+		if(map != null){
+			
+			/*if(map.get("signResult") != null && StringUtils.isNotEmpty(((String[])map.get("signResult"))[0])){
+				stringBuilder.append(" and a.sign_result = '"+((String[])map.get("signResult"))[0]+"' ");
+			}*/
+			if(map.get("startDate") != null && StringUtils.isNotEmpty(((String[])map.get("startDate"))[0])){
+				stringBuilder.append(" and a.date >= '"+((String[])map.get("startDate"))[0]+" ' ");
+			}
+			if(map.get("endDate") != null && StringUtils.isNotEmpty(((String[])map.get("endDate"))[0])){
+				stringBuilder.append(" and a.date <= '"+((String[])map.get("endDate"))[0]+" 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+	
+	
+	public  Boolean editSignTime(String rowId,String signTime,String signType){//修改打卡时间
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Record record = ifExist(siteId);
+		if(record!=null){
+		Date workTime = record.getDate("working_time");
+		Date offWorkTime = record.getDate("off_working_time");
+//		String outTime = new String();
+		if(signType.equals("1")){//签到
+			DateFormat sf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			DateFormat sdf=new SimpleDateFormat("HH:mm:ss");
+			String wTime = sdf.format(workTime);
+			//String sTime = sdf.format(signTime);
+			try{
+				Date three = sf.parse(signTime);
+				String sTime = sdf.format(three);
+				Date one = sdf.parse(sTime);
+				Date two = sdf.parse(wTime);
+				Long snTime = one.getTime();
+				Long wkTime = two.getTime();
+				if(((int)(snTime-wkTime)/(1000*60))>1){//早上迟到的情况
+					int minutes = (int)(snTime-wkTime)/(1000*60);//得到int型的分钟整数
+					Db.update("UPDATE crm_employe_daily_sign a SET a.sign_time='"+signTime+"',a.out_time='"+minutes+"',a.sign_result='1' WHERE a.id='"+rowId+"'");
+				}else{//早上早到的情况
+					Db.update("UPDATE crm_employe_daily_sign a SET a.sign_time='"+signTime+"',a.sign_result='0' WHERE a.id='"+rowId+"'");
+				}
+			} catch (ParseException e) {
+				e.printStackTrace();
+			}
+			
+		}else if(signType.equals("2")){//签退
+			DateFormat sf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			SimpleDateFormat sdf=new SimpleDateFormat("HH:mm:ss");
+			String oTime = sdf.format(offWorkTime);
+			//String sTime = sdf.format(signTime);
+			try{
+				Date three = sf.parse(signTime);
+				String sTime = sdf.format(three);
+				Date one = sdf.parse(sTime);
+				Date two = sdf.parse(oTime);
+				Long snTime = one.getTime();
+				Long ofwkTime = two.getTime();
+				if(((int)(ofwkTime-snTime)/(1000*60))>1){//早退的情况
+					int minutes = (int)(ofwkTime-snTime)/(1000*60);//得到int型的分钟整数
+					Db.update("UPDATE crm_employe_daily_sign a SET a.sign_time='"+signTime+"',a.out_time='"+minutes+"',a.sign_result='2' WHERE a.id='"+rowId+"'");
+				}else{//迟走的情况
+					Db.update("UPDATE crm_employe_daily_sign a SET a.sign_time='"+signTime+"',a.sign_result='0' WHERE a.id='"+rowId+"'");
+				}
+			} catch (ParseException e) {
+				e.printStackTrace();
+			}
+		}
+		}
+		return true;
+	}
+	
+	public Record ifExist(String siteId){//服务商siteId查询考勤
+		return Db.findFirst("SELECT * FROM crm_site_sign_rule WHERE site_id='"+siteId+"'");
+	}
+	
+	public  Boolean saveSign(String workingTime,String offWorkingTime,String signPoint,Integer signRange,BigDecimal latitude,BigDecimal longitude){//保存设置的考勤
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		try{
+			DateFormat sf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			Date ofwkTime = sf.parse(offWorkingTime);
+			Date wkTime = sf.parse(workingTime);
+			SiteSignRule siteSignRule = new SiteSignRule();
+			siteSignRule.setCreateTime(new Date());
+			siteSignRule.setOffWorkingTime(ofwkTime);
+			siteSignRule.setWorkingTime(wkTime);
+			siteSignRule.setSiteId(siteId);
+			siteSignRule.setSignPoint(signPoint);
+			siteSignRule.setSignRange(signRange);
+			siteSignRule.setLongitude(longitude);
+			siteSignRule.setLatitude(latitude);
+			siteSignRuleDao.save(siteSignRule);
+		}catch (ParseException e) {
+			e.printStackTrace();
+		}
+		return true;
+	}
+	
+	//修改服务商考勤时的保存方法
+	public  Boolean saveSignEdit(String workingTime,String offWorkingTime,String signPoint,Integer signRange,BigDecimal latitude,BigDecimal longitude,String signId){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		if(latitude==null){
+			String sql = "UPDATE crm_site_sign_rule a SET a.working_time=?,a.off_working_time=?,a.sign_point=?,a.sign_range=? WHERE a.id=?";
+			Db.update(sql,workingTime,offWorkingTime,signPoint,signRange,signId);
+		}else{
+			String sql = "UPDATE crm_site_sign_rule a SET a.working_time=?,a.off_working_time=?,a.sign_point=?,a.sign_range=?,a.latitude=?,a.longitude=? WHERE a.id=?";
+			Db.update(sql,workingTime,offWorkingTime,signPoint,signRange,latitude,longitude,signId);
+		}
+		return true;
+	}
+	
+	//导出数据的不分页查询所有数据
+	public List<Record> employeDailySignforexcel(String siteId,Map<String,Object> map){
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT a.*,SUBSTRING( a.sign_time,12,5) AS hm,SUBSTRING( a.sign_time,1,10) AS ymd FROM crm_employe_daily_sign a WHERE a.site_id='"+siteId+"'");
+		sb.append(employeDailySignConditions(map));
+	    return Db.find(sb.toString());
+	}
+}

@@ -1,0 +1,382 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html> 	
+  <head>
+    <title>My JSP 'proLimitList.jsp' starting page</title>
+    <meta name="decorator" content="base"/>
+    <%--<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/>
+	<script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script> --%>
+	<!--
+	<link rel="stylesheet" type="text/css" href="styles.css">
+	-->
+	  <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+	  <script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.js"></script>
+	  <style>
+		  .dropdown-display{font-size: 12px}
+		  .dropdown-selected{margin-top: 4px}
+	  </style>
+
+  </head>
+  
+  <body>
+	<div class="sfpagebg bk-gray"><div class="sfpage">
+		<div class="page-orderWait">
+			<div id="tab-system" class="HuiTab">
+				<div class="tabBar cl mb-10">
+				<sfTags:pagePermission authFlag="FITTINGMGM_FITMSGMGM_FITREGISTE_TAB" html='<a class="btn-tabBar  current"  href="${ctx}/fitting/OldFittingWhole?status=0">待入库<sup  id="tab_c1">0</sup></a>'></sfTags:pagePermission>
+				<sfTags:pagePermission authFlag="FITTINGMGM_FITMSGMGM_FITSTOCK_TAB" html='<a class="btn-tabBar "  href="${ctx}/fitting/OldStockFittingWhole?status=1">旧件库存<sup  id="tab_c2">0</sup></a>'></sfTags:pagePermission>
+			<p class="f-r btnWrap">
+				<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt resetSearchBtn"><i class="sficon sficon-reset"></i>重置</a>
+			</p>
+		</div>
+		
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<div class="bk-gray pt-10 pb-5">
+					<table class="table table-search">
+						<tr>
+							<th style="width: 76px;" class="text-r">旧件条码：</th>
+							<td>
+								<input type="text" class="input-text" name= "code"/>
+							</td>
+							<th style="width: 76px;" class="text-r">旧件名称：</th>
+							<td>
+								<input type="text" class="input-text" name = "name"/>
+							</td>
+							<th style="width: 76px;" class="text-r">工单编号：</th>
+							<td>
+								<input type="text" class="input-text" name = "oumber"/>
+							</td>
+							<th style="width: 76px;" class="text-r">是否原配：</th>
+							<td>
+								<span class="select-box">
+									<select class="select" name="yrpz_flag">
+										<option value="">请选择</option>
+										<option value="1">是</option>
+										<option value="2">否</option>
+									</select>
+								</span>
+							</td>
+							
+							<th style="width: 76px;" class="text-r">服务工程师：</th>
+							<td id="reloadSpan">
+								<span class="w-140 dropdown-sin-2">
+									<select class="select select-box w-140" multiple   id="employs" name="employs">
+									<c:forEach items="${fns:getEmloyeListForAll(siteId) }" var="emp">
+										<c:if test="${emp.columns.status ne 3}">
+											<option value="${emp.columns.name }">${emp.columns.name }</option>
+										</c:if>
+										<c:if test="${emp.columns.status eq 3}">
+											<option value="${emp.columns.name }">${emp.columns.name }【离职】</option>
+										</c:if>
+									</c:forEach>
+									</select>
+									</select>
+								</span>
+							</td>
+						
+						</tr>
+						<tr>
+							<th style="width: 76px;" class="text-r">联系方式：</th>
+							<td>
+								 <input type="text" class="input-text" name = "customerMobile"/>
+							</td>
+							<th style="width: 76px;" class="text-r">旧件品牌：</th>
+							<td>
+								 <input type="text" class="input-text" name = "brand"/>
+							</td>
+							<th style="width: 76px;" class="text-r">保修类型：</th>
+							 
+							<td>
+								<span class="select-box">
+									<select class="select" name="warrantyType">
+										<option value="">请选择</option>
+										<option value="1">保内</option>
+										<option value="2">保外</option>  <!--  <span style="left:20px;padding-left: 50px;">&nbsp;&nbsp;&nbsp;&nbsp;</span> -->
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">登记时间：</th>
+							<td colspan="3">
+								<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'endTimeMax\')||\'%y-%M-%d\'}'})" id="endTimeMin" name="endTimeMin"  value="" class="input-text Wdate w-140">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'endTimeMin\')}',maxDate:'%y-%M-%d'})" id="endTimeMax" name="endTimeMax"  value="" class="input-text Wdate w-140">
+							</td>
+						</tr>
+					</table>
+				</div>
+			</form>
+			<div class="pt-10 pb-5 cl">
+				<div class="f-l">
+					<sfTags:pagePermission authFlag="FITTINGMGM_FITMSGMGM_FITREGISTE_PLINPUT_BTN" html='<a href="javascript:text();" class="sfbtn sfbtn-opt2"><i class="sficon sficon-plrk"></i>批量入库</a>'></sfTags:pagePermission>
+				</div>
+				<div class="f-r">
+					<sfTags:pagePermission authFlag="FITTINGMGM_FITMSGMGM_FITREGISTE_SETHEADER_BTN" html='<a href="javascript:;" class="sfbtn sfbtn-opt2" id="setHeadersBtn"><i class="sficon sficon-setting"></i>表头设置</a>'></sfTags:pagePermission>
+					<sfTags:pagePermission authFlag="FITTINGMGM_OUTINFITDETAIL_COMPANYDETAIL_EXPORT_BTN" html='<a  onclick="return exports()" class="sfbtn sfbtn-opt2" target="_blank"><i class="sficon sficon-export"></i>导出</a>'></sfTags:pagePermission>
+				</div>
+			</div>
+			<div>
+				<table id="table-waitdispatch" class="table"></table>
+				<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- 表头设置 -->
+		<div class="">
+			<div>
+				<h2></h2>
+			</div>
+		</div>
+
+</div>
+</div>
+<div class="popupBox w-320 vipPromptBox">
+	<h2 class="popupHead">
+		提示
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain text-c pt-30 pb-20">
+			<div class="">
+				<i class="iconType iconType2"></i>
+				<strong class="f-16">VIP会员功能</strong>
+			</div>
+			<p class="c-666 lh-26">
+				抱歉，此功能需要<span class="c-bb3906">开通VIP会员</span>后才能使用！
+			</p>
+			<div class="text-c mt-30">
+				<%-- <a  href="#" onclick="jumpToVIP();return false;" class="sfbtn sfbtn-opt3 w-100">开通VIP会员</a>--%>
+				<span class="sfbtn sfbtn-opt3 w-100" onclick="jumpToVIP();">开通VIP会员</span>
+			</div>
+		</div>
+	</div>
+</div>
+<script type="text/javascript">
+var sfGrid;
+var id = '${headerData.id}';
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var defaultId = '${headerData.defaultId}';	
+
+$(function(){
+	$.post("${ctx}/goods/sitePlatformGoods/distinct",function(result){
+		if(result=="showPopup"){
+			
+			$(".vipPromptBox").popup();
+			$('#Hui-article-box',window.top.document).css({'z-index':'9'});
+		}
+	});
+
+    $('.dropdown-sin-2').dropdown({
+        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+    });
+
+	checkNum();
+	
+	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	$('#setHeadersBtn').click(function(){
+		$('.addHeaders').tableHeaderSetting({
+			id:id,
+			defaultId: defaultId,
+			sfHeader: defaultHeader,
+			sfSortColumns: sortHeader,
+			tableHeaderSaveUrl:'${ctx}/operate/site/saveTableHeader'
+		}).popup();
+	});
+	initSfGrid();
+});
+
+function checkNum(){
+	$.post("${ctx}/fitting/getFittingTabCount",function(result){
+		$("#tab_c1").text(result.c1);
+		$("#tab_c2").text(result.c2);
+	});
+}
+
+//初始化jqGrid表格，传递的参数按照说明
+
+	function initSfGrid() {
+		sfGrid = $("#table-waitdispatch").sfGrid({
+			url : '${ctx}/fitting/getWholeOldFittings',
+			sfHeader : defaultHeader,
+			sfSortColumns : sortHeader,
+			rownumbers : true,
+			gridComplete : function() {
+				_order_comm.gridNum();
+			}
+		});
+	}
+
+	function isBlank(val) {
+		if (val == null || val == '' || val == undefined) {
+			return true;
+		}
+		return false;
+	}
+	//批量入库
+	//通过申请
+	var adpoting = false;
+	function text() {
+		if (adpoting) {
+			return;
+		}
+
+		var idArr = $('#table-waitdispatch')
+				.jqGrid('getGridParam', 'selarrrow');
+		if (idArr.length < 1) {
+			layer.msg("请选择数据！");
+		} else {
+
+			var id;
+			var content = "确定要将" + idArr.length + "条旧件入库？"
+			$('body').popup({
+				level : 3,
+				title : "批量入库",
+				content : content,
+				fnConfirm : function() {
+					adpoting = true;
+
+					for (var i = 0; i < idArr.length; i++) {
+						if (isBlank(id)) {
+							id = idArr[i];
+						} else {
+							id = id + "," + idArr[i];
+						}
+					}
+					$.ajax({
+						type : "POST",
+						url : "${ctx}/fitting/putOldFitting",
+						data : {
+							"idArr" : id
+						},
+						success : function(data) {
+							if (data) {
+								layer.msg('入库成功!');
+								checkNum();
+								$("#table-waitdispatch").trigger("reloadGrid");
+								//window.location.reload(true);
+							} else {
+								layer.msg('入库失败!');
+							}
+						},
+						complete : function() {
+							adpoting = false;
+						}
+					});
+				}
+			});
+
+		}
+	}
+
+	function fmtOper(rowData) {
+		if (rowData.code) {
+			return '<a href="javascript:showDetail(\'' + rowData.id
+					+ '\');" class="c-0383dc">' + rowData.code + '</a>';
+		} else {
+			return '<a href="javascript:showDetail(\'' + rowData.id
+					+ '\');" class="c-0383dc">--</a>';
+		}
+	}
+
+	//是否原配转换为字符
+	function fmtFitType(row) {
+		if (row.yrpz_flag == 1) {
+			return '是';
+		} else if (row.yrpz_flag == 2) {
+			return "否";
+		} else {
+			return "";
+		}
+	}
+
+	//是否原配转换为字符
+	function fmtBxStatus(row) {
+		if (row.warranty_type == '1') {
+			return '保内';
+		} else if (row.warranty_type == '2') {
+			return "保外";
+		} else {
+			return "";
+		}
+	}
+
+	function showDetail(id) {
+		layer.open({
+			type : 2,
+			content : '${ctx}/fitting/getById?id=' + id,
+			title : false,
+			area : [ '100%', '100%' ],
+			closeBtn : 0,
+			shade : 0,
+			fadeIn : 0,
+			anim : -1
+		});
+	}
+
+	function search() {
+		var pageSize = $("#pageSize").val();
+    	if($.trim(pageSize)=='' || pageSize==null){
+    		$("#pageSize").val(20);
+    	}
+		$("#table-waitdispatch").sfGridSearch({
+			postData : $("#searchForm").serializeJson()
+		});
+	}
+
+	function jumpToVIP() {
+		layer.open({
+			type : 2,
+			content : '${ctx}/goods/sitePlatformGoods/jumpVIP',
+			title : false,
+			area : [ '100%', '100%' ],
+			closeBtn : 0,
+			shade : 0,
+			anim : -1
+		});
+	}
+
+	$(".resetSearchBtn").on("click", function() {
+		var html = '<span class="w-140 dropdown-sin-2">';
+		html += '<select class="select-box w-120"  id="employs" style="display:none" multiple  multiline="true" name="employs"  >';
+		html += '<c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">';
+		html += ' <option value="${emp.columns.name }">${emp.columns.name }</option>';
+		html += '</c:forEach>';
+		html += '</select>  </span>';
+		$("#reloadSpan").html(html);
+		$('.dropdown-sin-2').dropdown({input : '<input type="text" maxLength="20" placeholder="请输入搜索">',});
+	});
+	
+	
+	function exports(){
+		var idArr=$("#table-waitdispatch").jqGrid('getGridParam','records')
+		var content="共"+idArr+"条数据，本次允许导出前10000条，确定继续导出吗？";
+		if(idArr>10000){
+			$('body').popup({
+				level:3,
+				title:"导出",
+				content:content,
+				 fnConfirm :function(){
+					 location.href="${ctx}/fitting/siteFittingKeep/export?formPath=/a/fitting/OldFittingWhole&&maps="+$("#searchForm").serialize();
+				 }
+		
+			});
+			
+		}else{
+			 location.href="${ctx}/fitting/exportWaitInStock?formPath=/a/fitting/OldFittingWhole&&maps="+$("#searchForm").serialize();
+		}
+
+	}
+</script>
+  </body>
+</html>

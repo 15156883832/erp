@@ -1,0 +1,268 @@
+package com.jojowonet.modules.fmss.utils;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Savepoint;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.hibernate.Session;
+import org.hibernate.jdbc.ReturningWork;
+import org.hibernate.jdbc.Work;
+
+/**
+ * 
+ * @author Ivan
+ * 手动JDBC处理批量持久化操作
+ */
+public class DBUtils {
+	
+
+	public static Map<Integer, String> wrapTransactionListMap(Map<Integer, String> map, String sql){
+		if(map == null) return null;
+		int i = map.size();
+		map.put(i, sql);
+		i++;
+		return map;
+	}
+	
+	/****
+	 * @param list:进行事务处理的list,注意list中执行sql语句的顺序!!
+	 * @param session
+	 */
+	public static int insertInTransaction(Map<Integer, String> map, Session session){
+		final Map<Integer, String> operMap = map;//进行处理的事务list
+		return session.doReturningWork(new ReturningWork<Integer>() {
+			@Override
+			public Integer execute(Connection conn) throws SQLException {
+				Savepoint sp = conn.setSavepoint();
+				boolean isReadOnly = conn.isReadOnly();
+				boolean isAutoCommit = conn.getAutoCommit();
+				conn.setAutoCommit(false);
+				conn.setReadOnly(false);
+				try{
+					for(int i = 0 ; i < operMap.size(); i++){
+						String sql = operMap.get(i);
+						PreparedStatement pstm = conn.prepareStatement(sql);
+						pstm.getConnection().setAutoCommit(false);
+						pstm.executeUpdate();
+					}
+					conn.commit();
+					conn.setReadOnly(isReadOnly);
+					conn.setAutoCommit(isAutoCommit);
+				}catch (Exception e) {
+					e.printStackTrace();
+					conn.rollback(sp);
+					conn.commit();
+					return -1;
+				}
+				return 0;
+			}
+		});
+	}
+	
+	/**
+	 * 单条记录的更新
+	 * @param sql
+	 * @param paramList
+	 * @param session
+	 */
+	public static boolean updateSQL(String sql, Session session) {
+		final String UPDATESQL = sql;
+		try{
+			session.doWork(new Work() {
+				public void execute(Connection connection) throws SQLException {
+					boolean isReadOnly = connection.isReadOnly();
+					connection.setReadOnly(false);
+					PreparedStatement pstm = connection.prepareStatement(UPDATESQL);
+					pstm.executeUpdate();
+					connection.setReadOnly(isReadOnly);
+					//DBUtils.closePreparedStatement(pstm);
+					//DBUtils.closeConnection(connection);
+				}
+			});
+		}catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+		return true;
+	}
+	
+	/**
+	 * 根据传递过来的sql语句，执行批量操作
+	 * @param sql
+	 * @param paramList
+	 * @param session
+	 * @return
+	 */
+	public static boolean batchSaveOrUpdateSQL(String sql, List<Object[]> paramList, Session session){
+		final String BATCHINSERSQL = sql;
+		final List<Object[]> BATCHPARAMLIST = paramList;
+		try{
+			session.doWork(new Work(){
+				@Override
+				public void execute(Connection connection) throws SQLException {
+					boolean isReadOnly = connection.isReadOnly();
+					connection.setReadOnly(false);
+					PreparedStatement pstm = connection.prepareStatement(BATCHINSERSQL);
+					for(int i =0; i < BATCHPARAMLIST.size(); i++){
+						Object[] os = BATCHPARAMLIST.get(i);
+						for(int j = 0; j<os.length; j++){
+							pstm.setObject(j+1, os[j]);
+						}
+						pstm.addBatch();
+					}
+					pstm.executeBatch();
+					connection.setReadOnly(isReadOnly);
+					//DBUtils.closePreparedStatement(pstm);
+					//DBUtils.closeConnection(connection);
+				}
+			});
+		}catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("BatchInsert DB failed!!!");
+		}
+		return true;
+	}
+	
+	/**
+	 * 根据传递过来的sql语句，执行批量操作
+	 * @param sql
+	 * @param paramList
+	 * @param session
+	 * @return
+	 */
+	public static boolean batchSaveOrUpdateSQL(final DbBatchBean dbb, Session session){
+		final List<DbBatchItem> dbis = dbb.getDbis();
+		if(dbis == null || dbis.size() == 0){
+			return true;
+		}
+		try{
+			session.doWork(new Work(){
+				@Override
+				public void execute(Connection connection) throws SQLException {
+					boolean isReadOnly = connection.isReadOnly();
+					connection.setReadOnly(false);
+					PreparedStatement pstm = null;
+					for(DbBatchItem dbi : dbis){
+						pstm = connection.prepareStatement(dbi.getSql());
+						List<Object[]> params = dbi.getParams();
+						for(int i =0; i < params.size(); i++){
+							Object[] os = params.get(i);
+							for(int j = 0; j<os.length; j++){
+								pstm.setObject(j+1, os[j]);
+							}
+							pstm.addBatch();
+						}
+						pstm.executeBatch();
+					}
+					connection.setReadOnly(isReadOnly);
+					//DBUtils.closePreparedStatement(pstm);
+					//DBUtils.closeConnection(connection);
+				}
+			});
+		}catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("BatchInsert DB failed!!!");
+		}
+		return true;
+	}
+	
+	public static boolean insertSQL(String sql, Session session){
+		final String insertQuery = sql;
+		try{
+			session.doWork(new Work() {
+				public void execute(Connection connection) throws SQLException {
+					boolean isReadOnly = connection.isReadOnly();
+					connection.setReadOnly(false);
+					PreparedStatement pstm = connection.prepareStatement(insertQuery);
+					pstm.execute();
+					connection.setReadOnly(isReadOnly);
+					//DBUtils.closePreparedStatement(pstm);
+					//DBUtils.closeConnection(connection);
+				}
+			});
+		}catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+		return true;
+	}
+	
+	public static List querySQL(String sql, Session session){
+//		List list = new ArrayList();
+		final String query = sql;
+		
+		ResultSet rs = 
+		session.doReturningWork(new ReturningWork<ResultSet>() {
+			public ResultSet execute(Connection connection) throws SQLException {
+				PreparedStatement pstm = connection.prepareStatement(query);
+				//DBUtils.closePreparedStatement(pstm);
+				//DBUtils.closeConnection(connection);
+				return pstm.executeQuery();
+			}
+		});
+
+		List list = Result2List(rs);
+		closeResultSet(rs);
+		return list;
+	}
+	
+	private static List Result2List(ResultSet rs){
+		List list = new ArrayList();
+		Map rowData = new HashMap();
+		
+		try {
+			ResultSetMetaData md = rs.getMetaData();
+			int columnCount = md.getColumnCount();
+			while(rs.next()){
+				rowData = new HashMap(columnCount);
+				for(int i = 1; i<=columnCount; i++){
+					rowData.put(md.getColumnLabel(i), rs.getObject(i));
+				}
+				list.add(rowData);
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return list;
+	}
+	
+	public static void closeConnection(Connection con){
+		if(con!=null){
+			try {
+				con.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			con = null;
+		}
+	}
+	
+	public static void closeResultSet(ResultSet rs){
+		if(rs!=null){
+			try {
+				rs.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			rs = null;
+		}
+	}
+	
+	public static void closePreparedStatement(PreparedStatement pstm){
+		if(pstm!=null){
+			try {
+				pstm.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			pstm = null;
+		}
+	}
+}

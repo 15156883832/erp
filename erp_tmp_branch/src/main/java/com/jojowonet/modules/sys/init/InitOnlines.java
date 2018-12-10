@@ -1,0 +1,25 @@
+package com.jojowonet.modules.sys.init;
+
+import org.apache.log4j.Logger;
+import org.springframework.stereotype.Component;
+
+import com.jfinal.plugin.activerecord.Db;
+
+@Component
+public class InitOnlines {
+
+    Logger logger = Logger.getLogger(InitOnlines.class);
+    
+    public InitOnlines() {
+        //List list = Db.find("select * from crm_site");
+        logger.info(" ready to initialize onlines ");
+        try{
+            Db.update(" TRUNCATE crm_onlines ");
+        }catch (Exception e) {
+            e.printStackTrace();
+            logger.info(" failed to initialize onlines ");
+        }
+        logger.info(" compelete to initialize onlines ");
+    }
+    
+}

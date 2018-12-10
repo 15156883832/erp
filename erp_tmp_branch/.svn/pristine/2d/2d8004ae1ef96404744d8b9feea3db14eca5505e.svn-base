@@ -1,0 +1,109 @@
+package com.jojowonet.modules.goods.dao;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import com.jojowonet.modules.goods.entity.GoodsPlatformOrder;
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.persistence.Parameter;
+import ivan.common.utils.StringUtils;
+
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.entity.GoodsPlatform;
+
+/**
+ * 平台商品dao层
+ * 
+ * @author cdq
+ *
+ */
+@Repository
+public class GoodsPlatFormDao extends BaseDao<GoodsPlatform> {
+	// 查询所有商品信息
+	public List<Record> getAllSiteInfo(Page<Record> page, String siteId,
+			Map<String, Object> map) {
+		List<Record> re = new ArrayList<Record>();
+		StringBuffer sb = new StringBuffer();
+		sb.append("select p.*, SUM(o.purchase_num) AS dckNum,o.pay_status from crm_goods_platform p LEFT JOIN crm_goods_platform_transfer_order o ON o.good_number=p.number AND o.status='1' and o.pay_status='1' ");
+		sb.append(" where p.status='0' and type='2' ");
+		sb.append(getqueryCriteria(map));
+		sb.append(" GROUP BY p.id");
+		sb.append(" order by p.sort_num asc,p.create_time desc");
+		if (page != null) {
+			sb.append(" limit " + page.getPageSize() + " offset "
+					+ (page.getPageNo() - 1) * page.getPageSize());
+		}
+		re = Db.find(sb.toString());
+		return re;
+	}
+	
+	// 查询所有商品信息
+	public List<Record> getSupplierPlatformGoods(Page<Record> page, String supplierId,
+			Map<String, Object> map) {
+		List<Record> re = new ArrayList<Record>();
+		StringBuffer sb = new StringBuffer();
+		sb.append("select p.* from crm_goods_platform p, crm_goods_platform_supplier_rel b, crm_supplier c ");
+		sb.append(" where p.status='0' ");
+		sb.append(" and b.good_platform_id = p.id ");
+		sb.append(" and b.supplier_id = c.id and c.user_id = '"+supplierId+"' ");
+		sb.append(getqueryCriteria(map));
+		sb.append(" order by p.sort_num asc,c.create_time desc");
+		if (page != null) {
+			sb.append(" limit " + page.getPageSize() + " offset "
+					+ (page.getPageNo() - 1) * page.getPageSize());
+		}
+		re = Db.find(sb.toString());
+		return re;
+	}
+	
+	// 计算对应商品数量
+	public Long getSupplierPlatformGoodsCount(String supplierId, Map<String, Object> map) {
+		StringBuffer sb = new StringBuffer();
+		sb.append("select count(1) from crm_goods_platform p, crm_goods_platform_supplier_rel b, crm_supplier c ");
+		sb.append(" where p.status='0'");
+		sb.append(" and b.good_platform_id = p.id ");
+		sb.append(" and b.supplier_id = c.id and c.user_id = '"+supplierId+"' ");
+		sb.append(getqueryCriteria(map));
+		return Db.queryLong(sb.toString());
+	}
+
+	// 计算对应商品数量
+	public Long getCount(String siteId, Map<String, Object> map) {
+		StringBuffer sb = new StringBuffer();
+		sb.append("select count(*) from crm_goods_platform p");
+		sb.append(" where status='0' and p.type='2'");
+		sb.append(getqueryCriteria(map));
+		return Db.queryLong(sb.toString());
+	}
+
+	// 查询条件
+	public String getqueryCriteria(Map<String, Object> ma) {
+		StringBuffer sf = new StringBuffer();
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("number"))) {
+			String numb = ma.get("number").toString().trim();
+			sf.append(" and p.number like '%" + numb + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("name"))) {
+			String name = ma.get("name").toString().trim();
+			sf.append(" and p.name like '%" + name + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("category"))) {
+			String category = ma.get("category").toString().trim();
+			sf.append(" and p.category = '" + category + "' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) ma.get("sellFlag"))) {//是否上架
+			sf.append(" and p.sell_flag = '" + ma.get("sellFlag") + "' ");
+		}
+		return sf.toString();
+	}
+
+
+	public Record getLastVipXuFeiMore12Month(String siteId) {
+		return Db.findFirst("select * from crm_goods_platform_order where good_name like '思方erp%' and site_id=? and pay_status='1' and purchase_num>11 and good_amount > 300 order by payment_time desc limit 1", siteId);
+	}
+}

@@ -1,0 +1,93 @@
+package com.jojowonet.modules.order.service;
+
+import java.util.List;
+
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.ServiceModeDao;
+import com.jojowonet.modules.order.entity.ServiceMode;
+import com.jojowonet.modules.order.entity.ServiceType;
+
+import ivan.common.persistence.Page;
+import ivan.common.persistence.Parameter;
+import ivan.common.service.BaseService;
+
+@Component
+@Transactional(readOnly=true)
+public class ServiceModeService extends BaseService {
+	
+	@Autowired
+	private ServiceModeDao serviceModeDao;
+	
+	public ServiceMode get(Integer id) {
+		return serviceModeDao.get(id);
+	}
+	
+   public Page<ServiceMode> find(Page<ServiceMode> page, ServiceMode serviceMode) {
+		DetachedCriteria dc = serviceModeDao.createDetachedCriteria();
+		if (serviceMode.getId()!=null){
+			dc.add(Restrictions.like("name", "%"+serviceMode.getId()+"%"));
+		}
+		dc.add(Restrictions.eq("status", "0"));
+		//dc.add(Restrictions.eq("delFlag", "0"));
+		dc.addOrder(Order.asc("sort"));
+		
+		return serviceModeDao.find(page, dc);
+	}
+	
+	@Transactional(readOnly = false)
+	public void save(ServiceMode serviceMode) {
+		//orderOriginDao.clear();
+
+
+		serviceModeDao.save(serviceMode);
+		
+			
+	}
+	
+	@Transactional(readOnly = false)
+	public void delete(Integer id) {
+	
+		serviceModeDao.deleteByIds(id);
+	}
+	
+	public List<Record> filterServiceMode() {
+		return serviceModeDao.filterServiceMode(null);
+	}
+	
+	public boolean queryNumByName(String name){
+		List list = serviceModeDao.createSqlQuery("select * from crm_service_mode"
+				+ " where  name = :p1 and status='0' ",new Parameter(name)).list();
+		if (list.size()>0)
+			return true;
+		return false;
+	}
+
+	public Record getServiceModeById(Integer id) {
+     Record rd=serviceModeDao.getServiceModeById(id);
+		return rd;
+	}
+
+
+
+	public void updates(String name, String sort, Integer id) {
+		serviceModeDao.updates(name,sort,id);
+		
+	}
+
+	public boolean queryNumByNames(String names,Integer id){
+		List list = serviceModeDao.createSqlQuery("select * from crm_service_mode"
+				+ " where name = :p1 and id!=:p2 and status='0' ",new Parameter(names,id)).list();
+		if (list.size()>0)
+			return false;
+		return true;
+	}
+	
+
+}

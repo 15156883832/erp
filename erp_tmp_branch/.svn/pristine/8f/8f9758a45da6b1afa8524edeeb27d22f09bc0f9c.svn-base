@@ -1,0 +1,178 @@
+package com.jojowonet.modules.goods.entity;
+
+import java.io.Serializable;
+import java.util.Date;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+/**
+ * 服务商商品 商品使用记录Entity
+ * @author Ivan
+ * @version 2017-09-11
+ */
+@Entity
+@Table(name = "crm_goods_used_record")
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class GoodsUsedRecord implements Serializable {
+	private static final long serialVersionUID = 1L;
+	private String id;
+	private String goodId;
+	private String goodBrand;
+	private String goodIcon;
+	private String goodModel;
+	private String goodCategory;
+	private String goodSource;
+	private String goodName;
+	private String goodNumber;
+	private String siteId;
+	private String type;
+	private double usedNum;
+	private String status;
+	private String employeId;
+	private String employeName;
+	private String createBy;
+	private String confirmor;
+	private String confirmorId;
+	private Date usedTime;
+	private Date checkTime;
+	private String stotcksType;
+	
+	@Id
+	@GeneratedValue(generator = "idGenerator")
+	@GenericGenerator(name ="idGenerator" , strategy ="uuid")
+	public String getId() {
+		return id;
+	}
+	public void setId(String id) {
+		this.id = id;
+	}
+	public String getGoodId() {
+		return goodId;
+	}
+	public void setGoodId(String goodId) {
+		this.goodId = goodId;
+	}
+	public String getGoodBrand() {
+		return goodBrand;
+	}
+	public void setGoodBrand(String goodBrand) {
+		this.goodBrand = goodBrand;
+	}
+	public String getGoodIcon() {
+		return goodIcon;
+	}
+	public void setGoodIcon(String goodIcon) {
+		this.goodIcon = goodIcon;
+	}
+	public String getGoodModel() {
+		return goodModel;
+	}
+	public void setGoodModel(String goodModel) {
+		this.goodModel = goodModel;
+	}
+	public String getGoodCategory() {
+		return goodCategory;
+	}
+	public void setGoodCategory(String goodCategory) {
+		this.goodCategory = goodCategory;
+	}
+	public String getGoodSource() {
+		return goodSource;
+	}
+	public void setGoodSource(String goodSource) {
+		this.goodSource = goodSource;
+	}
+	public String getGoodName() {
+		return goodName;
+	}
+	public void setGoodName(String goodName) {
+		this.goodName = goodName;
+	}
+	public String getGoodNumber() {
+		return goodNumber;
+	}
+	public void setGoodNumber(String goodNumber) {
+		this.goodNumber = goodNumber;
+	}
+	public String getSiteId() {
+		return siteId;
+	}
+	public void setSiteId(String siteId) {
+		this.siteId = siteId;
+	}
+	public String getType() {
+		return type;
+	}
+	public void setType(String type) {
+		this.type = type;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	public String getEmployeId() {
+		return employeId;
+	}
+	public void setEmployeId(String employeId) {
+		this.employeId = employeId;
+	}
+	public String getEmployeName() {
+		return employeName;
+	}
+	public void setEmployeName(String employeName) {
+		this.employeName = employeName;
+	}
+	public String getCreateBy() {
+		return createBy;
+	}
+	public void setCreateBy(String createBy) {
+		this.createBy = createBy;
+	}
+	public String getConfirmor() {
+		return confirmor;
+	}
+	public void setConfirmor(String confirmor) {
+		this.confirmor = confirmor;
+	}
+	public String getConfirmorId() {
+		return confirmorId;
+	}
+	public void setConfirmorId(String confirmorId) {
+		this.confirmorId = confirmorId;
+	}
+	public Date getUsedTime() {
+		return usedTime;
+	}
+	public void setUsedTime(Date usedTime) {
+		this.usedTime = usedTime;
+	}
+	public Date getCheckTime() {
+		return checkTime;
+	}
+	public void setCheckTime(Date checkTime) {
+		this.checkTime = checkTime;
+	}
+	public String getStotcksType() {
+		return stotcksType;
+	}
+	public void setStotcksType(String stotcksType) {
+		this.stotcksType = stotcksType;
+	}
+	public double getUsedNum() {
+		return usedNum;
+	}
+	public void setUsedNum(double usedNum) {
+		this.usedNum = usedNum;
+	}
+	
+	
+}

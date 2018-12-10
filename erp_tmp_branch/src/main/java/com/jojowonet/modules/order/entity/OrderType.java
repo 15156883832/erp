@@ -1,0 +1,69 @@
+package com.jojowonet.modules.order.entity;
+
+import java.io.Serializable;
+import java.util.Date;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+
+@Entity
+@Table(name="crm_order_type")
+//@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class OrderType implements Serializable {
+	
+	private static final long serialVersionUID = 1L;
+	private Integer id;
+	private String name;
+	private Date createTime;
+	private String status;
+	
+	
+	@Id
+	@GeneratedValue(generator="orderType_id")
+	@GenericGenerator(name = "orderType_id", strategy = "increment")
+	@Column(name = "id", unique = true, nullable = false, insertable = true, updatable = true,length=20)
+	public Integer getId() {
+		return id;
+	}
+	public void setId(Integer id) {
+		this.id = id;
+	}
+	public String getName() {
+		return name;
+	}
+	
+	public void setName(String name) {
+		this.name = name;
+	}
+	
+
+	public Date getCreateTime() {
+		return createTime;
+	}
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	public OrderType() {
+		this.createTime = new Date();
+		this.status = "0";
+	}
+
+	
+}

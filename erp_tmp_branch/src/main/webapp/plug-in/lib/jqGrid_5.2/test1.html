@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+		<link rel="stylesheet" type="text/css" href="css/ui.jqgrid.css"/>
+		<link rel="stylesheet" type="text/css" href="css/jquery-ui-1.9.2.custom.css"/>
+		<style type="text/css">
+			.box{
+				height: 200px;
+				border: 1px solid #ccc;
+				margin-bottom: 20px;
+			}
+			.box a{
+				display: inline-block;
+				padding: 0 5px;
+			}
+		</style>
+	</head>
+	<body>
+		
+		<div class="box">
+			<p id="oldtitle">
+				<a href="javascript:;" id="pj1">配件条码</a>
+				<a href="javascript:;" id="pj2">名称</a>
+				<a href="javascript:;" id="pj3">型号</a>
+				<a href="javascript:;" id="pj4">品牌</a>
+				<a href="javascript:;" id="pj5">库存数量</a>
+				<a href="javascript:;" id="pj6">出库未核销数量</a>
+				<a href="javascript:;" id="pj7">关键字</a>
+				<a href="javascript:;" id="pj8">配件来源</a>
+			</p>
+			<p id="newtitle">
+				
+			</p>
+			<input type="button" value="确定" onclick="colData()" />
+		</div>
+		
+		<table id="list2"></table>
+		<div id="pager2"></div>
+		
+		
+		<input type="BUTTON" id="bedata" value="Edit Selected" />
+		
+		<script src="js/jquery-1.11.0.min.js"></script>
+		<script src="js/jquery.jqGrid.min.js" type="text/javascript" charset="utf-8"></script>
+		<!--<script src="js/jquery-1.8.3.js" type="text/javascript" charset="utf-8"></script>-->
+		<script src="js/i18n/grid.locale-cn.js" type="text/javascript" charset="utf-8"></script>
+		
+		<script src="js/jquery-ui-1.9.2.custom.js" type="text/javascript" charset="utf-8"></script>
+		
+		<script type="text/javascript">
+			$(function(){
+				
+				$('#oldtitle a').each(function(){
+					$(this).click(function(){
+						if( !$(this).attr('flag')){
+							
+							var newTitle = $(this).clone();
+							var newId = 'new_'+$(this).attr('id');
+							newTitle.attr({'id': newId});
+							$('#newtitle').append(newTitle);
+							$(this).css({'color':'red'})
+							$(this).attr({'flag':'true'});
+						}else{
+							alert('该标题已选择过')
+						}
+					});
+				});
+				
+				
+				
+//				var title = ['Inv No','Date', 'Client', 'Amount','Tax','Total','Notes','操作','链接'];
+				var colJson = [{
+						label:'序号',
+				   		name:'id',
+				   		index:'id',
+				   		sortable:true, 
+				   		sorttype:"int",
+				   		frozen : true,
+				   		width:100
+				   	},{
+				   		label:'日期',
+				   		name:'invdate',
+				   		index:'invdate', 
+				   		sorttype:"date",
+				   		frozen : true,
+				   		width:140
+				   	},{
+				   		label:'名字',
+				   		name:'name',
+				   		index:'name',
+				   		width:100
+				   	},{
+				   		label:'总价',
+				   		name:'amount',
+				   		index:'amount', 
+				   		align:"right",
+				   		sorttype:"float",
+				   		width:100
+				   	},{
+				   		label:'税率',
+				   		name:'tax',
+				   		index:'tax', 
+				   		align:"right",
+				   		sorttype:"float",width:100
+				   	},{
+				   		label:'总计',
+				   		name:'total',
+				   		index:'total',
+				   		align:"right",
+				   		sorttype:"float",width:100
+				   	},{
+				   		label:'备注',
+				   		name:'note',
+				   		index:'note', 
+				   		sortable:false,
+				   		width:100
+				   	},{
+				   		label:'操作',
+				   		name:'act',
+				   		index:'act', 
+				   		sortable:false,
+				   		width:300,
+				   		formatter : actFormatter
+				   	},{
+				   		label:'链接',
+				   		name:'link',
+				   		index:'link', 
+				   		sortable:false,
+				   		width:100,
+				   		formatter : mapTo
+				   	}];
+				var mydata = [
+					{id:"1",invdate:"2007-10-01",name:"test",note:"note",amount:"200.00",tax:"10.00",total:"210.00"},
+					{id:"2",invdate:"2007-10-02",name:"test2",note:"note2",amount:"300.00",tax:"20.00",total:"320.00"},
+					{id:"3",invdate:"2007-09-01",name:"test3",note:"note3",amount:"400.00",tax:"30.00",total:"430.00"},
+					{id:"4",invdate:"2007-10-04",name:"test",note:"note",amount:"200.00",tax:"10.00",total:"210.00"},
+					{id:"5",invdate:"2007-10-05",name:"test2",note:"note2",amount:"300.00",tax:"20.00",total:"320.00"},
+					{id:"6",invdate:"2007-09-06",name:"test3",note:"note3",amount:"400.00",tax:"30.00",total:"430.00"},
+					{id:"7",invdate:"2007-10-04",name:"test",note:"note",amount:"200.00",tax:"10.00",total:"210.00"},
+					{id:"8",invdate:"2007-10-03",name:"test2",note:"note2",amount:"300.00",tax:"20.00",total:"320.00"},
+					{id:"9",invdate:"2007-09-01",name:"test3",note:"note3",amount:"400.00",tax:"30.00",total:"430.00"}
+				];
+				
+				jQuery("#list2").jqGrid({
+					datatype: "local",
+				   	colModel: colJson,
+				   	width:700, // 表格宽度
+				   	height:150,   // 表格高度
+				   	sortorder:'desc',
+				   	autowidth:'true',
+				    rowNum:3,
+   					rowList:[3,6,9], 
+   					pager: '#pager2',
+					viewrecords:true,
+					shrinkToFit: false,
+// 					
+				}).jqGrid('setFrozenColumns').triggerHandler("jqGridAfterGridComplete");
+//				jQuery("#list2").jqGrid('setFrozenColumns');
+				
+				for(var i=0;i<=mydata.length;i++)
+					jQuery("#list2").jqGrid('addRowData',i+1,mydata[i]);
+				});
+				
+				$("#bedata").click(function(){
+					jQuery("#list2").jqGrid('editGridRow',"new",{height:280,reloadAfterSubmit:false});
+				});
+			
+			function actFormatter(cellvalue,options, rowObject){
+				var detail = '<input type="button" value="插入" onclick="addRow('+ options.rowId + ')">';
+				var deleteBtn = '<input type="button" value="删除" onclick="deleteRow('+ options.rowId + ')">';
+				var btnAlert = '<input type="button" value="删除" onclick="funalert('+ options.rowId + ')">';
+				return "&nbsp;&nbsp;&nbsp;\t" + detail + "&nbsp;&nbsp;&nbsp;\t"+ deleteBtn+ "&nbsp;&nbsp;&nbsp;\t"+ btnAlert;
+			}
+			function mapTo(cellvalue,options, rowObject){
+//					console.log(cellvalue);
+//					console.log(options);
+//					console.log(rowObject);
+				return '<a href="http://www.sifangerp.com/" style="color: #f00;" target="_blank">http://www.sifangerp.com/</a>'
+			}
+				
+				
+			function funalert(id){
+				alert(id);
+			}
+			
+			// 增加一行
+			function addRow( rowid ){
+				console.log(rowid);
+				var newid = parseInt(rowid)+1;
+				var oldid = parseInt(rowid);
+				var rowData = {
+					id:"11",
+					invdate:"2007-09-01",
+					name:"test3",
+					note:"note3",
+					amount:"400.00",
+					tax:"30.00",
+					total:"430.00"
+				};
+				insertRow(newid, rowData, oldid);
+			}
+			function insertRow(newid, rowData, oldid){
+				$('#list2').jqGrid('addRowData', newid, rowData,'after',oldid); // 插入行
+				var ids = $('#list2').jqGrid('getDataIDs');  // 获取行总数
+				if( oldid < ids.length-1){
+					var j = i = parseInt(oldid)+1;
+					$('#list2 tr').eq(i).nextAll().each(function(){
+						j++;
+						$(this).attr({'id': j});
+						var sx = $(this).children().eq(1);
+						sx.find('input[type="插入"]').attr({'onclick':'addRow('+ j + ')'});
+						sx.find('input[type="删除"]').attr({'onclick':'deleteRow('+ j + ')'});
+					})
+				}
+			}
+				// 删除行
+			function deleteRow(rowid){
+				var jqdata = $('#list2').jqGrid('getRowData');
+				if(jqdata.length>1){
+					$('#list2').jqGrid('delRowData',rowid);
+					var ids = $('#list2').jqGrid('getDataIDs');
+					if(rowid < ids.length && rowid == ids.length){
+						var j = i = parseInt(rowid)-1;
+						$('#list2 tr').eq(i).nextAll().each(function(){
+							j++;
+							$(this).attr({'id': j});
+							var sx = $(this).children().eq(1);
+							sx.find('input[type="插入"]').attr({'onclick':'addRow('+ j + ')'});
+							sx.find('input[type="删除"]').attr({'onclick':'deleteRow('+ j + ')'});
+						});
+					}
+
+				}
+			}
+			
+			
+			
+			
+			
+			function changeTitle(){
+				var title = [];
+				var oldSub = $('#oldtitle').children();
+				var newSub = $('#newtitle').children();
+				var bflag = false;
+				if( newSub.length == 0 || newSub.length == oldSub.length){
+					for (var i=0; i<oldSub.length; i++) {
+						var content = {}
+						content.id = newSub.eq(i).attr('id');
+						content.name = newSub.eq(i).text();
+						title.push(content);
+					}
+					return title;
+				}else{
+					alert('请将所有的标题进行排序');
+				}
+				
+			}
+			
+			function colData(){
+				var data = changeTitle();
+				var title = [];
+				for (var i=0; i<data.length; i++) {
+					title.push( data[i].name );
+				}
+				
+			}
+			
+			
+	
+		</script>
+	</body>
+</html>

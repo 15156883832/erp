@@ -1,0 +1,69 @@
+package com.jojowonet.modules.sys.util;
+
+import com.jojowonet.modules.order.dao.PushMessageDao;
+import com.jojowonet.modules.order.entity.PushMessage;
+import ivan.common.utils.SpringContextHolder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+/**
+ * 消息工具类，发送APP消息和发送短信消息
+ * @author ivan
+ *
+ */
+@Component
+public class MessageUtils {
+
+	@Autowired
+	private static PushMessageDao pushMessageDao = SpringContextHolder.getBean(PushMessageDao.class);;
+	
+	/**
+	 * 发送给APP消息，不保存下来
+	 * @return
+	 */
+	public static boolean pushAppMsg(final PushMessage pm){
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+//				JGPushUtils.sendMsg(pm.getRegId(), pm.getTitle(), pm.getContent(), Integer.valueOf(pm.getType()),
+//						Integer.valueOf(pm.getAppType()));
+
+				AppPushUtils.sendMsg(pm.getRegId(), pm.getTitle(), pm.getContent(), pm.getPushIds(), Integer.valueOf(pm.getType()),
+						Integer.valueOf(pm.getAppType()), SFPushUtil2.EMP_PACKAGENAME);
+			}
+		}).start();
+		return true;
+	}
+	
+	/**
+	 * 发送给APP消息，并保存到数据库中
+	 * @return
+	 */
+	public static boolean pushAppMsgAndSave(PushMessage pm){
+		try{
+			pushAppMsg(pm);
+			pushMessageDao.save(pm);
+		}catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+		return true;
+	}
+	
+	/**
+	 * 发送短信消息，不保存下来
+	 * @return
+	 */
+	public static boolean pushSMS(){
+		return true;
+	}
+	
+	/**
+	 * 发送短信消息，并保存到数据库中
+	 * @return
+	 */
+	public static boolean pushSMSAndSave(){
+		return true;
+	}
+	
+}

@@ -1,0 +1,21 @@
+<html>
+<head>
+	<script type="text/javascript">
+		function getvalue(){
+			///test2.html?parm1=myimg1&parm2=myimg2 
+			//获得第一个属性 
+			//decodeURI 解码
+			var url=decodeURI(location.href);
+			var tmp1=url.split("?")[1]; 
+			var tmp2=tmp1.split("&")[0]; 
+			var tmp3=tmp2.split("=")[1]; 
+			var parm1=tmp3;
+			alert(parm1);
+		}
+	</script>
+</head>
+<body onload="getvalue();">
+	
+	sfsdfsdf
+</body>
+</html>

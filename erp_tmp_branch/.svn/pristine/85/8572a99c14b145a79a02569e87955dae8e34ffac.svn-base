@@ -1,0 +1,67 @@
+/**
+ */
+package com.jojowonet.modules.goods.dao;
+
+
+import java.util.List;
+import java.util.Map;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.entity.GoodsSiteselfOrder;
+
+
+
+/**
+ * DAO接口
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Repository
+public class SiteselfOrderDao extends BaseDao<GoodsSiteselfOrder> {
+	
+	public List<Record> getFinanceOrderExcelList(Page<Record> page,String siteId,Map<String,Object> map){//列表
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT a.*,(a.purchase_num*b.site_price) AS lsChengben,(a.confirm_amount-a.sales_commissions-(a.purchase_num*b.site_price)) AS lsLsrun FROM crm_goods_siteself_order a  LEFT JOIN crm_goods_siteself b ON a.good_id=b.id   WHERE  a.site_id='"+siteId+"' and a.status !='0' ");
+		stringBuilder.append(selectConditions(map));
+		if(page!=null){
+			stringBuilder.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1)*page.getPageSize());
+		}
+		return Db.find(stringBuilder.toString());
+		
+	}
+	
+	public Long queryCount(String siteId,Map<String,Object> map){//总数
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("SELECT count(*) FROM crm_goods_siteself_order a  WHERE  a.site_id='"+siteId+"' and a.status !='0' ");
+		stringBuilder.append(selectConditions(map));
+		return Db.queryLong(stringBuilder.toString());
+	}
+	
+	
+	
+	public String  selectConditions(Map<String, Object> map) {//来电弹屏条件查询
+		StringBuilder stringBuilder = new StringBuilder();
+		if(map != null){
+			if(map.get("placingName") != null && StringUtils.isNotEmpty(((String[])map.get("placingName"))[0])){
+				stringBuilder.append(" and a.placing_name = '"+((String[])map.get("placingName"))[0]+"' ");
+			}
+			if(map.get("placingOrderTime") != null && StringUtils.isNotEmpty(((String[])map.get("placingOrderTime"))[0])){
+				stringBuilder.append(" and a.placing_order_time >= '"+((String[])map.get("placingOrderTime"))[0]+"' ");
+			}
+			if(map.get("placingOrderTime1") != null && StringUtils.isNotEmpty(((String[])map.get("placingOrderTime1"))[0])){
+				stringBuilder.append(" and a.placing_order_time < '"+((String[])map.get("placingOrderTime1"))[0]+" 23:59:59' ");
+			}
+		}
+		return stringBuilder.toString();
+	}
+	
+	
+	
+}

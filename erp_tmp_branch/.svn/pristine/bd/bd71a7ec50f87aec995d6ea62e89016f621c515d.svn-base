@@ -1,0 +1,153 @@
+package com.jojowonet.modules.fitting.web;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.service.EmpFittingKeepService;
+import com.jojowonet.modules.fitting.service.EmployeFittingService;
+import com.jojowonet.modules.fitting.service.FittingUsedRecordService;
+import com.jojowonet.modules.operate.service.EmployeService;
+import com.jojowonet.modules.order.service.OrderFittingService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+
+/**
+ * 工程师备件库存Controller
+ *
+ * @author Ivan
+ * @version 2017-05-23
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/fitting/employeFitting")
+public class EmployeFittingController extends BaseController {
+
+	@Autowired
+	private EmployeFittingService employeFittingService;
+
+	@Autowired
+	public EmpFittingKeepService empFittingKeepService;
+
+	@Autowired
+	public EmployeService empService;
+
+	@Autowired
+	public FittingUsedRecordService furService;
+	@Autowired
+	private OrderFittingService orderFittingService;
+	
+	private static Logger logger = Logger.getLogger(EmployeFittingController.class);
+
+	@ResponseBody
+	@RequestMapping(value = "showFittingType") // 根据条码和名称显示型号
+	public Map<String, Object> showFittingType(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String fitIdBindEmpId = request.getParameter("fitIdBindEmpId");
+		String[] fittingId = fitIdBindEmpId.split(",");
+		Map<String, Object> map = Maps.newHashMap();
+		Record re = employeFittingService.showFittingType(fittingId);// 显示型号
+		if (re != null) {
+			BigDecimal maxnum = re.getBigDecimal("warning");
+			String version = re.getStr("version");
+			String name = re.getStr("name");
+			map.put("maxnum", maxnum);
+			map.put("version", version);
+			map.put("name", name);
+			map.put("fittingId", fittingId[0]);
+			map.put("code", re.getStr("code"));
+			map.put("customerPrice", re.getBigDecimal("customer_price"));
+			map.put("jg", "data");
+
+		} else {
+			map.put("jg", "nodata");
+		}
+		return map;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "showFittingTypeSecondSite") // 根据条码和名称显示型号
+	public Map<String, Object> showFittingTypeSecondSite(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String fitIdBindEmpId = request.getParameter("fitIdBindEmpId");
+		String siteId = request.getParameter("siteId");
+		String[] fittingId = fitIdBindEmpId.split(",");
+		Map<String, Object> map = Maps.newHashMap();
+		Record re = employeFittingService.showFittingTypeSecondSite(fittingId, siteId);// 显示型号
+		if (re != null) {
+			BigDecimal maxnum = re.getBigDecimal("warning");
+			String version = re.getStr("version");
+			String name = re.getStr("name");
+			map.put("maxnum", maxnum);
+			map.put("version", version);
+			map.put("name", name);
+			map.put("fittingId", fittingId[0]);
+			map.put("code", re.getStr("code"));
+			map.put("customerPrice", re.getBigDecimal("customer_price"));
+			map.put("jg", "data");
+
+		} else {
+			map.put("jg", "nodata");
+		}
+		return map;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getEmployeFittings")
+	public List<Record> getEmployeFittings(HttpServletRequest request, HttpServletResponse response) {
+		String orderId = request.getParameter("orderId");
+		return employeFittingService.getEmployeFittings(orderId);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getEmployeFittingsSecondSite")
+	public List<Record> getEmployeFittingsSecondSite(HttpServletRequest request, HttpServletResponse response) {
+		String orderId = request.getParameter("orderId");
+		String siteId = request.getParameter("siteId");
+		return employeFittingService.getEmployeFittingsSecondSite(orderId, siteId);
+	}
+
+	@RequestMapping(value = "BjEmpFit")
+	@ResponseBody
+	public void BjEmpFit(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = request.getParameter("siteId");
+		if (StringUtils.isBlank(siteId)) {
+			siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		}
+		logger.error("EmployeFittingController BjEmpFit emp found,empids=" + request.getParameter("fitIdBindEmpId") + ";time"+ DateUtils.getDate());
+		employeFittingService.empUseFit(request);
+
+		String orderNumber = request.getParameter("orderNumber");
+		BigDecimal cost = orderFittingService.sumFittingUseCostByOrder(siteId, orderNumber);
+		Record rd = Db.findFirst("select a.* from crm_order a where a.number=? and a.site_id=?", orderNumber, siteId);
+		if (rd != null) {
+			Db.update("update crm_order a set a.auxiliary_cost=? where a.number=? and a.site_id=?", cost, orderNumber, siteId);
+		}
+	}
+	
+	@ResponseBody
+	@RequestMapping(value = "checkEmployeFitting")
+	public Object checkEmployeFitting(HttpServletRequest request, HttpServletResponse response) {
+		String fittingId = request.getParameter("fittingId");
+		String siteId = request.getParameter("siteId");
+		if (StringUtils.isBlank(siteId)) {
+			siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		}
+		return employeFittingService.getEmployeFittingWarning(fittingId,siteId);
+	}
+
+}

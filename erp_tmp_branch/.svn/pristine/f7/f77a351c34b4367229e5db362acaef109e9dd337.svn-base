@@ -1,0 +1,221 @@
+package com.jojowonet.modules.order.service;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.form.Target;
+import com.jojowonet.modules.order.dao.OrderCallbackDao;
+import com.jojowonet.modules.order.dao.OrderDao;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.entity.OrderCallBack;
+import com.jojowonet.modules.order.utils.*;
+import ivan.common.persistence.Parameter;
+import ivan.common.service.BaseService;
+import ivan.common.utils.UserUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+
+@Component
+@Transactional(readOnly = true)
+public class OrderCallBackService extends BaseService {
+
+    private static Logger logger = Logger.getLogger(OrderCallBackService.class);
+
+    @Autowired
+    private OrderCallbackDao callbackDao;
+
+    @Autowired
+    private OrderDao orderDao;
+
+    @Autowired
+    private OrderDispatchService orderDispatchService;
+
+    public Record getCallBackInfo(String orderId, String siteId) {
+        StringBuilder sb = new StringBuilder("");
+        sb.append(" select * from crm_order_callback a  where a.order_id = ? and a.site_id = ? order by a.create_time desc limit 1");
+        return Db.findFirst(sb.toString(), orderId, siteId);
+    }
+
+    public Record getCallBackInfo2017(String orderId, String siteId) {
+        StringBuilder sb = new StringBuilder("");
+        sb.append(" select * from crm_order_callback_2017 a  where a.order_id = ? and a.site_id = ? order by a.create_time desc limit 1");
+        return Db.findFirst(sb.toString(), orderId, siteId);
+    }
+
+    @Transactional
+    public void saveCallBack(OrderCallBack orderCallback, Map<String, Object> map) {
+        String siteId = orderCallback.getSiteId();
+        fillOldCallbackId(orderCallback, siteId);
+        if (StringUtils.isBlank(orderCallback.getId())) {
+            orderCallback.setId(null);
+        }
+
+        String orderId = orderCallback.getOrderId();
+        // 到回访阶段，工单的parent status应该是（待回访/已回访）
+        guardParentStatus(orderId);
+
+        //加过程信息By @yc
+        String processDetail;
+        Target ta = new Target();
+        Order order = orderDao.get(orderCallback.getOrderId());
+        String name = orderCallback.getCreateName();
+        String result = "";
+        if (StringUtil.checkParamsValid(map.get("result"))) {
+            if ("1".equals(map.get("result"))) {
+                result = "已完工";
+            } else if ("2".equals(map.get("result"))) {
+                result = "仍需上门";
+            } else if ("3".equals(map.get("result"))) {
+                result = "待回访";
+            }else if("4".equals(map.get("result"))){
+                result = "确认无效";
+            }
+        }
+        if ((callbackDao.getbysite(orderCallback.getOrderId(), siteId)) != null) {
+            Date processTime = new Date();
+            String latestProcess = name + "再次回访，" + result;
+            order.setLatestProcessTime(processTime);
+            order.setLatestProcess(latestProcess);
+            ta.setName(name);
+            ta.setType(Target.MESS_CALLBACK_TWICE);
+            ta.setContent(name + "再次回访，" + result);
+            ta.setTime(DateToStringUtils.DateToString());
+            processDetail = WebPageFunUtils.appendProcessDetail(ta, orderDao.get(orderCallback.getOrderId()).getProcessDetail());
+        } else {
+            Date processTime = new Date();
+            String latestProcess = name + "已回访，" + result;
+            order.setLatestProcessTime(processTime);
+            order.setLatestProcess(latestProcess);
+            ta.setName(name);
+            ta.setType(Target.MESS_CALLBACK);
+            ta.setContent(name + "已回访，" + result);
+            ta.setTime(DateToStringUtils.DateToString());
+            processDetail = WebPageFunUtils.appendProcessDetail(ta, orderDao.get(orderCallback.getOrderId()).getProcessDetail());
+        }
+        callbackDao.save(orderCallback);
+        /*Double confirmCost = Double.parseDouble("0.0");
+        if(map.get("confirm_cost") == null || "".equals(map.get("confirm_cost")) ){
+        	
+        }else{
+        	confirmCost = Double.parseDouble(map.get("confirm_cost").toString());
+        }*/
+        Double callbackCost = Double.parseDouble("0.0");
+        if(map.get("callback_cost") == null || "".equals(map.get("callback_cost")) ){
+        	
+        }else{
+        	callbackCost = Double.parseDouble(map.get("callback_cost").toString());
+        }
+        // 如果是状态是待回访，那么只更新信息，不更新状态。
+        if ("1".equals(map.get("result"))) {//已完成
+            String returnCard = String.valueOf(map.get("return_card"));
+            Date returnCardTime = null;
+            if ("1".equals(returnCard)) {
+                returnCardTime = new Date();
+            }
+            String status = "4";
+            if ("5".equals(order.getStatus())) {
+                status = "5";
+            }
+            if(StringUtil.isNotBlank(order.getParentSiteId())) {
+            	orderDao.update("update Order set returnCard = :p1, returnCardTime = :p2, warrantyType = :p3,  status='" + status + "' ,processDetail =:p4 , latest_process=:p5, latest_process_time=:p6,callbackResult=:p7,callback_cost=:p8,parent_status='5' where id = :p9 ",
+            			new Parameter(returnCard, returnCardTime, map.get("warranty_type"),  processDetail, order.getLatestProcess(), order.getLatestProcessTime(), orderCallback.getResult(), callbackCost, orderCallback.getOrderId()));
+            }else {
+            	orderDao.update("update Order set returnCard = :p1, returnCardTime = :p2, warrantyType = :p3,  status='" + status + "' ,processDetail =:p4 , latest_process=:p5, latest_process_time=:p6,callbackResult=:p7,callback_cost=:p8 where id = :p9 ",
+            			new Parameter(returnCard, returnCardTime, map.get("warranty_type"),  processDetail, order.getLatestProcess(), order.getLatestProcessTime(), orderCallback.getResult(), callbackCost, orderCallback.getOrderId()));
+            }
+
+            try {
+                if ("7".equals(order.getOrderType()) && "4".equals(status)) {
+                    logger.info("update order status to 4 and sync status to jdxh,order.number=" + order.getNumber());
+                    orderDao.notifyFactoryOrderComplete(order, siteId, new ArrayList<Target>());
+                }
+            } catch (Exception ex) {
+                // this is really a good idea
+                logger.error(ex);
+            }
+        } else if ("2".equals(map.get("result"))) {//仍需上门
+            //派工单状态====》“4”，工单状态====》’2‘
+            String returnCard = String.valueOf(map.get("return_card"));
+            Date returnCardTime = null;
+            if ("1".equals(returnCard)) {
+                returnCardTime = new Date();
+            }
+            String callbackRemarks = orderCallback.getRemarks();
+            if(StringUtil.isBlank(callbackRemarks)) {
+                orderDao.update("update Order set endTime=null, returnCard = :p1, returnCardTime = :p2, warrantyType = :p3,  status='2' ,processDetail =:p4 , latest_process=:p5, latest_process_time=:p6,callbackResult=:p7,callback_cost=:p8 where id = :p9 ",
+                        new Parameter(returnCard, returnCardTime, map.get("warranty_type"), processDetail, order.getLatestProcess(), order.getLatestProcessTime(), orderCallback.getResult(), callbackCost, orderCallback.getOrderId()));
+            } else {
+                // 如果回访结果是仍需上门，那么需要将本次回访内容追加到工单备注中@领导
+                // 如果是仍需上门则将工单的父状态变为服务中
+                String orderRemarks = order.getRemarks();
+                if (StringUtil.isNotBlank(orderRemarks)) {
+                    orderRemarks += (";" + callbackRemarks);
+                } else {
+                    orderRemarks = callbackRemarks;
+                }
+                orderDao.update("update Order set endTime=null,returnCard = :p1, returnCardTime = :p2, warrantyType = :p3,  status='2' ,processDetail =:p4 , latest_process=:p5, latest_process_time=:p6,callbackResult=:p7,remarks=:p8,parent_status=:p9,callback_cost=:p10 where id = :p11 ",
+                        new Parameter(returnCard, returnCardTime, map.get("warranty_type"), processDetail, order.getLatestProcess(), order.getLatestProcessTime(), orderCallback.getResult(), orderRemarks, Order.PSTATUS_SERVING, callbackCost, orderCallback.getOrderId()));
+            }
+            //修改派工单状态
+            String sql = "update crm_order_dispatch set status='4',end_time=null where order_id=? and site_id=? and status='5'";
+            int ret = Db.update(sql, order.getId(), siteId);
+            if(ret <= 0) {
+                logger.error(String.format("-> detected order callback status error, site_id=%s, order_id=%s", siteId, order.getId()));
+            }
+        } else if ("3".equals(map.get("result"))) {//待回访
+            String returnCard = String.valueOf(map.get("return_card"));
+            Date returnCardTime = null;
+            if ("1".equals(returnCard)) {
+                returnCardTime = new Date();
+            }
+            orderDao.update("update Order set returnCard = :p1, returnCardTime = :p2, warrantyType = :p3,  processDetail =:p4 , latest_process=:p5, latest_process_time=:p6,callbackResult=:p7,callback_cost=:p8 where id = :p9",
+                    new Parameter(returnCard, returnCardTime, map.get("warranty_type"),  processDetail, order.getLatestProcess(), order.getLatestProcessTime(), orderCallback.getResult(), callbackCost, orderCallback.getOrderId()));
+        }else if("4".equals(map.get("result"))){//确认无效
+            String LatestProcessforOrder =  order.getLatestProcess();
+            orderDispatchService.updateInvalid(orderCallback.getOrderId(),"确认无效","0","");
+            orderDao.getSession().flush();
+            processDetail = WebPageFunUtils.appendProcessDetail(ta, orderDao.get(orderCallback.getOrderId()).getProcessDetail());
+            String returnCard = String.valueOf(map.get("return_card"));
+            Date returnCardTime = null;
+            if ("1".equals(returnCard)) {
+                returnCardTime = new Date();
+            }
+            orderDao.update("update Order set returnCard = :p1, returnCardTime = :p2, warrantyType = :p3,  processDetail =:p4 , latest_process=:p5, latest_process_time=:p6,callbackResult=:p7,callback_cost=:p8 where id = :p9 ",
+                    new Parameter(returnCard, returnCardTime, map.get("warranty_type"),  processDetail, LatestProcessforOrder, order.getLatestProcessTime(), orderCallback.getResult(), callbackCost, orderCallback.getOrderId()));
+        }
+    }
+
+    private void guardParentStatus(String orderId) {
+        Order order = orderDao.get(orderId);
+        if (StringUtil.isNotBlank(order.getParentSiteId()) && !StringUtil.equalsAny(order.getParentStatus(), Order.PSTATUS_WAIT_CALLBACK, Order.PSTATUS_CALLBACK)) {
+            throw new RuntimeException(String.format("invalid parent status: order.id=%s,pstatus=%s", orderId, order.getParentStatus()));
+        }
+    }
+
+    // 防止重复回访
+    private void fillOldCallbackId(OrderCallBack orderCallback, String siteId) {
+        String id = orderCallback.getId();
+        String orderId = orderCallback.getOrderId();
+        if (StringUtil.isNotBlank(orderId) && StringUtil.isBlank(id)) {
+            Record callback1 = Db.findFirst("select id from crm_order_callback where order_id=? limit 1", orderId);
+            if (callback1 != null) {
+                orderCallback.setId(callback1.getStr("id"));
+                return;
+            }
+        }
+
+        if (StringUtil.isBlank(id)) {
+            String dispatchId = orderCallback.getDispatchId();
+            if (StringUtil.isNotBlank(orderId) && StringUtil.isNotBlank(dispatchId) && StringUtil.isNotBlank(siteId)) {
+                Record callback = Db.findFirst("select id from crm_order_callback where order_id=? and dispatch_id=? and site_id=? limit 1", orderId, dispatchId, siteId);
+                if (callback != null) {
+                    orderCallback.setId(callback.getStr("id"));
+                }
+            }
+        }
+    }
+}

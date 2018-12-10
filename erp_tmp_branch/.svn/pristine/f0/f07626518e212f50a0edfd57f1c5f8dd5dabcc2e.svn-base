@@ -1,0 +1,89 @@
+package com.jojowonet.modules.fitting.service;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+
+@Component
+public class FittingSecondStockService extends BaseService {
+
+	// 库存管理页面列表
+	public Page<Record> findStockPage(Page<Record> page, Map<String, Object> params, String siteId) {
+		List<Record> list = getSecondStockList(page, params, siteId);
+		Long count = getSecondStockCount(params, siteId);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+
+	public List<Record> getSecondStockList(Page<Record> page, Map<String, Object> params, String siteId) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(
+				" SELECT a.*,b.name AS sName,sum(case when c.type = '1' then c.used_num else 0 end) as useNum FROM crm_site_fitting a INNER JOIN (SELECT m.id,m.name FROM crm_site_parent_rel n INNER JOIN crm_site m ON n.site_id=m.id AND m.status='0'");
+		sb.append("  WHERE n.status='0' AND n.parent_site_id= ? ) AS b ON a.site_id=b.id LEFT JOIN  crm_site_fitting_used_record AS c ON c.fitting_id=a.id  WHERE a.status='1' ");
+		sb.append(sqlConditions(params));
+		sb.append(" group by a.id order by a.create_time DESC,a.code desc ");
+		sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		return Db.find(sb.toString(), siteId);
+	}
+
+	public Long getSecondStockCount(Map<String, Object> params, String siteId) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(" SELECT count(*) FROM crm_site_fitting a INNER JOIN (SELECT m.id FROM crm_site_parent_rel n INNER JOIN crm_site m ON n.site_id=m.id AND m.status='0'");
+		sb.append("  WHERE n.status='0' AND n.parent_site_id= ? ) AS b ON a.site_id=b.id  WHERE a.status='1' ");
+		sb.append(sqlConditions(params));
+		return Db.queryLong(sb.toString(), siteId);
+	}
+
+	public String sqlConditions(Map<String, Object> map) {
+		StringBuilder sf = new StringBuilder("");
+		if (map != null) {
+			if (map.get("siteName") != null && StringUtils.isNotBlank(map.get("siteName").toString())) {
+				sf.append(" and a.site_id ='" + map.get("siteName") + "'");
+			}
+			if (map.get("fittingName") != null && StringUtils.isNotBlank(map.get("fittingName").toString())) {
+				sf.append(" and a.name like '%" + map.get("fittingName") + "%'");
+			}
+			if (map.get("fittingCode") != null && StringUtils.isNotBlank(map.get("fittingCode").toString())) {
+				sf.append(" and a.code like '%" + map.get("fittingCode") + "%'");
+			}
+			if (map.get("fittingModel") != null && StringUtils.isNotBlank(map.get("fittingModel").toString())) {
+				sf.append(" and a.version like '%" + map.get("fittingModel") + "%'");
+			}
+			if (map.get("ifHasStocks") != null && StringUtils.isNotBlank(map.get("ifHasStocks").toString())) {
+				if ("1".equals(map.get("ifHasStocks"))) {
+					sf.append(" and a.warning > 0");
+				}
+			}
+		}
+		return sf.toString();
+	}
+
+	public List<Record> getSecondSiteList(String siteId) {
+		return Db.find(
+				"SELECT b.id,b.name FROM crm_site_parent_rel a INNER JOIN crm_site b ON a.site_id=b.id AND b.status='0' WHERE a.status='0' AND a.parent_site_id=? order by a.create_time,a.id asc",
+				siteId);
+	}
+
+	public Map<String, Object> getFittingAllStocks(String siteId, Map<String, Object> map) {
+		Map<String, Object> maps = new HashMap<String, Object>();
+		StringBuilder sb = new StringBuilder();
+		sb.append(
+				" SELECT sum(a.warning) as allStocks FROM crm_site_fitting a INNER JOIN (SELECT m.id FROM crm_site_parent_rel n INNER JOIN crm_site m ON n.site_id=m.id AND m.status='0'");
+		sb.append("  WHERE n.status='0' AND n.parent_site_id= ?) AS b ON a.site_id=b.id  WHERE a.status='1' ");
+		sb.append(sqlConditions(map));
+		Record rd = Db.findFirst(sb.toString(), siteId);
+		maps.put("allStocks", rd.get("allStocks"));
+		return maps;
+	}
+
+}

@@ -1,0 +1,319 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+  <head>
+    
+    <meta name="decorator" content="base"/>
+
+   <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/easyui.css"/> 
+<script type="text/javascript" src="${ctxPlugin}/lib/select/jquery.easyui.min.js"></script> 
+	<!--
+	<link rel="stylesheet" type="text/css" href="styles.css">
+	-->
+
+  </head>
+  
+  <body>
+    <div class="sfpagebg bk-gray">
+	<div class="sfpage table-header-settable">
+	<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+
+			<a class="btn-tabBar  current" href="javascript:search();">服务商数据统计</a>
+
+			<p class="f-r btnWrap">
+			<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+			<a href="javascript:;" class="sfbtn sfbtn-opt moresearch" id="moresearch" ><i class="sficon sficon-moresearch"></i>更多查询</a>
+			<a href="javascript:jsClearForm();;" class="sfbtn sfbtn-opt"><i class="sficon sficon-reset"></i>重置</a>
+			<%-- <a id="exportLink" href="${ctx}/order/statistics/exportStatistics?formPath=/a/order/statistics/systems" target="_blank" class="sfbtn sfbtn-opt" style="text-decoration: underline;"><i class="sficon sficon-export"></i>导出</a> --%>
+			<a onclick="return exports()" class="sfbtn sfbtn-opt"  target="_blank"><i class="sficon sficon-export"></i>导出</a>
+			</p>
+		</div>
+			
+			
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+				<input type="hidden" name="priname"  value="${priname}">
+				<input type="hidden" name="type"  value="1">
+				<div class="bk-gray pt-10 pb-5 mb-10">
+					<table class="table table-search">
+						<tr>
+							<th style="width: 76px;" class="text-r">服务商名称：</th>
+							<td>
+                              <input type="text" class="input-text" onkeydown="enterEvent(event)" name= "name"/>
+							</td>
+							<th style="width: 76px;" class="text-r">联系时间：</th>
+							<td>
+                               <input type="text" onfocus="WdatePicker()" id="updateTime" name="updateTime" value="" class="input-text Wdate w-120" style="width:140px">
+							</td>
+							<th style="width: 76px;" class="text-r">最近联系人：</th>
+							<td>
+                               <input type="text" name="contacts" value="" class="input-text ">
+							</td>
+							<th style="width: 76px;" class="text-r">使用情况：</th>
+							<td>
+                               <span class="w-140">
+									<select class="select easyui-combobox"   name="usage"   style="width:100%;height:25px" panelMaxHeight="130px">
+									 <option value="" selected="selected">--请选择--</option>
+						        	 <option value="全部都用">全部都用</option>
+						        	 <option value="只用工单">只用工单</option>
+						        	 <option value="只用助手">只用助手</option>
+						        	 <option value="之前有用">之前有用</option>
+						        	 <option value="学习使用">学习使用</option>
+						        	 <option value="一直未用">一直未用</option>
+						        	 <option value="标记跟进">标记跟进</option>
+						        	 <option value="使用结算">使用结算</option>
+						        	 <option value="使用备件">使用备件</option>
+						        	 <option value="只维护备件">只维护备件</option>
+						        	 <option value="使用商品">使用商品</option>
+						        	 <option value="只维护商品">只维护商品</option>
+						        	 <option value="无现金收款">无现金收款</option>
+						        	 <option value="人员维护">人员维护</option>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">预约时间：</th>
+							<td>
+                               <input type="text" onfocus="WdatePicker({minDate:'%y-%M-%d'})" id="promiseTime" name="promiseTime" value="" class="input-text Wdate w-120" style="width:140px">
+							</td>
+							
+						</tr>
+						<tr>
+							<th style="width: 76px;" class="text-r">联系结果：</th>
+							<td>
+                               <span class="w-140">
+									<select class="select easyui-combobox"  id="contact_results"  name="contact_results" style="width:100%;height:25px" panelMaxHeight="130px">
+									  <option value="" selected="selected">--请选择--</option>
+						         
+								          <option value="已续费">已续费</option>
+								          <option value="不续费">不续费</option>
+								          <option value="不确定">不确定</option>
+								          <option value="未联系上">未联系上</option>
+								          <option value="可续费">可续费</option>
+								          <option value="漏保跟踪">漏保跟踪</option>
+								          <option value="要跟进">要跟进</option>
+								          <option value="不会用">不会用</option>
+								          <option value="无需联系">无需联系</option>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">分享服务商：</th>
+							<td>
+                              <input type="text" class="input-text" name="share_site">
+							</td>
+							<th style="width: 76px;" class="text-r">收款记录数：</th>
+							<td>
+								<input type="text" name="receivables_num" class="input-text " placeholder="大于等于当前数量"/>
+							</td>
+							<th style="width: 76px;" class="text-r">电子名片数：</th>
+							<td>
+								<input type="text" class="input-text" name="vcard_num" placeholder="大于等于当前数量"/>
+							</td>
+							<th style="width: 76px;" class="text-r">短信购买数：</th>
+							<td>
+								<input type="text" class="input-text" name="sms_num" placeholder="大于等于当前数量"/>
+							</td>
+						</tr>
+						<tr class="moreCondition" style="display: none;">
+							<th style="width: 76px;" class="text-r">ERP工单数：</th>
+							<td>
+								<input type="text" class="input-text"  name = "erp_order_num" placeholder="大于等于当前数量"/>
+							</td>
+							<th style="width: 76px;" class="text-r">400工单数：</th>
+							<td>
+								<input type="text" name="ma_order_num" class="input-text " placeholder="大于等于当前数量">
+							</td>
+							<th style="width: 76px;" class="text-r">备件数量：</th>
+							<td>
+								<input type="text" class="input-text" name="fitting_num" placeholder="大于等于当前数量"/>
+							</td>
+							<th style="width: 76px;" class="text-r">自营商品数：</th>
+							<td>
+								<input type="text" class="input-text" name="goods_num" placeholder="大于等于当前数量"/>
+							</td>
+							<th style="width: 76px;" class="text-r">购漏保次数：</th>
+							<td>
+								<input type="text"  name="not_covered_count" value="" class="input-text" placeholder="大于等于当前数量"/>
+							</td>
+						</tr>
+						<tr class="moreCondition" style="display: none;">
+							<th style="width: 76px;" class="text-r">区域：</th>
+							<td>
+                               <span class="w-140">
+									<select class="select easyui-combobox"   name="province" style="width:100%;height:25px" panelMaxHeight="130px">
+									  <option value="" selected="selected">--请选择--</option>
+						         	<c:forEach items="${listarea }" var="pro">
+						         <option value="${pro.columns.ProvinceName }">${pro.columns.ProvinceName }</option>
+						         </c:forEach>
+									</select>
+								</span>
+							</td>
+							<th style="width: 76px;" class="text-r">漏保购买数：</th>
+							<td colspan="7">
+									<input type="text" class="input-text"  name = "not_covered_num" placeholder="大于等于当前数量" style="width: 120px;"/>
+								至 <input type="text" class="input-text"  name = "not_covered_numMax" placeholder="小于等于当前数量"  style="width: 120px;"/>
+							<!-- </td>
+							
+							<th style="width: 76px;" class="text-r">注册日期：</th>
+							<td colspan="4"> -->
+								<label class="" style="width:76px">注册日期：</label>
+								<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'createTimemax\')||\'%y-%M-%d\'}'})" id="createTimemin" name="createTimemin" value="" class="input-text Wdate w-120" style="width:100px">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'createTimemin\')}',maxDate:'%y-%M-%d'})" id="createTimemax" name="createTimemax"  value="" class="input-text Wdate w-120" style="width:100px">
+								<label class="" style="width:76px">到期日期：</label>
+								<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'dueTimemax\')}'})" id="dueTimemin" name="dueTimemin" value="" class="input-text Wdate w-120" style="width:100px">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'dueTimemin\')}'})" id="dueTimemax" name="dueTimemax"  value="" class="input-text Wdate w-120" style="width:100px">
+								<!-- 
+								<label class="" style="width:76px">跟进时间：</label>
+								<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'update_timemax\')}'})" id="update_timemin" name="update_timemin" value="" class="input-text Wdate w-120" style="width:100px">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'update_timemin\')}'})" id="update_timemax" name="update_timemax"  value="" class="input-text Wdate w-120" style="width:100px">
+							 -->
+							</td>
+						</tr>
+						<tr class="moreCondition" style="display: none;">
+							
+							<th style="width: 76px;" class="text-r">跟进时间：</th>
+							<td colspan="5">
+								
+								<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'update_timemax\')}'})" id="update_timemin" name="update_timemin" value="" class="input-text Wdate w-120" style="width:100px">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'update_timemin\')}'})" id="update_timemax" name="update_timemax"  value="" class="input-text Wdate w-120" style="width:100px">
+							
+							</td>
+							<th style="width: 76px;" class="text-r">当前版本：</th>
+							<td >
+								<select class="select w-140 f-l" name="version">
+					               	 <option value="" selected="selected">--请选择--</option>
+						          	 <option value="1">免费版</option>
+						          	 <option value="2">收费版</option>
+				                </select>
+							</td>
+						</tr>
+					</table>
+				</div>
+				
+			<div>
+			<table id="table-waitdispatch" class="table"></table>
+					<!-- pagination -->
+					<div class="cl pt-10">
+							<div class="f-l">
+
+						</div>
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+					<!-- pagination -->
+				</div>
+			</form>
+
+	</div>
+</div>
+
+</div>
+</div>
+
+<script type="text/javascript">
+
+var sfGrid;
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var priname = "${priname}";
+$(function(){
+	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	initSfGrid();
+
+});
+
+//初始化jqGrid表格，传递的参数按照说明
+function initSfGrid(){
+	var url = "${ctx}/order/statistics/statisticsList";
+	sfGrid = $("#table-waitdispatch").sfGrid({
+		url:url, 
+		sfHeader:defaultHeader,
+		sfSortColumns:sortHeader,
+		multiselect: false,
+		rownumbers : true,
+		postData:{'priname':priname,
+			type:"1"}, 
+		gridComplete:function(){
+			_order_comm.gridNum();
+		}
+	});
+}
+
+function exports(){
+	  location.href = "${ctx}/order/statistics/exportStatistics?formPath=/a/order/statistics/systems&&maps=" + $("#searchForm").serialize();
+}
+
+function isBlank(val) {
+	if(val==null || val=='' || val == undefined) {
+		return true;
+	}
+	return false;
+}
+
+function saveMsg(id) {
+	if(isBlank(id) || id == "null"){
+		layer.msg("不要再点了，该服务商为当日最新注册！");
+		return
+	}
+	layer.open({
+		type : 2,
+		content : '${ctx}/order/statistics/getStatisticsById?id=' + id,
+		title : false,
+		area : [ '100%', '100%' ],
+		closeBtn : 0,
+		shade : 0,
+		fadeIn : 0,
+		anim : -1
+	});
+}
+
+
+
+function jsClearForm() {
+	$("#searchForm :input[type='text']").each(function () { 
+	$(this).val(""); 
+	}); 
+	
+	$("select").val(""); 
+	$(".textbox-value").val("");
+	 
+
+}
+function search(){
+	var pageSize = $("#pageSize").val();
+	if ($.trim(pageSize) == '' || pageSize == null) {
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch({
+        postData: $("#searchForm").serializeJson()
+    });
+
+}
+
+
+
+/*enter查询*/
+function enterEvent(event){
+	var keyCode = event.keyCode?event.keyCode:event.which?event.which:event.charCode;
+	if (keyCode ==13){
+		search();
+	}
+}
+
+function fmtOper(rowData){	
+	return "<span><a href=javascript:saveMsg('"+rowData.site_id+"') class='c-0383dc'>跟进</a></span>";	
+}
+
+
+</script>
+  </body>
+</html>

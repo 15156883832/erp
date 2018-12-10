@@ -1,0 +1,30 @@
+package com.jojowonet.modules.finance.form;
+
+import ivan.common.utils.excel.annotation.ExcelField;
+
+import java.math.BigDecimal;
+
+import javax.persistence.ManyToOne;
+
+public class EmployeCostGoodsAll {
+	private String salesman;
+	private BigDecimal ticheng;
+	@ManyToOne
+	@ExcelField(title="服务工程师", align=2, sort=10)
+	public String getSalesman() {
+		return salesman;
+	}
+	public void setSalesman(String salesman) {
+		this.salesman = salesman;
+	}
+	@ManyToOne
+	@ExcelField(title="结算金额", align=2, sort=20)
+	public BigDecimal getTicheng() {
+		return ticheng;
+	}
+	public void setTicheng(BigDecimal ticheng) {
+		this.ticheng = ticheng;
+	}
+	
+
+}

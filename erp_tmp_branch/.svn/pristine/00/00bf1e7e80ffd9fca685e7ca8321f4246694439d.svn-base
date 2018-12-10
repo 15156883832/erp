@@ -1,0 +1,40 @@
+package com.jojowonet.modules.sys.service;
+
+import com.jojowonet.modules.order.utils.excelExt.handler.ExcelAbstractHandler;
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Arrays;
+
+public class SystemServiceTest {
+
+    @Test
+    public void testCellValAsString() {
+        Assert.assertEquals("123", ExcelAbstractHandler.cellValAsString("123"));
+        Assert.assertNull(ExcelAbstractHandler.cellValAsString(null));
+        double d = 12.360;
+        Assert.assertEquals("12.36", ExcelAbstractHandler.cellValAsString(d));
+        long e = 123456789456L;
+        Assert.assertEquals("123456789456", ExcelAbstractHandler.cellValAsString(e));
+        int f = 123;
+        Assert.assertEquals("123", ExcelAbstractHandler.cellValAsString(f));
+    }
+
+    @Test
+    public void testBigDecimal() {
+        BigDecimal num = new BigDecimal("1.2");
+        BigDecimal ret = num.multiply(BigDecimal.valueOf(134)).divide(BigDecimal.valueOf(6), 2, RoundingMode.HALF_UP);
+        System.out.println(ret);
+
+        BigDecimal ret2 = BigDecimal.valueOf(134).divide(BigDecimal.valueOf(6), 4, RoundingMode.HALF_UP).multiply(num).setScale(2, RoundingMode.HALF_UP);
+        System.out.println(ret2);
+    }
+
+    @Test
+    public void testAba() {
+        String[] a  = null;
+        System.out.println((String.format("order %s del found", Arrays.toString(a))));
+    }
+}

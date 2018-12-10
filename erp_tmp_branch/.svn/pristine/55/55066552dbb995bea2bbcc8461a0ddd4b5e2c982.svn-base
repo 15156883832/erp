@@ -1,0 +1,22 @@
+package com.jojowonet.modules.order.form.constant;
+
+public class Factory {
+
+	public static final String MIDEA = "midea";
+	public static final String WHIRLPOOL = "whirlpool";
+	public static final String HISENSE = "hisense";
+	public static final String HAIER = "haier";
+	
+	public static String getFactoryLabel(String name){
+		if("美的".equals(name)){
+			return MIDEA;
+		}else if("惠而浦".equals(name)){
+			return WHIRLPOOL;
+		}else if("海信".equals(name)){
+			return HISENSE;
+		}else if("海尔".equals(name)){
+			return HAIER;
+		}
+		return "";
+	}
+}

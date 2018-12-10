@@ -1,0 +1,96 @@
+package com.jojowonet.modules.operate.entity;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Date;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+
+/**
+ * 网点签到规则Entity
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Entity
+@Table(name = "crm_site_sign_rule")
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class SiteSignRule implements Serializable{
+	private static final long serialVersionUID = 1L;
+    private String id;
+    private String siteId;
+    private String signPoint;
+    private Date workingTime;
+    private Date offWorkingTime;
+    private Date createTime;
+    private BigDecimal longitude;
+    private BigDecimal latitude;
+    private Integer signRange;
+    
+    @Id
+   	@GeneratedValue(generator = "idGenerator")
+   	@GenericGenerator(name ="idGenerator" , strategy ="uuid")
+	public String getId() {
+		return id;
+	}
+	public void setId(String id) {
+		this.id = id;
+	}
+	public String getSiteId() {
+		return siteId;
+	}
+	public void setSiteId(String siteId) {
+		this.siteId = siteId;
+	}
+	public String getSignPoint() {
+		return signPoint;
+	}
+	public void setSignPoint(String signPoint) {
+		this.signPoint = signPoint;
+	}
+	public Date getWorkingTime() {
+		return workingTime;
+	}
+	public void setWorkingTime(Date workingTime) {
+		this.workingTime = workingTime;
+	}
+	public Date getOffWorkingTime() {
+		return offWorkingTime;
+	}
+	public void setOffWorkingTime(Date offWorkingTime) {
+		this.offWorkingTime = offWorkingTime;
+	}
+	public Date getCreateTime() {
+		return createTime;
+	}
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+	public BigDecimal getLongitude() {
+		return longitude;
+	}
+	public void setLongitude(BigDecimal longitude) {
+		this.longitude = longitude;
+	}
+	public BigDecimal getLatitude() {
+		return latitude;
+	}
+	public void setLatitude(BigDecimal latitude) {
+		this.latitude = latitude;
+	}
+	public Integer getSignRange() {
+		return signRange;
+	}
+	public void setSignRange(Integer signRange) {
+		this.signRange = signRange;
+	}
+    
+    
+}

@@ -1,0 +1,32 @@
+package com.jojowonet.modules.operate.service;
+
+import java.util.List;
+import java.util.Map;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.dao.ReceivedSmsDao;
+
+
+
+@Component
+@Transactional(readOnly = true)
+public class ReceivedSmsService extends BaseService{
+	
+	@Autowired
+	private ReceivedSmsDao receivedSmsDao;
+	public Page<Record> getReceivedList(Page<Record> page ,String siteId,Map<String,Object> map){
+		List<Record> receivedList=receivedSmsDao.getReceivedList(page, siteId, map);
+		long count=receivedSmsDao.getreceivedcount(siteId, map);
+		page.setList(receivedList);
+		page.setCount(count);
+		return page;
+	}
+
+}

@@ -1,0 +1,176 @@
+package com.jojowonet.modules.order.service;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.OrderMustFillSettingDao;
+import com.jojowonet.modules.order.entity.OrderMustFillSetting;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.config.SfCacheKey;
+import com.jojowonet.modules.sys.config.SfCacheService;
+import ivan.common.service.BaseService;
+import ivan.common.utils.UserUtils;
+import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+/**
+ *
+ * @author DQChen
+ * @date 2018/3/1 0001
+ */
+@Service
+@Transactional(readOnly = true)
+public class OrderMustFillSettingService extends BaseService{
+
+    @Autowired
+    private OrderMustFillSettingDao orderMustFillSettingDao;
+    @Autowired
+    SfCacheService sfCacheService;
+
+    private final Integer num = 22;
+
+    public List<Record> getMustFillInfo(){
+        String siteId= CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String sql="select * from crm_order_mustfill_setting where site_id=? and type='0' ";
+        return Db.find(sql,siteId);
+    }
+
+    public Record getMustFillInfoRecord(String siteId) {
+        Record cached = getMustFillInfoRecordFromCache(siteId);
+        if (cached != null) {
+            return cached;
+        }
+
+        Record ret = new Record();
+        List<Record> mustFillInfoList = getMustFillInfo();
+        for (Record re : mustFillInfoList) {
+            Boolean rsu = changeFrom(re.getStr("status"));
+            ret.set(re.getStr("name"), rsu);
+        }
+        if (mustFillInfoList.size() < 1) {
+            ret.set("customerFeedback", true);
+        }
+        Map<String, Object> val = ret.getColumns();
+        sfCacheService.hset(SfCacheKey.mustFillMap, siteId, new Gson().toJson(val));
+        return ret;
+    }
+
+    private Record getMustFillInfoRecordFromCache(String siteId) {
+        String cacheKey = SfCacheKey.mustFillMap;
+        String json = sfCacheService.hget(cacheKey, siteId);
+        if (StringUtil.isBlank(json)) {
+            return null;
+        }
+
+        Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>() {
+        }.getType());
+        Record ret = new Record();
+        ret.setColumns(map);
+        return ret;
+    }
+
+    private Boolean changeFrom(String op){
+        return "0".equals(op);
+    }
+
+    public List<Record> getMustFillInfoFed(){
+        String siteId= CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String sql="select * from crm_order_mustfill_setting where site_id=? and type='1' ";
+        return Db.find(sql,siteId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void saveMustFill(Map<String, Object> map, String siteId) {
+        /*----------------参数名与参数值相对应-----------------------*/
+        /*参数名(与数据库存储数据名称一致)*/
+        String[] orderPromsName = (String[]) castData(map).get("orderPromsName");
+        /*参数值*/
+        Boolean[] orderProms = (Boolean[]) castData(map).get("orderProms");
+        /*----------------------------------------------------------*/
+        List<OrderMustFillSetting> mustFillList = Lists.newArrayList();
+        Date now = new Date();
+        String userId = UserUtils.getUser().getId();
+        for (int i = 0; i < num; i++) {
+            OrderMustFillSetting mustFill = new OrderMustFillSetting();
+            mustFill.setCreateBy(userId);
+            mustFill.setCreateTime(now);
+            mustFill.setSiteId(siteId);
+            String sql = "";
+            if (i < 14) {
+                mustFill.setType("0");
+                sql = "select * from crm_order_mustfill_setting where name=? and site_id=? and type='0' ";
+            } else {
+                mustFill.setType("1");
+                sql = "select * from crm_order_mustfill_setting where name=? and site_id=? and type='1' ";
+            }
+            mustFillList.add(setFactory(mustFill, siteId, sql, orderPromsName[i], orderProms[i]));
+        }
+        orderMustFillSettingDao.save(mustFillList);
+    }
+
+    private Map<String,Object> castData(Map<String,Object> map){
+        Boolean customerFeedback = Boolean.parseBoolean(getTrimmedParamValue(map, "customerFeedback"));
+        Boolean origin = Boolean.parseBoolean(getTrimmedParamValue(map, "origin"));
+        Boolean promiseTime = Boolean.parseBoolean(getTrimmedParamValue(map, "promiseTime"));
+        Boolean promiseLimit = Boolean.parseBoolean(getTrimmedParamValue(map, "promiseLimit"));
+        Boolean remarks = Boolean.parseBoolean(getTrimmedParamValue(map, "remarks"));
+        Boolean applianceModel = Boolean.parseBoolean(getTrimmedParamValue(map, "applianceModel"));
+        Boolean applianceNum = Boolean.parseBoolean(getTrimmedParamValue(map, "applianceNum"));
+        Boolean applianceBarcode = Boolean.parseBoolean(getTrimmedParamValue(map, "applianceBarcode"));
+        Boolean applianceMachineCode = Boolean.parseBoolean(getTrimmedParamValue(map, "applianceMachineCode"));
+        Boolean applianceBuyTime = Boolean.parseBoolean(getTrimmedParamValue(map, "applianceBuyTime"));
+        Boolean pleaseReferMall = Boolean.parseBoolean(getTrimmedParamValue(map, "pleaseReferMall"));
+        Boolean warrantyType = Boolean.parseBoolean(getTrimmedParamValue(map, "warrantyType"));
+        Boolean level = Boolean.parseBoolean(getTrimmedParamValue(map, "level"));
+        Boolean customerType = Boolean.parseBoolean(getTrimmedParamValue(map, "customerType"));
+
+        Boolean applianceModelF = Boolean.parseBoolean(getTrimmedParamValue(map, "applianceModelF"));
+        Boolean applianceBuyTimeF = Boolean.parseBoolean(getTrimmedParamValue(map, "applianceBuyTimeF"));
+        Boolean pleaseReferMallF = Boolean.parseBoolean(getTrimmedParamValue(map, "pleaseReferMallF"));
+        Boolean applianceMachineCodeF = Boolean.parseBoolean(getTrimmedParamValue(map, "applianceMachineCodeF"));
+        Boolean malfunctionTypeF = Boolean.parseBoolean(getTrimmedParamValue(map, "malfunctionTypeF"));
+        Boolean processImageF = Boolean.parseBoolean(getTrimmedParamValue(map, "processImageF"));
+        Boolean serveCostF = Boolean.parseBoolean(getTrimmedParamValue(map, "serveCostF"));
+        Boolean warrantyCostF = Boolean.parseBoolean(getTrimmedParamValue(map, "warrantyCostF"));
+        Boolean[] orderProms = {customerType,customerFeedback, origin, promiseTime, promiseLimit, remarks, applianceModel, applianceNum, applianceBarcode, applianceMachineCode, applianceBuyTime, pleaseReferMall, warrantyType, level, applianceModelF, applianceBuyTimeF, pleaseReferMallF, applianceMachineCodeF, malfunctionTypeF, processImageF,serveCostF,warrantyCostF};
+        Map<String, Object> maps = Maps.newHashMap();
+        maps.put("orderProms",orderProms);
+        String[] orderPromsName = {"customerType","customerFeedback", "origin", "promiseTime", "promiseLimit", "remarks", "applianceModel", "applianceNum", "applianceBarcode", "applianceMachineCode", "applianceBuyTime", "pleaseReferMall", "warrantyType", "level", "applianceModel", "applianceBuyTime", "pleaseReferMall", "applianceMachineCode", "malfunctionType", "processImage","serveCost","warrantyCost"};
+        maps.put("orderPromsName", orderPromsName);
+        return maps;
+    }
+
+    private OrderMustFillSetting setFactory(OrderMustFillSetting mustFill, String siteId, String sql, String columnName, Boolean columnOName) {
+        Record re = Db.findFirst(sql, columnName, siteId);
+        if (re != null) {
+            mustFill.setId(re.getStr("id"));
+        }
+        mustFill.setName(columnName);
+        if (columnOName) {
+            mustFill.setStatus("0");
+        } else {
+            mustFill.setStatus("1");
+        }
+        return mustFill;
+    }
+
+    private String getTrimmedParamValue(Map<String, Object> map, String param) {
+        return StringUtils.trim(getParamValue(map, param));
+    }
+
+    private String getParamValue(Map<String, Object> map, String param) {
+        Object value = map.get(param);
+        return value == null ? null : ((String[]) map.get(param))[0];
+    }
+
+}

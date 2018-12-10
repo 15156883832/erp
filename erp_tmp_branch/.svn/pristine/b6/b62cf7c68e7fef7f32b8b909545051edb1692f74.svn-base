@@ -1,0 +1,689 @@
+package com.jojowonet.modules.finance.web;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.finance.form.EmployeCostAll;
+import com.jojowonet.modules.finance.form.EmployeCostGoodsAll;
+import com.jojowonet.modules.finance.service.FinanceOrderExcelService;
+import com.jojowonet.modules.finance.service.RevenueService;
+import com.jojowonet.modules.goods.utils.GoodsCategoryUtil;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.OrderOriginService;
+import com.jojowonet.modules.order.service.SiteSettlementService;
+import com.jojowonet.modules.order.utils.*;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportExcel;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+
+
+@Controller
+@RequestMapping(value = "${adminPath}/finance/revenue")
+public class RevenueController extends  BaseController{
+	
+	@Autowired
+	private RevenueService revenueService;
+	@Autowired
+	private FinanceOrderExcelService financeOrderExcelService;
+	@Autowired
+	private OrderOriginService orderOriginServicce;
+
+	@Autowired
+	SiteSettlementService siteSettlementService;
+	
+	@RequestMapping(value="order")
+	public String orderIndex(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+		model.addAttribute("listorigin", listOrigin);
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		Map<String,Object> map = getParams(request);
+		model.addAttribute("headerData", stf);
+		List<Record> employeList = financeOrderExcelService.getEmployeList(siteId);//获取服务工程师列表
+	    String[] str = new String[employeList.size()];
+		if(employeList.size()>0){
+			for(int i=0;i<employeList.size();i++){
+				str[i] = employeList.get(i).getStr("name");
+			}
+		}
+		String createT = DateUtils.formatDate(new Date(), "yyyy");
+		map.put("repairTimeMin", createT + "-01-01");
+		map.put("repairTimeMax", DateUtils.formatDate(new Date(), "yyyy-MM-dd"));
+		model.addAttribute("employeList", str);
+		model.addAttribute("map", map);
+//		String repairTimeMin = request.getParameter("repairTimeMin");
+//		if (StringUtils.isBlank(repairTimeMin)) {
+//		}
+		return "modules/finance/orderIndex";
+	}
+	
+	@RequestMapping(value="goods")
+	public String goodsIndex(HttpServletRequest request,HttpServletResponse response,Model model){		
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		 String placingName = request.getParameter("placingName");
+		 String poTime = request.getParameter("placingOrderTime");
+		 String poTime1 = request.getParameter("placingOrderTime1");
+		 List<Record> placingNameList = financeOrderExcelService.getPlacingNameList(siteId);
+		String[] str = new String[placingNameList.size()];
+		if(placingNameList.size()>0){
+			for(int i=0;i<placingNameList.size();i++){
+				str[i] = placingNameList.get(i).getStr("placing_name");
+			}
+		}
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		String createT = DateUtils.formatDate(new Date(), "yyyy-MM");
+		if(placingName==null || placingName.equals("") ){
+			model.addAttribute("repairTimeMin", createT+"-01");
+		}
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		model.addAttribute("listorigin",listR);//商品类别
+		model.addAttribute("headerData", stf);
+		model.addAttribute("placingName", placingName);
+		model.addAttribute("poTime", poTime);
+		model.addAttribute("poTime1", poTime1);
+		model.addAttribute("placingNameList", str);
+		return "modules/finance/goodsIndex";
+	}
+	
+	@RequestMapping(value="orderList")
+	@ResponseBody
+	public String orderList(HttpServletRequest request, HttpServletResponse response) {
+//		Page<Record> page = new Page<>(request, response);
+		Map<String, Object> map = getParams(request);
+		String siteId = String.valueOf(map.get("siteId"));
+		if ("null".equals(siteId)) {
+			siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			map.put("siteId", siteId);
+		}
+		/*Object createTime = map.get("repairTimeMin");
+		if (createTime == null) {
+			String createT = DateUtils.formatDate(new Date(), "yyyy-MM");
+			map.put("repairTimeMin", createT + "-01");
+		}*/
+
+		Page<Record> page = revenueService.findOrder(new Page<Record>(request, response), map, "");
+		JqGridPage<Record> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+
+	@RequestMapping(value="goodsList")
+	@ResponseBody
+	public String goodsList(HttpServletRequest request,HttpServletResponse response,Model model){
+		Page<Record> page;
+		Map<String, Object> map = getParams(request);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		/*Object createTime = map.get("repairTimeMin");
+		if(createTime == null){
+			String createT = DateUtils.formatDate(new Date(), "yyyy-MM");
+			map.put("createTimeMax", createT+"-01");
+		}*/
+		page = revenueService.findGoods(new Page<Record>(request, response), map,siteId);
+		model.addAttribute("page",page);
+		JqGridPage<Record> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+	
+	
+	@RequestMapping(value="order/export")
+	public String exportfileorder(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+	        pages.setPageSize(10000);
+			Map<String,Object> map =getParams(request);
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+		     JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+		     //jarray.remove(26);
+			jarray.remove(0);
+			String title = stf.getExcelTitle();
+	        String fileName = title+"数据"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+	    	
+			
+			
+	    	Page<Record> page = revenueService.findOrder(pages, map,"");
+	        List<Record> list = page.getList();
+	        if(list.size()>0){
+				 for(Record rd : list){
+                        if("1".equals(rd.getStr("warranty_type"))){
+                        	rd.set("warranty_type", "保内");
+                        }else if("2".equals(rd.getStr("warranty_type"))){
+                        	rd.set("warranty_type", "保外");
+                        }else if("3".equals(rd.getStr("warranty_type"))){
+                        	rd.set("warranty_type", "保外转保内");
+                        }else{
+                        	rd.set("warranty_type", "其他");
+                        }
+                        if(rd.getStr("appliance_brand")!=null&&rd.getStr("appliance_category")==null){
+                        	rd.set("appliance_category", rd.getStr("appliance_brand"));
+                        }else if(rd.getStr("appliance_brand")==null&&rd.getStr("appliance_category")!=null){
+                        	rd.set("appliance_category",rd.getStr("appliance_category"));
+                        }else if(rd.getStr("appliance_brand")!=null&&rd.getStr("appliance_category")!=null){
+                        	rd.set("appliance_category", rd.getStr("appliance_brand")+rd.getStr("appliance_category"));
+                        }else{
+                        	rd.set("appliance_category", "");
+                        }
+                       
+                       if(rd.getBigDecimal("serve_cost")==null){
+                    	   rd.set("serve_cost", new BigDecimal(0));
+                       }
+                       if(rd.getBigDecimal("auxiliary_cost")==null){
+                    	   rd.set("auxiliary_cost", new BigDecimal(0));
+                       }
+                       if(rd.getBigDecimal("warranty_cost")==null){
+                    	   rd.set("warranty_cost", new BigDecimal(0));
+                       }
+                       rd.set("costs", rd.getBigDecimal("serve_cost").add(rd.getBigDecimal("auxiliary_cost")).add(rd.getBigDecimal("warranty_cost")));
+                       
+                       if(rd.getStr("whether_collection").equals("0")){
+                    	   rd.set("whether_collection", "否");
+                       }else if(rd.getStr("whether_collection").equals("1")){
+                    	   rd.set("whether_collection", "是");
+                       }else{
+                    	   rd.set("whether_collection", "未知");
+                       }
+                       
+                       if(rd.getDate("settlement_time")==null){
+                    	   rd.set("settlementTime", "否");
+                       }else {
+                    	   rd.set("settlementTime", "是");
+                       }
+                       if("1".equals(rd.getStr("order_type"))){
+                    	  rd.set("order_type", "ERP系统录入");
+                      }else if("2".equals(rd.getStr("order_type"))){
+                    	  rd.set("order_type", "美的厂家系统");
+                      }else if("3".equals(rd.getStr("order_type"))){
+                    	  rd.set("order_type", "惠而浦厂家系统");
+                      }else if("4".equals(rd.getStr("order_type"))){
+                    	  rd.set("order_type", "海信厂家系统");
+                      }else if("5".equals(rd.getStr("order_type"))){
+                    	  rd.set("order_type", "海尔厂家系统");
+                      }else{
+                    	  rd.set("order_type", "其他");
+                      }
+                      
+                      if("i".equals(rd.getStr("type"))){
+                    	  rd.set("type", "整数");
+                      }else{
+                    	  rd.set("type", "实数");
+                      }
+				 }
+	        }
+			new ExportJqExcel(title+"数据", jarray.toString(), stf.getSortHeader())
+				.setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+	
+	
+	@RequestMapping(value="goods/export")
+	public String exportfilegoods(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+	        pages.setPageSize(10000);
+			Map<String,Object> map = getParams(request);
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+/*			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+            jarray.remove(0);*/
+			String title = stf.getExcelTitle();
+	        String fileName = title+"数据"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+	    	
+			
+			
+	        Page<Record> page = revenueService.findGoods(pages, map,siteId);
+	        List<Record> list = page.getList();
+	        if(list.size()>0){
+				 for(Record rd : list){
+					   if("i".equals(rd.getStr("type"))){
+	                    	  rd.set("type", "整数");
+	                      }else{
+	                    	  rd.set("type", "实数");
+	                      }
+					   
+					   if("2".equals(rd.getStr("jkstatus"))){
+						   rd.set("jkstatus", "是");
+					   }else if("3".equals(rd.getStr("jkstatus"))){
+						   rd.set("jkstatus", "是");
+					   }else{
+						   rd.set("jkstatus", "否");
+					   }
+					   if(rd.getDate("outstock_time")!=null){
+						   rd.set("ifOutstocks", "是");
+					   }else{
+						   rd.set("ifOutstocks", "否");
+					   }
+					   if("1".equals(rd.getStr("good_source"))){
+						   rd.set("good_source", "自营");
+					   }else{
+						   rd.set("good_source", "平台");
+					   }
+					 
+				 }
+	        }
+			new ExportJqExcel(title+"数据", stf.getTableHeader(), stf.getSortHeader())
+				.setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+	
+	
+	@RequestMapping(value="toEmployeDetail")
+	public String employeDetail(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map1 = getParams(request);
+		if(map1.size()==0){
+			String createT = DateUtils.formatDate(new Date(), "yyyy");
+			map1.put("repairTimeMin", createT + "-01-01");
+			map1.put("repairTimeMax", DateUtils.formatDate(new Date(), "yyyy-MM-dd"));
+		}
+		if(map1!=null){
+			String empName = revenueService.getTrimmedParamValue(map1, "employeName");
+			if(StringUtils.isNotBlank(empName)){
+				model.addAttribute("empName", empName);
+			}else{
+				model.addAttribute("empName", "");
+			}
+			String endTimeMin = revenueService.getTrimmedParamValue(map1, "endTimeMin");//完工时间
+			if(StringUtils.isNotEmpty(endTimeMin)){
+				model.addAttribute("endTimeMin", endTimeMin);
+			}else{
+				model.addAttribute("endTimeMin", "");
+			}
+			String endTimeMax = revenueService.getTrimmedParamValue(map1, "endTimeMax");
+			if(StringUtils.isNotEmpty(endTimeMax)){
+				model.addAttribute("endTimeMax", endTimeMax);
+			}else{
+				model.addAttribute("endTimeMax", "");
+			}
+			String settlementTimeMin = revenueService.getTrimmedParamValue(map1, "settlementTimeMin");//结算归属时间
+			if(StringUtils.isNotEmpty(settlementTimeMin)){
+				model.addAttribute("settlementTimeMin", settlementTimeMin);
+			}else{
+				model.addAttribute("settlementTimeMin", "");
+			}
+			String settlementTimeMax = revenueService.getTrimmedParamValue(map1, "settlementTimeMax");
+			if(StringUtils.isNotEmpty(settlementTimeMax)){
+				model.addAttribute("settlementTimeMax", settlementTimeMax);
+			}else{
+				model.addAttribute("settlementTimeMax", "");
+			}
+		}
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		List<Record> list = revenueService.empList(siteId,map1,"");
+		model.addAttribute("headerData", stf);
+		model.addAttribute("empList", list);
+		model.addAttribute("map1", map1);
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		model.addAttribute("category", category);
+		Map<String, String> brand = BrandUtils.getSiteBrand(siteId,null);
+		model.addAttribute("brand",brand);
+		return "modules/finance/employeCostDetail"; 
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="toEmployeDetailGrid")
+	public String toEmployeDetailGrid(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map1 = getParams(request);
+		Page<Record> page = revenueService.employeDetail(new Page<Record>(request, response), map1,siteId,"");
+		JqGridPage<Record> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+	
+	@RequestMapping(value="toCostAll")
+	public String toCostAll(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map1 = getParams(request);
+		if(map1.size()==0){
+			String createT = DateUtils.formatDate(new Date(), "yyyy");
+			map1.put("repairTimeMin", createT + "-01-01");
+			map1.put("repairTimeMax", DateUtils.formatDate(new Date(), "yyyy-MM-dd"));
+		}
+		if(map1!=null){
+			String empName = revenueService.getTrimmedParamValue(map1, "employeName");
+			if(StringUtils.isNotBlank(empName)){
+				model.addAttribute("empName", empName);
+			}else{
+				model.addAttribute("empName", "");
+			}
+			String endTimeMin = revenueService.getTrimmedParamValue(map1, "endTimeMin");//完工时间
+			if(StringUtils.isNotEmpty(endTimeMin)){
+				model.addAttribute("endTimeMin", endTimeMin);
+			}else{
+				model.addAttribute("endTimeMin", "");
+			}
+			String endTimeMax = revenueService.getTrimmedParamValue(map1, "endTimeMax");
+			if(StringUtils.isNotEmpty(endTimeMax)){
+				model.addAttribute("endTimeMax", endTimeMax);
+			}else{
+				model.addAttribute("endTimeMax", "");
+			}
+			String settlementTimeMin = revenueService.getTrimmedParamValue(map1, "settlementTimeMin");//结算归属时间
+			if(StringUtils.isNotEmpty(settlementTimeMin)){
+				model.addAttribute("settlementTimeMin", settlementTimeMin);
+			}else{
+				model.addAttribute("settlementTimeMin", "");
+			}
+			String settlementTimeMax = revenueService.getTrimmedParamValue(map1, "settlementTimeMax");
+			if(StringUtils.isNotEmpty(settlementTimeMax)){
+				model.addAttribute("settlementTimeMax", settlementTimeMax);
+			}else{
+				model.addAttribute("settlementTimeMax", "");
+			}
+		}
+		Page<Record> page = revenueService.empCountPage(siteId, new Page<Record>(request, response),map1);
+		List<Record> list = revenueService.empList(siteId,map1,"");
+		model.addAttribute("empList", list);
+		model.addAttribute("page", page);
+		model.addAttribute("map1", map1);
+		return "modules/finance/employeCostAll"; 
+	}
+	
+	@RequestMapping(value="getSummoney")
+	@ResponseBody
+	public Object getSummoney(HttpServletRequest request,
+			HttpServletResponse response){
+		Map<String, Object> map = getParams(request);
+		Record rds = revenueService.getSumMoney(map);
+		return rds;
+	}
+	
+	//审核不通过
+	@RequestMapping(value="reviewFailed")
+	@ResponseBody
+	public String reviewFailed(HttpServletRequest request,
+			HttpServletResponse response,String[] id,String reviewRemark){
+		int j=0;
+		for(int i=0;i<id.length;i++){
+			 j=j+revenueService.reviewFailed(id[i],reviewRemark);
+		}
+		if(j==id.length){
+			return "ok";
+		}else{
+			return "false";
+		}
+		
+	}
+	
+	//审核通过
+	@RequestMapping(value="reviewPass")
+	@ResponseBody
+	public String reviewPass(HttpServletRequest request,
+			HttpServletResponse response,String[] id,String reviewRemark){
+		int j=0;
+		for(int i=0;i<id.length;i++){
+			j= j+revenueService.reviewPass(id[i],reviewRemark);
+		}
+		if(j==id.length){
+			return "ok";
+		}else{
+			return "false";
+		}
+	}
+
+	//审核结算弹出框
+	@RequestMapping(value="showSettlementdetaile")
+	public String showSettlementdetaile(HttpServletRequest request){
+        String orderId = request.getParameter("id"); // orderId
+		String sql = "SELECT * FROM crm_order_settlement WHERE order_id='" + orderId + "' ";
+		Record sittlement = Db.findFirst(sql);
+         String sql2="SELECT review_remark FROM crm_order WHERE id='"+orderId+"' ";
+         String reviewRemark=Db.queryStr(sql2);
+		String sql3="SELECT service_measures FROM crm_order_settlement WHERE order_id='"+orderId+"' ";
+		String serviceMeasures=Db.queryStr(sql3);
+		String sittlementSource = "order2";
+		if (sittlement != null) {
+			if (sittlement.getStr("create_name").equals("__MIGRATION__")) {
+				sittlementSource = "order1";
+			}
+		}
+		request.setAttribute("sittlementSource", sittlementSource);
+		request.setAttribute("st", siteSettlementService.getSettlementDetails(orderId));
+		request.setAttribute("orderId",orderId);
+		request.setAttribute("serviceMeasures",serviceMeasures);
+		if(StringUtil.isNotBlank(reviewRemark)){
+			request.setAttribute("reviewRemark",reviewRemark);
+		}
+
+		return "modules/finance/settlementDetailop";
+	}
+	
+
+	
+	@ResponseBody
+	@RequestMapping(value="employeDetailExport")
+	public String employeDetailExport(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+	        pages.setPageSize(10000);
+			Map<String,Object> map = getParams(request);
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+	        String fileName = title+"数据"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+	        Page<Record> page = revenueService.employeDetail(pages, map,siteId,"");
+	        List<Record> list = page.getList();
+	        if(list.size()>0){
+				 for(Record rd : list){
+					   if("1".equals(rd.getStr("warranty_type"))){
+                    	   rd.set("warranty_type", "保内");
+                       }else if("2".equals(rd.getStr("warranty_type"))){
+                    	   rd.set("warranty_type", "保外");
+                       }else{
+                    	   rd.set("warranty_type", "");
+                       }
+				 }
+	        }
+			new ExportJqExcel(title+"数据", stf.getTableHeader(), stf.getSortHeader())
+				.setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="employeCostAllExport")
+	public String employeCostAllExport(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+	        String fileName = "工程师结算汇总"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+	        String title="工程师结算汇总";
+	        User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Map<String,Object> map = getParams(request);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+	        pages.setPageSize(10000);
+	        Page<Record> page = revenueService.empCountPage(siteId, pages,map);
+	        List<Record> list = page.getList();
+	        List<EmployeCostAll> list1 = new ArrayList<>();
+	        if(list.size()>0){
+	        	for(Record rd : list){
+		        	EmployeCostAll ec = new EmployeCostAll();
+		        	if(StringUtils.isNotBlank(rd.getStr("employe_name"))){
+		        		ec.setEmployeName(rd.getStr("employe_name"));
+		        	}
+		        	if(rd.getBigDecimal("allMoney")!=null){
+		        		ec.setSumMoney(rd.getBigDecimal("allMoney"));
+		        	}
+		        	if(rd.getBigDecimal("todayMoney")!=null){
+		        		ec.setTodayMoney(rd.getBigDecimal("todayMoney"));
+		        	}
+		        	if(rd.getBigDecimal("relMoney")!=null){
+		        		ec.setRelMoney(rd.getBigDecimal("relMoney"));
+		        	}
+		        	list1.add(ec);
+		        }
+	        }
+	        ExportExcel ee=new ExportExcel(title, EmployeCostAll.class).setDataList(list1);
+	        new ExcelUtilsEx().write(request, response, fileName, ee).dispose();
+	          
+			return null;
+		} catch (Exception e) {
+			addMessage(redirectAttributes,"导出用户失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+	
+	//商品工程师明细
+	@RequestMapping(value="toEmployeGoodsDetail")
+	public String employeGoodsDetail(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map1 = getParams(request);
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		List<Record> list = revenueService.empGoodsList(siteId);
+		model.addAttribute("headerData", stf);
+		model.addAttribute("empList", list);
+		model.addAttribute("map1", map1);
+		return "modules/finance/employeCostGoodsDetail"; 
+	}
+	//商品工程师汇总
+	@RequestMapping(value="employeCostGoodsAll")
+	public String employeCostGoodsAll(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map1 = getParams(request);
+		List<Record> list = revenueService.empGoodsList(siteId);
+		Page<Record> page = revenueService.empGoodsCountPage(siteId, new Page<Record>(request, response),map1);
+		model.addAttribute("empList", list);
+		model.addAttribute("map1", map1);
+		model.addAttribute("page", page);
+		return "modules/finance/employeCostGoodsAll"; 
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="toEmployeGoodsDetailGrid")
+	public String toEmployeGoodsDetailGrid(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map1 = getParams(request);
+		Page<Record> page = revenueService.employeGoodsDetail(new Page<Record>(request, response), map1,siteId);
+		JqGridPage<Record> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="employeGoodsDetailExport")
+	public String employeGoodsDetailExport(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String,Object> map = getParams(request);
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+			String fileName = title+"数据"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+			Page<Record> page = revenueService.employeGoodsDetail(pages, map,siteId);
+			List<Record> list = page.getList();
+			if(list!=null && list.size() > 0){
+				for(Record rd : list){
+					Date confirmTime = rd.getDate("confirm_time");
+					Date outstockTime = rd.getDate("outstock_time");
+					if(confirmTime!=null){
+						rd.set("confirmTime", "是");
+					}else{
+						rd.set("confirmTime", "否");
+					}
+					if(outstockTime!=null){
+						rd.set("outstockTime", "是");
+					}else{
+						rd.set("outstockTime", "否");
+					}
+				}
+				new ExportJqExcel(title+"数据", stf.getTableHeader(), stf.getSortHeader())
+				.setDataList(list).write(request, response, fileName).dispose();
+			}
+			
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="employeCostGoodsAllExports")
+	public String employeCostGoodsAllExports(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+	        String fileName = "工程师结算汇总"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+	        String title="工程师结算汇总";
+	        User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Map<String,Object> map = getParams(request);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+	        pages.setPageSize(10000);
+	        Page<Record> page = revenueService.empGoodsCountPage(siteId, pages,map);
+	        List<Record> list = page.getList();
+	        List<EmployeCostGoodsAll> list1 = new ArrayList<>();
+	        if(list.size()>0){
+	        	for(Record rd : list){
+	        		EmployeCostGoodsAll ec = new EmployeCostGoodsAll();
+		        	if(StringUtils.isNotBlank(rd.getStr("salesman"))){
+		        		ec.setSalesman(rd.getStr("salesman"));
+		        	}
+		        	if(rd.getBigDecimal("ticheng")!=null){
+		        		ec.setTicheng(rd.getBigDecimal("ticheng"));
+		        	}
+		        	list1.add(ec);
+		        }
+	        }
+	        ExportExcel ee=new ExportExcel(title, EmployeCostGoodsAll.class).setDataList(list1);
+	        new ExcelUtilsEx().write(request, response, fileName, ee).dispose();
+	          
+			return null;
+		} catch (Exception e) {
+			addMessage(redirectAttributes,"导出用户失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+	
+	
+}

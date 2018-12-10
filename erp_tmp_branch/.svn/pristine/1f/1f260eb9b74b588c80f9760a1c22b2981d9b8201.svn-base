@@ -1,0 +1,46 @@
+package com.jojowonet.modules.order.entity;
+
+import java.io.Serializable;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+@Entity
+@Table(name = "crm_announcement_site_read")
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class AnnouncementSiteRead implements Serializable{
+	private static final long serialVersionUID = 1L;
+	private String id;
+	private String announcementId;
+	private String siteId;
+	
+	@Id
+	@GeneratedValue(generator="idGenerator")
+	@GenericGenerator(name="idGenerator", strategy="uuid")
+	public String getId() {
+		return id;
+	}
+	public void setId(String id) {
+		this.id = id;
+	}
+	public String getAnnouncementId() {
+		return announcementId;
+	}
+	public void setAnnouncementId(String announcementId) {
+		this.announcementId = announcementId;
+	}
+	public String getSiteId() {
+		return siteId;
+	}
+	public void setSiteId(String siteId) {
+		this.siteId = siteId;
+	}
+	
+	
+}

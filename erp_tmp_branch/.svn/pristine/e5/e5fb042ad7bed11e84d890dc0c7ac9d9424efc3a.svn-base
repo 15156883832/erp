@@ -1,0 +1,651 @@
+package com.jojowonet.modules.order.web;
+
+import com.google.gson.Gson;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.service.EmployeService;
+import com.jojowonet.modules.order.adapters.HistoryBkOrder;
+import com.jojowonet.modules.order.dao.Order2017Dao;
+import com.jojowonet.modules.order.dao.SiteCommonSettingDao;
+import com.jojowonet.modules.order.entity.*;
+import com.jojowonet.modules.order.form.AppendedSettlementItem;
+import com.jojowonet.modules.order.form.BatchSettlementForm;
+import com.jojowonet.modules.order.form.SettlementForm;
+import com.jojowonet.modules.order.form.vo.OrderSettlement2017Vo;
+import com.jojowonet.modules.order.form.vo.OrderSettlementVo;
+import com.jojowonet.modules.order.form.vo.SettlementTemplateVo;
+import com.jojowonet.modules.order.service.OrderCallBackService;
+import com.jojowonet.modules.order.service.OrderDispatchService;
+import com.jojowonet.modules.order.service.OrderService;
+import com.jojowonet.modules.order.service.SiteSettlementService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.order.utils.TableSplitMapper;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+import org.apache.poi.ss.formula.functions.T;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+
+@Controller
+@RequestMapping(value = "${adminPath}/order/settlement")
+public class SiteSettlementController extends BaseController {
+
+    @Autowired
+    OrderService orderService;
+
+    @Autowired
+    OrderDispatchService orderDispatchService;
+
+    @Autowired
+    SiteSettlementService siteSettlementService;
+
+    @Autowired
+    EmployeService employeService;
+
+    @Autowired
+    OrderCallBackService orderCallBackService;
+
+    @Autowired
+    Order2017Dao order2017Dao;
+
+    @Autowired
+    SiteCommonSettingDao siteCommonSettingDao;
+    @Autowired
+    TableSplitMapper tableSplitMapper;
+
+    @RequestMapping("new")
+    public String newSettlement(HttpServletRequest request, Model model) {
+        String orderId = request.getParameter("id");
+        String mode = request.getParameter("mode"); // mode 1 表示重新结算, 0表示结算
+        Order order = orderService.get(orderId);
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+
+        model.addAttribute("mode", mode == null ? "0" : "1");
+        model.addAttribute("order", order);
+        model.addAttribute("siteId", siteId);
+        model.addAttribute("orderCost", order.getServeCost() + order.getAuxiliaryCost() + order.getWarrantyCost());
+        List<Record> relatedEmployeList = siteSettlementService.getOrderRelatedEmployeList(order.getId());
+        model.addAttribute("emps", relatedEmployeList);
+        model.addAttribute("ratioSum", SiteSettlementService.calcAllRatio(relatedEmployeList));
+        BigDecimal[] orderUsedFittingCost = siteSettlementService.getOrderAccessoryCostAndEmpAccCost(order.getNumber(), siteId);
+        model.addAttribute("accessoryCost", orderUsedFittingCost[0]);
+        model.addAttribute("empAccCost", orderUsedFittingCost[1]);
+        model.addAttribute("tmpls", siteSettlementService.getSiteSettlementTemplateList(order, orderUsedFittingCost));
+        model.addAttribute("siteEmps", employeService.getSiteEmployeList(siteId));
+        if (order.getEndTime() != null && order.getCreateTime() != null) {
+        	Date distime = orderService.getdisTime(siteId, orderId);
+        	Date creaTime = order.getCreateTime();
+        	Date endtime = order.getEndTime();
+        	model.addAttribute("disTimes",CrmUtils.getTimeDifference(endtime, distime));
+            model.addAttribute("endTimeslot", CrmUtils.getTimeDifference(order.getEndTime(), creaTime));
+        }
+        model.addAttribute("endTime", decideEndTime(order.getEndTime(), order.getSiteId()));
+
+        return "modules/order/settlement/new";
+    }
+
+    private String decideEndTime(Date orderEndTime, String siteId) {
+        SiteCommonSetting setting = siteCommonSettingDao.getSettingByType("15", siteId);
+        if (setting == null || "1".equals(setting.getSetValue())) {
+            if (orderEndTime != null) {
+                return new SimpleDateFormat("yyyy-MM-dd").format(orderEndTime);
+            }
+        }
+        if (setting != null && "2".equals(setting.getSetValue())) {
+            return new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        }
+        return "";
+    }
+
+    @RequestMapping("new2017")
+    public String newSettlement2017(HttpServletRequest request, Model model) {
+        String orderId = request.getParameter("id");
+        String mode = request.getParameter("mode"); // mode 1 表示重新结算, 0表示结算
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        HistoryBkOrder order = new HistoryBkOrder(order2017Dao.findOrderById(orderId, siteId));
+
+        model.addAttribute("mode", mode == null ? "0" : "1");
+        model.addAttribute("order", order);
+        model.addAttribute("siteId", siteId);
+        model.addAttribute("orderCost", SiteSettlementService.sum(order.getServeCost(), order.getAuxiliaryCost(),  order.getWarrantyCost()));
+        List<Record> relatedEmployeList = siteSettlementService.getOrderRelatedEmployeList2017(order.getId(), siteId);
+        model.addAttribute("emps", relatedEmployeList);
+        model.addAttribute("ratioSum", SiteSettlementService.calcAllRatio(relatedEmployeList));
+        BigDecimal[] orderUsedFittingCost = siteSettlementService.getOrderAccessoryCostAndEmpAccCost(order.getNumber(), siteId);
+        model.addAttribute("accessoryCost", orderUsedFittingCost[0]);
+        model.addAttribute("empAccCost", orderUsedFittingCost[1]);
+        model.addAttribute("tmpls", siteSettlementService.getSiteSettlementTemplateList2017(order, orderUsedFittingCost));
+        model.addAttribute("siteEmps", employeService.getSiteEmployeList(siteId));
+//        if (order.getEndTime() != null) {
+//            model.addAttribute("endTime", new SimpleDateFormat("yyyy-MM-dd").format(order.getEndTime()));
+//        }
+        model.addAttribute("endTime", decideEndTime(order.getEndTime(), order.getSiteId()));
+
+        return "modules/order/orderManagement/2017Order/new2017";
+    }
+
+    @RequestMapping("edit")
+    public String editSettlement(HttpServletRequest request, Model model) {
+        String orderId = request.getParameter("id");
+        String markIf = request.getParameter("markIf");//是否为历史工单的结算
+        String mode = request.getParameter("mode"); // mode 1 表示重新结算, 0表示结算
+        Order order = orderService.get(orderId);
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+
+        model.addAttribute("mode", mode == null ? "0" : "1");
+        model.addAttribute("order", order);
+        model.addAttribute("markIf", markIf);
+        model.addAttribute("siteId", siteId);
+        model.addAttribute("orderCost", order.getServeCost() + order.getAuxiliaryCost() + order.getWarrantyCost());
+        List<Record> relatedEmployeList = siteSettlementService.getOrderRelatedEmployeList(order.getId());
+        model.addAttribute("emps", relatedEmployeList);
+        model.addAttribute("ratioSum", SiteSettlementService.calcAllRatio(relatedEmployeList));
+        BigDecimal[] orderUsedFittingCost = siteSettlementService.getOrderAccessoryCostAndEmpAccCost(order.getNumber(), siteId);
+        model.addAttribute("accessoryCost", orderUsedFittingCost[0]);
+        model.addAttribute("empAccCost", orderUsedFittingCost[1]);
+        model.addAttribute("siteEmps", employeService.getSiteEmployeList(siteId));
+        if (order.getEndTime() != null) {
+        	Date distime = orderService.getdisTime(siteId, orderId);
+        	Date createTime = order.getCreateTime();
+         	Date endtime = order.getEndTime();
+        	model.addAttribute("disTimes",CrmUtils.getTimeDifference(endtime, distime));
+            model.addAttribute("endTimeslot", CrmUtils.getTimeDifference(order.getEndTime(), createTime));
+            model.addAttribute("endTime", new SimpleDateFormat("yyyy-MM-dd").format(order.getEndTime()));
+        }
+        List<SettlementTemplateVo> templateList = siteSettlementService.getSiteSettlementTemplateList(order, orderUsedFittingCost);
+        model.addAttribute("tmpls", templateList);
+
+        OrderSettlementVo st = siteSettlementService.getSettlementDetails(orderId);
+        if (st == null) {
+            return "modules/order/settlement/new";
+        }
+        OrderSettlement settlement = st.getOrderSettlement();
+        if ("__MIGRATION__".equals(settlement.getCreateName())) {
+            return "modules/order/settlement/new";
+        }
+
+        List<OrderSettlementDetail> dispEmpSettlementDetail = st.getDispEmpSettlementDetail();
+        HashSet<String> old = new HashSet<>();
+        for (OrderSettlementDetail d : dispEmpSettlementDetail) {
+            old.add(d.getEmployeId());
+            for(Record r : relatedEmployeList) {
+                if (r.getStr("id").equals(d.getEmployeId())) {
+                    d.setRatio(r.getBigDecimal("ratio"));
+                }
+            }
+        }
+        // 重新结算时，工程师可能已经不是之前结算时的工程师，需要将新的工程师也带出来，但是新的工程师此时的结算费设置为0。
+        for (Record r : relatedEmployeList) {
+            if (!old.contains(r.getStr("id"))) {
+                OrderSettlementDetail d = new OrderSettlementDetail();
+                d.setRatio(r.getBigDecimal("ratio"));
+                d.setEmployeId(r.getStr("id"));
+                d.setOrderId(orderId);
+                d.setSettlementId(settlement.getId());
+                d.setEmployeName(r.getStr("name"));
+                dispEmpSettlementDetail.add(d);
+            }
+        }
+        model.addAttribute("st", st);
+        return "modules/order/settlement/edit";
+    }
+
+    @RequestMapping("edit2017")
+    public String editSettlement2017(HttpServletRequest request, Model model) {
+        String orderId = request.getParameter("id");
+        String markIf = request.getParameter("markIf");//是否为历史工单的结算
+        String mode = request.getParameter("mode"); // mode 1 表示重新结算, 0表showHtml示结算
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        HistoryBkOrder order = new HistoryBkOrder(order2017Dao.findOrderById(orderId, siteId));
+        model.addAttribute("mode", mode == null ? "0" : "1");
+        model.addAttribute("order", order);
+        model.addAttribute("markIf", markIf);
+        model.addAttribute("siteId", siteId);
+        model.addAttribute("orderCost", SiteSettlementService.sum(order.getServeCost(), order.getAuxiliaryCost(), order.getWarrantyCost()));
+        List<Record> relatedEmployeList = siteSettlementService.getOrderRelatedEmployeList2017(order.getId(), siteId);
+        model.addAttribute("emps", relatedEmployeList);
+        model.addAttribute("ratioSum", SiteSettlementService.calcAllRatio(relatedEmployeList));
+        BigDecimal[] orderUsedFittingCost = siteSettlementService.getOrderAccessoryCostAndEmpAccCost(order.getNumber(), siteId);
+        model.addAttribute("accessoryCost", orderUsedFittingCost[0]);
+        model.addAttribute("empAccCost", orderUsedFittingCost[1]);
+        model.addAttribute("siteEmps", employeService.getSiteEmployeList(siteId));
+        if (order.getEndTime() != null) {
+            model.addAttribute("endTime", new SimpleDateFormat("yyyy-MM-dd").format(order.getEndTime()));
+        }
+        List<SettlementTemplateVo> templateList = siteSettlementService.getSiteSettlementTemplateList2017(order, orderUsedFittingCost);
+        model.addAttribute("tmpls", templateList);
+
+        OrderSettlement2017Vo st = siteSettlementService.getSettlementDetails2017(orderId, siteId);
+        if (st == null) {
+            return "modules/order/orderManagement/2017Order/new2017";
+        }
+        Record settlement = st.getOrderSettlement();
+        if ("__MIGRATION__".equals(settlement.getStr("create_name"))) {
+            return "modules/order/orderManagement/2017Order/new2017";
+        }
+
+        List<Record> dispEmpSettlementDetail = st.getDispEmpSettlementDetail();
+        HashSet<String> old = new HashSet<>();
+        for (Record d : dispEmpSettlementDetail) {
+            old.add(d.getStr("employe_id"));
+            for(Record r : relatedEmployeList) {
+                if (r.getStr("id").equals(d.getStr("employe_id"))) {
+                    d.set("ratio", r.getBigDecimal("ratio"));
+                }
+            }
+        }
+        // 重新结算时，工程师可能已经不是之前结算时的工程师，需要将新的工程师也带出来，但是新的工程师此时的结算费设置为0。
+        for (Record r : relatedEmployeList) {
+            if (!old.contains(r.getStr("id"))) {
+                Record d = new Record();
+                d.set("ratio", r.getBigDecimal("ratio"));
+                d.set("employe_id", r.getStr("id"));
+                d.set("order_id", orderId);
+                d.set("settlement_id", settlement.getStr("id"));
+                d.set("employe_name", r.getStr("name"));
+                dispEmpSettlementDetail.add(d);
+            }
+        }
+        model.addAttribute("st", st);
+        return "modules/order/orderManagement/2017Order/edit2017";
+    }
+
+    @RequestMapping("canSettlement")
+    @ResponseBody
+    public String canSettlement(HttpServletRequest request) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String orderId = request.getParameter("orderId");
+        String markIf = request.getParameter("markIf");
+        List<Record> relEmps = siteSettlementService.getOrderRelatedEmployeList(orderId);
+        //结算条件设置
+        Record rd = orderDispatchService.queryLsSet(siteId);
+        // 回访信息
+        Record callbacks = orderCallBackService.getCallBackInfo(orderId, siteId);
+        //工单收费信息
+        Record rdOrderMsg = orderDispatchService.getOrderMoneyMsg(orderId);
+        boolean isOrderRelateDelEmp = siteSettlementService.isOrderRelatedDelEmp(orderId);
+        if (isOrderRelateDelEmp) {
+            return "delEmpDT"; // 发现工单关联了一个删除的工程师
+        }
+        
+        if(!"redirect".equals(markIf)) {//历史工单结算验证时跳过结算条件设置的限制
+        	if (rd != null) {//设置了结算条件
+                BigDecimal allMny = SiteSettlementService.sum(rdOrderMsg.getBigDecimal("auxiliary_cost"), rdOrderMsg.getBigDecimal("serve_cost"), rdOrderMsg.getBigDecimal("warranty_cost"));
+                BigDecimal confirmMny = rdOrderMsg.getBigDecimal("confirm_cost");
+                if (confirmMny == null) {
+                    confirmMny = new BigDecimal("0");
+                }
+                if ("0".equals(rd.getStr("set_value"))) {//0先回访在结算
+                    if (callbacks == null) {
+                        return "value0";
+                    }
+                    if (!"1".equals(callbacks.getStr("result"))) {
+                        return "value0";
+                    }
+                }
+                if ("1".equals(rd.getStr("set_value"))) {//1实收金额=交款金额
+                    if (!(allMny.compareTo(confirmMny) == 0)) {//不相等
+                        return "value1";
+                    }
+                }
+                if ("2".equals(rd.getStr("set_value"))) {//0、1两种结算条件都选中
+                    if (callbacks == null) {
+                        return "value20";
+                    }
+                    if (!"1".equals(callbacks.getStr("result"))) {
+                        return "value20";
+                    }
+                    if (!(allMny.compareTo(confirmMny) == 0)) {//不相等
+                        return "value21";
+                    }
+                }
+                if ("3".equals(rd.getStr("set_value"))) {//0、1两种结算条件都未选
+//                    return "T";
+                }
+            }
+        }
+        
+        try {
+            SiteSettlementService.calcAllRatio(relEmps);
+            return "T"; // can settlement
+        } catch (Exception ex) {
+            return "F"; // cannot settlement
+        }
+    }
+
+    @RequestMapping("canSettlement2017")
+    @ResponseBody
+    public String canSettlement2017(HttpServletRequest request) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String orderId = request.getParameter("orderId");
+        String markIf = request.getParameter("markIf");
+        List<Record> relEmps = siteSettlementService.getOrderRelatedEmployeList2017(orderId, siteId);
+        //结算条件设置
+        Record rd = orderDispatchService.queryLsSet(siteId);
+        // 回访信息
+        Record callbacks = orderCallBackService.getCallBackInfo2017(orderId, siteId);
+        //工单收费信息
+        Record rdOrderMsg = orderDispatchService.getOrderMoneyMsg2017(orderId, siteId);
+        boolean isOrderRelateDelEmp = siteSettlementService.isOrderRelatedDelEmp2017(orderId, siteId);
+        if (isOrderRelateDelEmp) {
+            return "delEmpDT"; // 发现工单关联了一个删除的工程师
+        }
+
+        if(!"redirect".equals(markIf)) {//历史工单结算验证时跳过结算条件设置的限制
+            if (rd != null) {//设置了结算条件
+                BigDecimal allMny = SiteSettlementService.sum(rdOrderMsg.getBigDecimal("auxiliary_cost"), rdOrderMsg.getBigDecimal("serve_cost"), rdOrderMsg.getBigDecimal("warranty_cost"));
+                BigDecimal confirmMny = rdOrderMsg.getBigDecimal("confirm_cost");
+                if (confirmMny == null) {
+                    confirmMny = new BigDecimal("0");
+                }
+                if ("0".equals(rd.getStr("set_value"))) {//0先回访在结算
+                    if (callbacks == null) {
+                        return "value0";
+                    }
+                    if (!"1".equals(callbacks.getStr("result"))) {
+                        return "value0";
+                    }
+                }
+                if ("1".equals(rd.getStr("set_value"))) {//1实收金额=交款金额
+                    if (!(allMny.compareTo(confirmMny) == 0)) {//不相等
+                        return "value1";
+                    }
+                }
+                if ("2".equals(rd.getStr("set_value"))) {//0、1两种结算条件都选中
+                    if (callbacks == null) {
+                        return "value20";
+                    }
+                    if (!"1".equals(callbacks.getStr("result"))) {
+                        return "value20";
+                    }
+                    if (!(allMny.compareTo(confirmMny) == 0)) {//不相等
+                        return "value21";
+                    }
+                }
+                if ("3".equals(rd.getStr("set_value"))) {//0、1两种结算条件都未选
+//                    return "T";
+                }
+            }
+        }
+
+        try {
+            SiteSettlementService.calcAllRatio(relEmps);
+            return "T"; // can settlement
+        } catch (Exception ex) {
+            return "F"; // cannot settlement
+        }
+    }
+
+    @ResponseBody
+    @RequestMapping("saveEdit")
+    public Object saveEdit(HttpServletRequest request, @RequestBody String param, BindingResult result) {
+        SettlementForm settlementForm = new Gson().fromJson(param, SettlementForm.class);
+        String orderId = settlementForm.getOrderId();
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Record rd = orderDispatchService.queryLsSet(siteId);
+        Record callbacks = orderCallBackService.getCallBackInfo(orderId, siteId);
+        Record rdOrderMsg = orderDispatchService.getOrderMoneyMsg(orderId);
+        String status = orderService.get(orderId).getStatus();//获取工单的状态
+        if("5".equals(status) || "8".equals(status)) {//历史工单
+        	 
+        }else {
+        	Object checkRet = checkSettlement(rdOrderMsg, callbacks, rd);
+            if (checkRet != null) {
+                return checkRet;
+            }
+        }
+        // accCostEnabled和factoryFeeEnabled仅用于标识相关的费用是否启用，后台不用考虑。前台传值是当factoryFeeEnabled为false的时候，传过来的值已经是0；
+        Boolean factoryFeeEnabled = settlementForm.getFactoryFeeEnabled();
+        logger.info(String.format("settlement->order id[%s],factory fee enabled=%b", settlementForm.getOrderId(), factoryFeeEnabled));
+        return siteSettlementService.saveEdit(settlementForm);
+    }
+
+    @ResponseBody
+    @RequestMapping("saveEdit2017")
+    public Object saveEdit2017(HttpServletRequest request, @RequestBody String param, BindingResult result) {
+        SettlementForm settlementForm = new Gson().fromJson(param, SettlementForm.class);
+        String orderId = settlementForm.getOrderId();
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Record rd = orderDispatchService.queryLsSet(siteId);
+        Record callbacks = orderCallBackService.getCallBackInfo2017(orderId, siteId);
+        Record rdOrderMsg = orderDispatchService.getOrderMoneyMsg2017(orderId, siteId);
+        String status = order2017Dao.findOrderById(orderId, siteId).getStr("status");//获取工单的状态
+        if("5".equals(status) || "8".equals(status)) {//历史工单
+
+        }else {
+            Object checkRet = checkSettlement(rdOrderMsg, callbacks, rd);
+            if (checkRet != null) {
+                return checkRet;
+            }
+        }
+        // accCostEnabled和factoryFeeEnabled仅用于标识相关的费用是否启用，后台不用考虑。前台传值是当factoryFeeEnabled为false的时候，传过来的值已经是0；
+        Boolean factoryFeeEnabled = settlementForm.getFactoryFeeEnabled();
+        logger.info(String.format("settlement->order id[%s],factory fee enabled=%b", settlementForm.getOrderId(), factoryFeeEnabled));
+        return siteSettlementService.saveEdit2017(settlementForm, siteId);
+    }
+
+    public Object checkSettlement(Record order, Record callback, Record settlementConfigRd) {
+        if (settlementConfigRd != null) {//设置了结算条件
+            BigDecimal sum = SiteSettlementService.sum(order.getBigDecimal("auxiliary_cost"), order.getBigDecimal("serve_cost"), order.getBigDecimal("warranty_cost"));
+            BigDecimal confirmCost = order.getBigDecimal("confirm_cost");
+            if (confirmCost == null) {
+                confirmCost = new BigDecimal("0");
+            }
+
+            String val = settlementConfigRd.getStr("set_value");
+            if ("0".equals(val)) {//0先回访在结算
+                if (callback == null) {
+                    return Result.fail("430", "callback required");
+                }
+                if (!"1".equals(callback.getStr("result"))) {
+                    return Result.fail("430", "");
+                }
+            } else if ("1".equals(val)) {//1实收金额=交款金额
+                if (!(sum.compareTo(confirmCost) == 0)) {//不相等
+                    return Result.fail("431", "");
+                }
+            } else if ("2".equals(val)) {//0、1两种结算条件都选中
+                if (callback == null) {
+                    return Result.fail("432", "");
+                }
+                if (!"1".equals(callback.getStr("result"))) {
+                    return Result.fail("432", "");
+                }
+                if (!(sum.compareTo(confirmCost) == 0)) {//不相等
+                    return Result.fail("433", "");
+                }
+            } else if ("3".equals(val)) {
+                //0、1两种结算条件都未选
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    @ResponseBody
+    @RequestMapping("save")
+    public Object save(HttpServletRequest request, @RequestBody String param, BindingResult result) {
+        SettlementForm settlementForm = new Gson().fromJson(param, SettlementForm.class);
+        String orderId = settlementForm.getOrderId();
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        //结算条件设置
+        Record rd = orderDispatchService.queryLsSet(siteId);
+        // 回访信息
+        Record callbacks = orderCallBackService.getCallBackInfo(orderId, siteId);
+        //工单收费信息
+        Record rdOrderMsg = orderDispatchService.getOrderMoneyMsg(orderId);
+        String status = orderService.get(orderId).getStatus();//获取工单的状态
+        if("5".equals(status) || "8".equals(status)) {//历史工单
+        	 
+        }else {
+        	Object checkRet = checkSettlement(rdOrderMsg, callbacks, rd);
+            if (checkRet != null) {
+                return checkRet;
+            }
+        }
+        // accCostEnabled和factoryFeeEnabled仅用于标识相关的费用是否启用，后台不用考虑。前台传值是当factoryFeeEnabled为false的时候，传过来的值已经是0；
+        Boolean factoryFeeEnabled = settlementForm.getFactoryFeeEnabled();
+        logger.info(String.format("settlement->order id[%s],factory fee enabled=%b", settlementForm.getOrderId(), factoryFeeEnabled));
+        return siteSettlementService.save(settlementForm);
+    }
+
+    @ResponseBody
+    @RequestMapping("save2017")
+    public Object save2017(HttpServletRequest request, @RequestBody String param, BindingResult result) {
+        SettlementForm settlementForm = new Gson().fromJson(param, SettlementForm.class);
+        String orderId = settlementForm.getOrderId();
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        //结算条件设置
+        Record rd = orderDispatchService.queryLsSet(siteId);
+        // 回访信息
+        Record callbacks = orderCallBackService.getCallBackInfo2017(orderId, siteId);
+        //工单收费信息
+        Record rdOrderMsg = orderDispatchService.getOrderMoneyMsg2017(orderId, siteId);
+        String status = rdOrderMsg.getStr("status");
+//        Record orderRecord = order2017Dao.findOrderById(orderId, siteId);
+
+        if("5".equals(status) || "8".equals(status)) {//历史工单
+
+        }else {
+            Object checkRet = checkSettlement(rdOrderMsg, callbacks, rd);
+            if (checkRet != null) {
+                return checkRet;
+            }
+        }
+        // accCostEnabled和factoryFeeEnabled仅用于标识相关的费用是否启用，后台不用考虑。前台传值是当factoryFeeEnabled为false的时候，传过来的值已经是0；
+        Boolean factoryFeeEnabled = settlementForm.getFactoryFeeEnabled();
+        logger.info(String.format("settlement->order id[%s],factory fee enabled=%b", settlementForm.getOrderId(), factoryFeeEnabled));
+        return siteSettlementService.save2017(settlementForm, siteId);
+    }
+
+    @ResponseBody
+    @RequestMapping("batchSave")
+    public Object batchSave(HttpServletRequest request, @RequestBody String param, BindingResult result) {
+        BatchSettlementForm batchSettlementForm = new Gson().fromJson(param, BatchSettlementForm.class);
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String ids = batchSettlementForm.getOrderIds();
+        logger.info(String.format("批量结算，site.id=%s", siteId));
+        Result<T> rt = siteSettlementService.checkAllowSettle(siteId, ids);
+        if ("200".equals(rt.getCode())) {
+            return siteSettlementService.batchSave(batchSettlementForm);
+        }
+        return rt;
+    }
+
+    @ResponseBody
+    @RequestMapping("batchSave2017")
+    public Object batchSave2017(HttpServletRequest request, @RequestBody String param, BindingResult result) {
+        BatchSettlementForm batchSettlementForm = new Gson().fromJson(param, BatchSettlementForm.class);
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String ids = batchSettlementForm.getOrderIds();
+        logger.info(String.format("批量结算，site.id=%s", siteId));
+        Result<T> rt = siteSettlementService.checkAllowSettle2017(siteId, ids);
+        if ("200".equals(rt.getCode())) {
+            return siteSettlementService.batchSave2017(batchSettlementForm, siteId);
+        }
+        return rt;
+    }
+
+    @ResponseBody
+    @RequestMapping("show")
+    public Object show(HttpServletRequest request) {
+        String orderId = request.getParameter("id");
+        return siteSettlementService.getSettlementDetails(orderId);
+    }
+
+    @RequestMapping("batchNew")
+    public Object batchNewSettlement(HttpServletRequest request, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        model.addAttribute("tmpls", siteSettlementService.getSiteSettlementTemplateList(siteId));
+        model.addAttribute("orderIds", request.getParameter("oIds"));
+        return "modules/order/settlement/batchNew";
+    }
+
+    @RequestMapping("batchNew2017")
+    public Object batchNewSettlement2017(HttpServletRequest request, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        model.addAttribute("tmpls", siteSettlementService.getSiteSettlementTemplateList(siteId));
+        model.addAttribute("orderIds", request.getParameter("oIds"));
+        return "modules/order/orderManagement/2017Order/batchNew2017";
+    }
+
+    @ResponseBody
+    @RequestMapping("addNewSettlementItem")
+    public Object addNewSettlementItem(@Valid AppendedSettlementItem settlementItem, BindingResult result, Model model) {
+        if (result.hasErrors()) {
+            return Result.fail("binding failed");
+        }
+
+        return siteSettlementService.appendNewSettlementItem(settlementItem);
+    }
+
+    @RequestMapping("showHtml")
+    public Object showHtml(HttpServletRequest request) {
+        String orderId = request.getParameter("id"); // orderId
+        String sql = "SELECT * FROM crm_order_settlement WHERE order_id='" + orderId + "' ";
+        Record sittlement = Db.findFirst(sql);
+        String sittlementSource = "order2";
+        if (sittlement != null) {
+            if (sittlement.getStr("create_name").equals("__MIGRATION__")) {
+                sittlementSource = "order1";
+            }
+        }
+        request.setAttribute("sittlementSource", sittlementSource);
+        request.setAttribute("st", siteSettlementService.getSettlementDetails(orderId));
+        return "modules/order/orderManagement/history/settlementDetail";
+    }
+
+    @RequestMapping("showHtml2017")
+    public Object showHtml2017(HttpServletRequest request) {
+        String orderId = request.getParameter("id"); // orderId
+        String siteId  = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String table = tableSplitMapper.mapOrderSettlement(siteId);
+        Record settlement = null;
+        String settlementSource = "order2";
+
+        if (table != null) {
+            String sql = "SELECT * FROM " + table + " WHERE order_id='" + orderId + "' ";
+            settlement = Db.findFirst(sql);
+            if (settlement != null) {
+                if (settlement.getStr("create_name").equals("__MIGRATION__")) {
+                    settlementSource = "order1";
+                }
+            }
+        }
+        request.setAttribute("sittlementSource", settlementSource);
+        request.setAttribute("st", siteSettlementService.getSettlementDetails2017(orderId,  siteId));
+        return "modules/order/orderManagement/history/settlementDetail2017";
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "checkAllowSettle")
+    public Result<T> checkAllowSettle(HttpServletRequest request) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String ids = request.getParameter("ids");
+        return siteSettlementService.checkAllowSettle(siteId, ids);
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "checkAllowSettle2017")
+    public Result<T> checkAllowSettle2017(HttpServletRequest request) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String ids = request.getParameter("ids");
+        return siteSettlementService.checkAllowSettle2017(siteId, ids);
+    }
+
+}

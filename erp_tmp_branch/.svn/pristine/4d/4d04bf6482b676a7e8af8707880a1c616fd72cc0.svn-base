@@ -1,0 +1,399 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<title>员工信息管理</title>
+<meta name="decorator" content="base" />
+	<meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+</head>
+<body>
+	<div class="sfpagebg bk-gray">
+		<div class="sfpage">
+			<div class="page-orderWait">
+				<div id="tab-system" class="HuiTab">
+					<div class="tabBar cl mb-10">
+						<sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_TAB" html='<a class="btn-tabBar current" href="${ctx}/operate/nonServiceman/WholeServiceManHeader">员工管理</a>'></sfTags:pagePermission>
+						<sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEMSGMGM_ROLEPOWER_TAB" html='<a class="btn-tabBar " href="${ctx}/operate/siteRolePermission/existRolePermission">角色权限管理</a>'></sfTags:pagePermission>
+			
+						<p class="f-r btnWrap">
+							<a href="javascript:search();" class="sfbtn sfbtn-opt"><i
+								class="sficon sficon-search"></i>查询</a> <a href="javascript:;"
+								class="sfbtn sfbtn-opt resetSearchBtn"><i
+								class="sficon sficon-reset"></i>重置</a>
+						</p>
+					</div>
+					<div class="tabCon">
+						<form id="searchForm">
+							<input type="hidden" name="page" id="pageNo" value="1"> <input
+								type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+							<div class="bk-gray pt-10 pb-5">
+								<table class="table table-search">
+									<tr>
+										<th style="width: 76px;" class="text-r">姓名：</th>
+										<td><input type="text" class="input-text" name="name" />
+										</td>
+										<th style="width: 76px;" class="text-r">手机号：</th>
+										<td><input type="text" class="input-text" name="mobile" />
+										<input type="hidden" name="tabType" value="${tabType }"/>
+										<c:if test="${type==2 }" >
+										<th style="width: 76px;" class="text-r">角色：</th>
+										<td id="role">
+											<span class="select-box"> 
+											<select class="select" name="roleName">
+													<option value="">请选择</option>
+													<option value="1">信息员</option>
+													<option value="2">配件管理员</option>
+													<option value="3">商品管理员</option>
+													<option value="4">财务人员</option>
+													<option value="5">服务工程师</option>
+											</select>
+										    </span>
+										</td>
+										</c:if>
+										<th style="width: 76px;" class="text-r">状态：</th>
+										<td>
+											<span class="select-box"> 
+											<select class="select" name="status">
+													<option value="">请选择</option>
+													<option value="0">在职</option>
+													<option value="1">离职</option>
+											</select>
+										    </span>
+										</td>
+									</tr>
+								</table>
+							</div>
+
+						</form>
+						
+						<div class="tabBarP mt-10">
+							<%-- <sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_SITEMAN_BTN" html='<a href="${ctx}/operate/nonServiceman/WholeServiceManHeader?type=2" class="tabswitch current">网点人员</a>'></sfTags:pagePermission>
+							<sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_ENIGNEERMAN_BTN" html='<a href="${ctx}/operate/nonServiceman/WholeServiceManHeader?type=1" onclick="wCastEmp()" class="tabswitch ">服务工程师</a>'></sfTags:pagePermission>
+							 --%>
+							 <sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_SITEMAN_BTN" html='<a href="${ctx}/operate/nonServiceman/WholeServiceManHeader?type=2" class="tabswitch ${tabType != 1 ? "current":"" }">公司人员</a>'></sfTags:pagePermission>
+							<sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_ENIGNEERMAN_BTN" html='<a href="${ctx}/operate/nonServiceman/WholeServiceManHeader?type=1" class="tabswitch ${tabType eq 1 ? "current":"" }"> 服务工程师</a>'></sfTags:pagePermission>
+
+							<div class="f-r">
+								<sfTags:pagePermission authFlag="OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_ADDEMPLOYE_BTN" html='<a href="javascript:showAdd();" class="sfbtn sfbtn-opt"><i class="sficon sficon-add"></i>添加员工</a>'></sfTags:pagePermission>
+								<c:if test="${tabType eq '1'}">
+								<sfTags:pagePermission authFlag="EMPMGM_ALLEMPS_EXPORT_BTN" html='<a onclick="return exports()"class="sfbtn sfbtn-opt2" target="_blank"><i class="sficon sficon-export"></i>导出</a>'></sfTags:pagePermission>
+								</c:if>
+							</div>
+						</div>
+						<div class="mt-10">
+							<table id="table-waitdispatch" class="table"></table>
+							<!-- pagination -->
+							<div class="cl pt-10">
+								<div class="f-l">
+								
+								</div>
+								<div class="f-r">
+									<div class="pagination"></div>
+								</div>
+							</div>
+							<!-- pagination -->
+						</div>
+					
+				</div>
+			</div>
+
+		</div>
+	</div>
+	</div>
+	<script type="text/javascript">
+		var sfGrid;
+		var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+		var sortHeader = '${headerData.sortHeader}'; //服务商自定义过的表格头部
+        var tabType = '${tabType}';
+		
+		$(function() {
+			if(tabType == '1') {
+                for (var i = 0; i < defaultHeader.length; i++) {
+                    var item = defaultHeader[i];
+                    if (item.index == 'name') {
+                        item.label = '服务工程师';
+                    }
+                    if (item.index == 'roleName') {
+                        item.hidden = true;
+                    }
+                }
+            }
+			
+			$.Huitab("#tab-system .tabBar span", "#tab-system .tabCon","current", "click", "0");
+			$.tabfold("#moresearch", ".moreCondition", 1, "click");
+			initSfGrid();
+		});
+
+		//初始化jqGrid表格，传递的参数按照说明
+	   function initSfGrid() {
+			sfGrid = $("#table-waitdispatch").sfGrid({
+				url : '${ctx}/operate/nonServiceman/getWholeServiceManList',
+				sfHeader : defaultHeader,
+				sfSortColumns : sortHeader,
+				shrinkToFit: true,
+				multiselect:false,
+				rownumbers : true,
+				gridComplete:function(){
+					_order_comm.gridNum();
+				}
+			});
+		}
+	  
+		function isBlank(val) {
+			if (val == null || val == '' || val == undefined) {
+				return true;
+			}
+			return false;
+		}
+		function fmtOper(rowData) {
+			var html1='';
+			var html2='';
+			var html3='';
+			if('${fns:checkBtnPermission("OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_DEL_BTN")}' === 'true'){
+				html3 = '<a class="c-0383dc" style="margin-left: 10px;" href="javascript:deleteMan(\'' + rowData.id + '\',\'' + rowData.gangStatus+ '\');"><i class="sficon sficon-rubbish"></i>删除</a>';
+			}
+			if('${fns:checkBtnPermission("OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_EDIT_BTN")}' === 'true'){
+				html1 = '<a class="c-0383dc mr-5" href="javascript:bianji(\'' + rowData.id + '\',\'' + rowData.gangStatus+ '\');"><i class="sficon sficon-edit"></i>编辑</a>&nbsp;&nbsp;';
+			}
+			if('${fns:checkBtnPermission("OPERATEMGM_EMPLOYEMSGMGM_EMPLOYEMGM_FORBIT_BTN")}' === 'true'){
+			    if(rowData.status=='0'){
+                    html2 = '<a class="c-0383dc mr-5" href="javascript:jinyong(\'' + rowData.id + '\',\'' + rowData.gangStatus+ '\');"><i class="sficon sficon-disabled2"></i>离职</a>';
+                }else if(rowData.status=='3'){
+                    html2 = '<a class="c-0383dc mr-5" href="javascript:qiyong(\'' + rowData.id + '\',\'' + rowData.gangStatus+ '\');"><i class="sficon sficon-enabled2"></i></i>入职</a>';
+				}
+			}
+			if (rowData.status == 0 || rowData.status == 3) {
+                return html1 + html2 + html3;
+			}
+		}
+
+		function fmtStatus(rowData){
+	       if(rowData.status=='0'){
+	           return "在职";
+		   }else if(rowData.status=='3'){
+               return "离职";
+		   }else if(rowData.status=='2'){
+               return "审核";
+		   }else{
+               return "";
+		   }
+		}
+
+		//展示编辑页面
+		function bianji(id,who){
+            var tabType = '${tabType}';
+			var str=id+","+who;
+			layer.open({
+				 type : 2,
+				 content:'${ctx}/operate/nonServiceman/showBJ?str='+str+'&&tabType='+tabType,
+				 title:false,
+				 area: ['100%','100%'],
+				 closeBtn:0,
+				 shade:0,
+				 fadeIn:0,
+				 anim:-1 
+				 });
+		}
+		//展示新增页面
+		function showAdd(){
+			var tabType=$("input[name='tabType']").val();
+			layer.open({
+				 type : 2,
+				 content:'${ctx}/operate/nonServiceman/showAdd?type='+tabType,
+				 title:false,
+				 area: ['100%','100%'],
+				 closeBtn:0,
+				 shade:0,
+				 fadeIn:0,
+				 anim:-1 
+				 });
+		}
+        function jinyong(id, who) {
+            var content;
+            if (who === '3') {
+                content = "确定该网点人员离职？";
+                showDeleteConfirm(id, who, content);
+            } else {
+                content = "确定该服务工程师离职？";
+                $.ajax({
+                    url: '${ctx}/operate/nonServiceman/hasRelatedOrder',
+                    type: 'post',
+                    data: {id: id},
+                    success: function (data) {
+                        if ("Y" === data) {
+                            content = "该工程师有尚未回访和结算的工单，确定该工程师离职吗？";
+                        }
+                        showDeleteConfirm(id, who, content);
+                    },
+                    error: function () {
+                    }
+                });
+            }
+        }
+        function deleteMan(id, who) {
+            var content;
+            if (who === '3') {
+                content = "确定要删除该网点人员？";
+            } else {
+                content = "确定删除该服务工程师？";
+            }
+
+            $.ajax({
+                url: '${ctx}/operate/nonServiceman/hasRelatedOrder',
+                type: 'post',
+                data: {id: id},
+                success: function (data) {
+                     if ("Y" === data) {
+                         content = "该工程师有尚未回访和结算的工单，确定要删除该工程师吗？";
+                     }
+                    $('body').popup({
+                        level:3,
+                        title:"删除",
+                        content:content,
+                        fnConfirm :function(){
+                            $.ajax({
+                                url: '${ctx}/operate/nonServiceman/deleteMan',
+                                type: 'post',
+                                data :{id:id,who:who},
+                                success: function (data) {
+                                    if(data=="ok"){
+                                        layer.msg('保存成功!');
+                                        search();
+                                    }else if(data==2){
+                                        layer.msg('保存失败!', {time: 1000});
+                                        search();
+                                    }
+                                },
+                                error: function () {
+                                }
+                            });
+                        }
+                    })
+                },
+                error: function () {
+                }
+            });
+        }
+
+		function showDeleteConfirm(id, who, content) {
+            $('body').popup({
+                level:3,
+                title:"离职",
+                content:content,
+                fnConfirm :function(){
+                    $.ajax({
+                        type : "POST",
+                        url : "${ctx}/operate/nonServiceman/doJinYong",
+                        data :{id:id,who:who},
+                        success : function(data) {
+                            if(data=="ok"){
+                                layer.msg('保存成功!');
+                                search();
+                            }else if(data==2){
+                                layer.msg('保存失败!', {time: 1000});
+                                search();
+                            }
+                        }
+                    });
+                    layer.closeAll('dialog');
+                }
+            });
+		}
+
+		//启用
+		function qiyong(id,who){
+	       var content="确定该网点人员入职？";
+	       if(who === '4'){
+               content = "确定该服务工程师入职？";
+		   }
+            $('body').popup({
+                level: 3,
+                title: "入职",
+                content: content,
+                fnConfirm: function () {
+                    $.ajax({
+                        type: "POST",
+                        url: "${ctx}/operate/nonServiceman/doQiYong",
+                        data: {id: id, who: who},
+                        success: function (data) {
+                            if (data == "ok") {
+                                layer.msg('保存成功!');
+                                search();
+                            } else if (data == "mobileRepeat") {
+                                layer.msg('保存失败,该手机号已被占用!');
+                            } else if (data == 2) {
+                                layer.msg('保存失败!', {time: 1000});
+                                window.location.reload(true);
+                            }
+                        }
+                    });
+                }
+            });
+            layer.closeAll('dialog');
+		}
+
+        function jueSe(row) {
+            var id = row.id;
+            var roleName = "";
+            if (row.gangStatus == 4) {
+                return "服务工程师";
+            } else {
+                return row.roleName;
+            }
+        }
+		
+		function gangStatus(row){
+			var targetId = row.id;
+			//var roleName = eval('${fns:getNonserviceManRoleName("+targetId+", roleInfos)}');
+			if(row.gangStatus==4){
+				return "服务工程师";
+			}else{
+				return "PC端使用人员";	
+			}
+				
+		}
+		
+		function userStatus(row){
+			if(row.status==0){
+				return "启用";	
+			}else if(row.status==1){
+				return "禁用";
+			}
+		}
+		
+		function search(){
+			var pageSize = $("#pageSize").val();
+			if ($.trim(pageSize) == '' || pageSize == null) {
+				$("#pageSize").val(20);
+			}
+		    $("#table-waitdispatch").sfGridSearch({
+		        postData: $("#searchForm").serializeJson()
+		    });
+		}
+        function exports() {
+            var now = new Date();
+            var hours = now.getHours();
+            var minutes = now.getMinutes();
+            var nowM = hours * 60 + minutes;
+            var start = 7 * 60 + 30;
+            var end = 11 * 60 + 30;
+            if (nowM >= start && nowM <= end) {
+                layer.msg("温馨提醒：系统使用高峰期7:30-11:30,请在其它时间导入、导出！谢谢！");
+                return false;
+            }
+
+            $('body').popup({
+                level: '3',
+                type: 2,
+                title: "导出",
+                content: "确定要导出服务工程师信息吗？",
+                fnConfirm: function () {
+                    location.href = "${ctx}/operate/nonServiceman/export?formPath=/a/operate/nonServiceman/WholeServiceManHeader/1&"+$("#searchForm").serialize();
+                },
+                fnCancel: function () {
+                }
+            });
+        }
+	</script>
+</body>
+</html>

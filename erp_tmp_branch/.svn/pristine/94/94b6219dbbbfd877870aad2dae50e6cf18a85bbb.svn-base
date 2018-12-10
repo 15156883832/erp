@@ -1,0 +1,63 @@
+package com.jojowonet.modules.order.utils;
+
+import org.springframework.stereotype.Component;
+
+import java.util.HashSet;
+import java.util.Set;
+
+@Component
+public class TableMigrationMapper {
+
+    private static final Set<String> set = new HashSet<>();
+
+    public TableMigrationMapper() {
+        set.add("");
+        set.add("2017");
+        set.add("2018");
+    }
+
+    public String mapTable(String table, String migration) {
+        if (StringUtil.isBlank(migration) || "2018".equals(migration)) {
+            return table;
+        }
+
+        if (!set.contains(migration)) {
+            throw new IllegalArgumentException(String.format("migration invalid: %s", migration));
+        }
+
+        return table + "_" + migration;
+    }
+
+    public String mapOrder(String migration) {
+        return mapTable("crm_order", migration);
+    }
+
+    public String mapOrder400(String migration) {
+        return mapTable("crm_order_400", migration);
+    }
+
+    public String mapOrderDispatch(String migration) {
+        return mapTable("crm_order_dispatch", migration);
+    }
+
+    public String mapOrderDispatchEmployeRel(String migration) {
+        return mapTable("crm_order_dispatch_employe_rel", migration);
+    }
+
+    public String mapOrderSettlement(String migration) {
+        return mapTable("crm_order_settlement", migration);
+    }
+
+    public String mapOrderSettlementDetail(String migration) {
+        return mapTable("crm_order_settlement_detail", migration);
+    }
+
+    public String mapOrderFeedback(String migration) {
+        return mapTable("crm_order_feedback", migration);
+    }
+
+    public String mapOrderCallback(String migration) {
+        return mapTable("crm_order_callback", migration);
+    }
+
+}

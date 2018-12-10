@@ -1,0 +1,239 @@
+package com.jojowonet.modules.operate.web;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.jojowonet.modules.operate.entity.SiteSignRule;
+import ivan.common.utils.DateUtils;
+import net.sf.json.JSONArray;
+
+import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.entity.GoodsSiteselfOrder;
+import com.jojowonet.modules.operate.service.EmployeDailySignService;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+
+/**
+ * 员工每日签到记录表Controller
+ * 
+ * @author Ivan
+ * @version 2017-06-13
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/operate/employeDailySign")
+public class EmployeDailySignController extends BaseController {
+
+	@Autowired
+	private EmployeDailySignService employeDailySignService;
+	
+	/*
+	 * 工程师考勤 表头字段
+	 * */
+	@RequestMapping(value ="headerList")
+	public String getHeaderList(HttpServletRequest request,HttpServletResponse response,Model model){
+	     String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+	     SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+	     Record record = employeDailySignService.ifExist(siteId);
+	     if(record==null){
+	    	 model.addAttribute("ifExist", "1");
+	     }else{
+	    	 model.addAttribute("ifExist", "2");
+	     }
+		 model.addAttribute("headerData", stf);
+		 
+		 model.addAttribute("date",DateUtils.formatDate(new Date(),"yyyy-MM-dd"));
+		 return "modules/operate/employeDailySign";
+	}
+	
+	/*
+	 * 工程师考勤 列表
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "employeDailySignGrid")
+	public  String getEmployeDailySignList(HttpServletRequest request,HttpServletResponse response){
+	    String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+	    Map<String,Object> map =request.getParameterMap();
+		Page<Record> pages = new Page<Record>(request,response);
+		Page<Record> page = employeDailySignService.employeDailySignList(pages,siteId,map);
+		return renderJson(new JqGridPage<>(page));
+	}
+	
+	/*
+	 * 修改打卡时间
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "editSignTime")
+	public  Boolean getEditSignTime(String rowId,String signTime,String signType,HttpServletRequest request,HttpServletResponse response){
+		return employeDailySignService.editSignTime(rowId,signTime,signType);
+	}
+	
+	/*
+	 * 设置
+	 * */
+	@RequestMapping(value = "signEdit")
+	public  String signEdit(String rowId,String signTime,HttpServletRequest request,HttpServletResponse response,Model model){
+		model.addAttribute("type", "1");
+		return "modules/operate/signEdit";
+	}
+
+
+	/*
+	 * 保存新增的考勤设置
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "saveSign")
+	public  String saveSign(String workingTime,String offWorkingTime,String signPoint,Integer signRange,BigDecimal latitude,BigDecimal longitude,String employeIds,HttpServletRequest request,HttpServletResponse response){
+		return employeDailySignService.saveSign(workingTime,offWorkingTime,signPoint,signRange,latitude,longitude,employeIds);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "deleteSign")
+	public void deleteSign(String id){
+		employeDailySignService.deleteSign(id);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getSignInfo")
+	public Record getSignInfo(String id){
+		String siteId=CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return employeDailySignService.getInfoById(id,siteId);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getSignInfos")
+	public List<Record> getSignInfos(){
+		String siteId=CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return employeDailySignService.getSignInfos(siteId);
+	}
+
+	/*
+	 * 系统设置下考勤模块saveSignEdit
+	 * */
+	@RequestMapping(value = "signSet")
+	public  String signSet(HttpServletRequest request,HttpServletResponse response,Model model){
+		/*String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Record record = employeDailySignService.ifExist(siteId);
+		if(record!=null){//不等于null，说明该服务商设置过考勤
+			model.addAttribute("record", record);
+			model.addAttribute("type", "2");
+		}else {//等于null，说明该服务商未设置过考勤
+			model.addAttribute("type", "3");
+		}
+		return "modules/operate/signEdit";*/
+
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		model.addAttribute("siteId",siteId);
+		return "modules/operate/workAttendance";
+	}
+
+	@ResponseBody
+	@RequestMapping(value="getSignSetList")
+	public String getSignSetList(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String,Object> map = getParams(request);
+		Page<Record> pages = new Page<Record>(request,response);
+		Page<Record> page = employeDailySignService.getSignSetList(siteId,pages);
+		model.addAttribute("page",page);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+
+	/*
+	 * 保存修改的考勤设置
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "saveSignEdit")
+	public  String saveSignEdit(String workingTime,String offWorkingTime,String signPoint,Integer signRange,BigDecimal latitude,BigDecimal longitude,String signId,String employeIds,HttpServletRequest request,HttpServletResponse response){
+		return employeDailySignService.saveSignEdit(workingTime,offWorkingTime,signPoint,signRange,latitude,longitude,signId,employeIds);
+	}
+	
+	//导出数据
+		@RequestMapping(value="export")
+		public String exportfile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+			try {
+				String formPath = request.getParameter("formPath");
+				User user = UserUtils.getUser();
+				String siteId= CrmUtils.getCurrentSiteId(user);
+				Page<Record> pages = new Page<Record>(request, response);
+				pages.setPageNo(1);
+				pages.setPageSize(10000);
+				Map<String,Object> map = request.getParameterMap();
+				SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+				String title = stf.getExcelTitle();
+				System.out.println(title);
+		        String fileName = title+"数据"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+		        Record record = employeDailySignService.ifExist(siteId);
+		        JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+	            jarray.remove(0);
+				List<Record> list =null;
+				Page<Record> precord=employeDailySignService.employeDailySignList(pages, siteId, map);
+					 list = precord.getList();
+					 for(Record rd : list){
+						 if(record!=null){
+							 if(StringUtils.isBlank(rd.getStr("id"))) {
+								 rd.set("sign_type","---");
+								 rd.set("sign_result","未打卡");
+								 rd.set("hm","---");
+								 rd.set("ymd","---");
+								 rd.set("out_time","---");
+								 rd.set("sign_point","---");
+							 }else {
+								 if(rd.getStr("sign_type").equals("1")){
+										rd.set("sign_type","签到");
+								 }else if(rd.getStr("sign_type").equals("2")){
+										rd.set("sign_type","签退");
+								 }
+								 
+								 if(rd.getStr("sign_result").equals("0")){
+										rd.set("sign_result","正常");
+										rd.set("out_time","---");
+								 }else if(rd.getStr("sign_result").equals("1")){
+										rd.set("sign_result","迟到");
+								 }else if(rd.getStr("sign_result").equals("2")){
+										rd.set("sign_result","早退");
+								 }
+							 }
+						 }else{
+							 rd.set("sign_type", "---");
+							 rd.set("sign_result","---");
+							 rd.set("hm","---");
+							 rd.set("ymd","---");
+							 rd.set("out_time","---");
+							 rd.set("sign_point","---");
+							 rd.set("sign_address","---");
+						 } 
+					 }
+				new ExportJqExcel(title+"数据", jarray.toString(), stf.getSortHeader())
+					.setDataList(list).write(request, response, fileName).dispose();
+				return null;
+			} catch (Exception e) {
+				e.printStackTrace();
+				addMessage(redirectAttributes, "导出数据失败！失败信息："+e.getMessage());
+			}
+			return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+		}
+}

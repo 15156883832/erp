@@ -1,0 +1,113 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- <link rel="stylesheet" href="static/css/reset.css"> -->
+<link rel="stylesheet" href="${ctxPlugin}/static/h-ui.admin/css/salesSheet.css">
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/print_sf.css" />
+<script src="${ctxPlugin}/static/h-ui.admin/js/jquery-1.8.3.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/jquery-migrate-1.4.1.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/jquery.jqprint-0.3.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/sifang.js"></script>
+<title>“无忧保”延长保修服务销售单</title>
+<script type="text/javascript">
+		$(function(){
+			$('#btn').goHelp('${ctx}/helpindex/indexHelp?a=gddy');
+		});
+
+		function printOrder() {
+            $("#btn-wrapper-print").hide();
+			$(".btnHelplink").hide();
+			$("#printContainer").jqprint({
+				debug: false, //如果是true则可以显示iframe查看效果（iframe默认高和宽都很小，可以再源码中调大），默认是false
+				importCSS: true, //true表示引进原来的页面的css，默认是true。（如果是true，先会找$("link[media=print]")，若没有会去找$("link")中的css文件）
+				printContainer: true, //表示如果原来选择的对象必须被纳入打印（注意：设置为false可能会打破你的CSS规则）。
+				operaSupport: true//表示如果插件也必须支持歌opera浏览器，在这种情况下，它提供了建立一个临时的打印选项卡。默认是true
+			});
+		}
+
+
+	</script>
+</head>
+<body>
+	<div style="padding-top: 50px; text-align: center;" id="btn-wrapper-print">
+		<input type="button" value="打印" id="btn" onclick="printOrder();" class="btn-print" style="width: 100px; height: 30px; line-height: 30px;" data-type="print" />
+	</div>
+	<div id="printContainer">
+		<div class="top">
+			<img class="f-l" src="${ctxPlugin}/static/h-ui.admin/images/picc.png" alt="">
+			<span class="f-r fs14 lh70">“无忧保”延长保修服务由中国人保承保</span>
+		</div>
+		<hr />
+		<div>
+			<h1 class="text-c">“无忧保”延长保修服务销售单</h1>
+			<p class="fs14">此项服务由安徽思方网络科技有限公司和深圳富邦恒安商业服务有限公司共同发起,并由中国人民财产保险股份有限公司承保。</p>
+			<span class="fs14">销售单号：${order.columns.number }</span>
+			<table class="fs14" border="1" cellspacing="0" cellpadding="0">
+				<tbody>
+					<tr>
+						<td colspan="3" class="text-c bold">用户信息</td>
+					</tr>
+					<tr>
+						<td>姓名：${order.columns.customer_name }</td>
+						<td colspan="2">联系方式：${order.columns.customer_contact }</td>
+					</tr>
+					<tr>
+						<td colspan="3">地址：${order.columns.province }${order.columns.city }${order.columns.area }${order.columns.customer_address }</td>
+					</tr>
+					<tr>
+						<td colspan="3" class="text-c bold">家电信息</td>
+					</tr>
+					<tr>
+						<td>家电品类：${order.columns.good_category }</td>
+						<td>家电品牌：${order.columns.good_brand }</td>
+						<td>家电条码：${order.columns.applicance_barcode }</td>
+					</tr>
+					<tr>
+						<td>购买价格：10000元</td>
+						<td colspan="2">
+							购买日期：
+							<fmt:formatDate value='${order.columns.buy_time }' pattern='yyyy年MM月dd日' />
+						</td>
+					</tr>
+					<tr>
+						<td colspan="3" class="text-c bold">延保信息</td>
+					</tr>
+					<tr>
+						<td colspan="3">延保产品： 家电核心零部件延长保修服务</td>
+					</tr>
+					<tr>
+						<td>
+							延保购买日期：
+							<fmt:formatDate value='${order.columns.payment_time }' pattern='yyyy年MM月dd日' />
+						</td>
+						<td>延保购买价格： 0 元</td>
+						<td>延保购买年限：1 年</td>
+					</tr>
+					<tr>
+						<td colspan="3">延保权益： 核心零部件延长保修 1 年</td>
+					</tr>
+				</tbody>
+			</table>
+			<p>“无忧保”延长保修服务热线：400-6942-123</p>
+			<p class="fs12">用户提示：</p>
+			<p class="fs12">1、请您充分理解且不存在任何异议后再购买此延保产品；</p>
+			<p class="fs12">2、请确认您提供的信息都真实有效，否则您将无法获得所有保障权益；</p>
+			<p class="fs12">3、以上信息如有变动，请及时拨打客服热线。</p>
+			<div style="margin-top: 30px;">
+				<p class="fs14 lian">联合签发单位:</p>
+				<div class="danWei">
+					<p class="fs14">安徽思方网络科技有限公司 <img src="${ctxPlugin}/static/h-ui.admin/images/1.png" alt="" /></p>
+					<p class="fs14">深圳富邦恒安商业服务有限公司 <img src="${ctxPlugin}/static/h-ui.admin/images/2.png" alt="" /></p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,853 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="decorator" content="base"/>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/Hui-iconfont/1.0.7/iconfont.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/skin/default/skin.css" id="skin" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/sfskin_blue.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/styleGoods.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui/css/H-ui.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/H-ui.admin.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/style.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/jquery.rotate.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/imgShow.js"></script>
+
+<script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.js"></script>
+<style type="text/css">
+		.ceshistyle_label{
+			padding-right:10px;
+			position:relative;
+		}
+		.ceshistyle_label:before{
+			content:'：';
+			position:absolute;
+			right:0;
+			top:0;
+			width:10px;
+			text-align:center;
+			line-height:26px;
+		}
+		.dropdown-clear-all{
+			line-height: 22px
+		}
+		.dropdown-option[disabled] {
+		    color: #000000;
+		    background-color: #fff;
+		    cursor: default;
+		    text-decoration: none;
+		    font-weight:bold;
+		    background-color:#ddd
+		}
+		.select2-container--default .select2-results__option[aria-disabled=true]{
+			 color: #000000;
+		    background-color: #fff;
+		    cursor: default;
+		    text-decoration: none;
+		    font-weight:bold;
+		    background-color:#BEBEBE
+		}
+	</style>
+
+<title>订单信息——公司商品订单——订单详情</title>
+</head>
+<body class="">
+	<div class="sfpagebg bk-gray pb-80 ">
+		<div class="page-orderWait goodsPage">
+		<input id="orderIdDetail" value="${detail.columns.id }" hidden="hidden" />
+			<div class="tabBar cl mb-10">
+				<a class="btn-tabBar current" href="javascript:;">订单详情</a>
+			</div>
+			<div class="mb-5">
+				<strong class="f-14 lh-28">
+					订单状态：
+					<c:if test="${mark == 'zy' }"><!-- 公司订单 -->
+						<c:if test="${detail.columns.status eq 0 }">已取消</c:if>
+						<c:if test="${detail.columns.status == '1' || detail.columns.status == '4' }">待收款</c:if>
+						<c:if test="${detail.columns.status == '2' || detail.columns.status == '3' }">已完成</c:if>
+					</c:if>
+					<c:if test="${mark == 'zg' }"><!-- 工程师自购订单 -->
+						<c:if test="${detail.columns.status eq 0 }">已取消</c:if>
+						<c:if test="${detail.columns.status == '3'  }">待确认</c:if>
+						<c:if test="${detail.columns.status == '5' }">已确认</c:if>
+					</c:if>
+					<c:if test="${mark == 'pt' }"><!-- 浩泽净水订单 -->
+						<c:if test="${detail.columns.status eq 0 }">已取消</c:if>
+							<c:if test="${detail.columns.status eq 1 }">
+								<c:if test="${detail.columns.purchase_num > detail.columns.stocks }">
+									待收款待下单
+								</c:if>
+								<c:if test="${detail.columns.purchase_num <= detail.columns.stocks }">
+									待收款待出库
+								</c:if>
+							</c:if>
+							
+							<c:if test="${detail.columns.status eq 2 }">
+								<c:if test="${detail.columns.purchase_num > detail.columns.stocks }">
+									已收款待下单
+								</c:if>
+								<c:if test="${detail.columns.purchase_num <= detail.columns.stocks }">
+									已收款待出库
+								</c:if>
+							</c:if>
+							
+							<c:if test="${detail.columns.status eq 3 }">
+								<c:if test="${detail.columns.outstock_type=='0' || detail.columns.outstock_type=='1' }">
+									已出库
+								</c:if>
+								<c:if test="${detail.columns.outstock_type=='2' }">
+									已下单
+								</c:if>
+							</c:if>
+							
+							<c:if test="${detail.columns.status eq 4 }">
+								<c:if test="${detail.columns.outstock_type=='0' || detail.columns.outstock_type=='1' }">
+									待收款已出库
+								</c:if>
+								<c:if test="${detail.columns.outstock_type=='2' }">
+									待收款已下单
+								</c:if>
+							</c:if> 
+					</c:if>
+				</strong>
+			</div>
+			<div class="mb-10">
+				<table class="table table-bg table-border table-bordered table-sdrk text-c">
+					<thead>
+						<tr>
+							<th>商品信息</th>
+							<th>商品编号</th>
+							<th>入库价格</th>
+							<th>工程师价格</th>
+							<th>购买数量</th>
+							<th>出货方式</th>
+						</tr>
+					</thead>
+					<tr>
+						<td class="text-l">
+							<div class="imgWrap pos-r pl-90 lh-24 ml-10" style="min-height: 80px;">
+								<img src="${commonStaticImgPath}${detail.columns.firstIcon }" class="pos" />
+								<p class="f-14">${detail.columns.good_name }</p>
+								<p class="f-12">商品类别：${detail.columns.good_category }</p>
+								<p>商品型号：${detail.columns.good_model }</p>
+							</div>
+						</td>
+						<td>${detail.columns.good_number } </td>
+						<td>${detail.columns.site_price } </td>
+						<td>${detail.columns.employe_price } </td>
+						<td>x${detail.columns.purchase_num }</td>
+						<td>
+							<c:if test="${detail.columns.outstock_type eq 1}">公司库存</c:if>
+							<c:if test="${detail.columns.outstock_type eq 0}">工程师领取库存</c:if>
+							<c:if test="${detail.columns.outstock_type eq 3}">工程师自购库存</c:if>
+							<c:if test="${detail.columns.outstock_type eq 2}">平台发货</c:if>
+							<%-- </c:if> --%>
+						</td>
+					</tr>
+				</table>
+			</div>
+			<div class="cl">
+				<div class="col-2-1 f-l">
+					<div class="lh-26 mb-5"><strong class="f-14 w-70 text-r">订单信息:</strong>
+						<c:if test="${mark == 'zy' }">
+							<c:if test="${detail.columns.status == '2' || detail.columns.status == '3' }">
+								<sfTags:pagePermission authFlag="GOODSMGM_GOODSORDERMSG_SELFGOODS_EDITORDER_BTN" html='<a id="editOrderDetail"><i class="sficon sficon-edit"></i><span class="c-0383dc">修改</span></a>'></sfTags:pagePermission>
+							</c:if>
+						</c:if>
+					 </div>
+					<div class="lh-26 mb-5 pl-70 pos-r">
+						<span class="w-70 text-r pos">订单编号：</span>
+						<p>${detail.columns.number }</p>
+					</div>
+					<div class="lh-26 mb-5 pl-70 pos-r">
+						<span class="w-70 text-r pos">订单金额：</span>
+						<strong class="f-14">${detail.columns.good_amount }元</strong>
+					</div>
+					<div class="lh-26 mb-5 pl-70 pos-r">
+						<span class="w-70 text-r pos">交款金额：</span>
+						<strong class="f-14">${detail.columns.real_amount }元</strong>
+					</div>
+					<!-- 别删 -->
+					<c:if test="${detail.columns.status == '2' || detail.columns.status == '3' }">
+						<div class="lh-26 mb-5 pl-70 pos-r">
+							<span class="w-70 text-r pos">实收金额：</span>
+							<strong class="f-14">${detail.columns.confirm_amount }元</strong>
+								<c:if test="${detail.columns.zfId!=null && detail.columns.zfId!='' }">
+								<span class="lh-26">&nbsp;（无现金收款：<span class="c-fd6e32 va-t"><c:if test="${detail.columns.zfType=='0' }">支付宝</c:if><c:if test="${detail.columns.zfType=='1' }">微信</c:if></span>${detail.columns.zfMoney }）</span>
+								<a class="c-0383dc proofImg"><i class="sficon sficon-view"></i>查看凭证 <img src="${commonStaticImgPath}${detail.columns.zfImg}" /></a>
+								</c:if>
+							
+						</div>
+						<div class="lh-26 mb-5 pl-70 pos-r">
+							<span class="w-70 text-r pos">提成金额：</span>
+							<p >${detail.columns.sales_commissions }元</p>
+						</div> 
+					</c:if>
+					<div class="lh-26 mb-5 pl-70 pos-r">
+						<span class="w-70 text-r pos">销售人员：</span>
+						<p class="">${detail.columns.placing_name }</p>
+					</div>
+					<div class="lh-26 mb-5 pl-70 pos-r">
+						<span class="w-70 text-r pos">下单人：</span>
+						<p class="">${detail.columns.creator }</p>
+					</div>
+					<div class="lh-26 mb-5 pl-70 pos-r">
+						<span class="w-70 text-r pos">下单时间：</span>
+						<p class=""><fmt:formatDate value="${detail.columns.placing_order_time }" pattern="yyyy-MM-dd HH:mm"/></p>
+					</div>
+					<!-- 别删 -->
+					<c:if test="${detail.columns.status == '2' || detail.columns.status == '3' }">
+						<div class="lh-26 mb-5 pos-r pl-70">
+							<span class="w-70 text-r pos">提成明细：</span>
+							<c:forEach items="${list }" var="lt1">
+								<p ><span> ${lt1.columns.salesman }</span>&nbsp;&nbsp;&nbsp;   <strong> ${lt1.columns.sales_commissions }元</strong> </p>
+							</c:forEach>
+						</div> 
+					</c:if>
+					<c:if test="${detail.columns.status != '2' && detail.columns.status != '3' }">
+						<div class="lh-26 mb-5 pl-70 pos-r " >
+							<span class="w-70 text-r pos">备注：</span>
+							<!-- <input class="" style="width:450px;" value="" /> -->
+							<textarea id="marksEdit" name="marksEdit" class="textarea" style="width:630px;height:45px;font-size:12px;">${detail.columns.pay_mark  }</textarea>
+							<a href="javascript:saveMark();" style="margin-left:10px;margin-bottom: 39px;" class="sfbtn sfbtn-opt3  w-70 mr-5">保存</a>
+						</div>
+					</c:if>
+					<c:if test="${mark == 'zy' }">
+						<c:if test="${detail.columns.status == '2' || detail.columns.status == '3' || detail.columns.status == '0'  }">
+							<div class="lh-26 mb-5 pl-70 pos-r ">
+								<span class="w-70 text-r pos">修改记录：</span>
+								<c:if test="${not empty detail.columns.edit_detail}">
+									<div  style='border:1px solid #aaa;max-height:150px;overflow-y:auto;padding:0 10px;'>
+										<c:forEach var="pros" items="${fns:getFittingProcess(detail.columns.edit_detail)}" varStatus="idx">
+											<p class="processItem" <c:if test="${idx.index!=0 }"> style='border-top:1px solid #aaa;'</c:if>>
+												<span class="time">${pros.time}：${pros.content}</span>
+											</p>
+										</c:forEach>
+									</div>
+								</c:if>
+							</div>
+						</c:if>
+					</c:if>
+				</div>
+				<div class="col-2-1 f-l">
+					<div class="lh-26 mb-5"><strong class="f-14 text-r">收货人信息:</strong> </div>
+					<div class="lh-26 mb-5 pl-60 pos-r">
+						<span class="pos">用户姓名：</span>
+						<p>${detail.columns.customer_name }</p>
+					</div>
+					<div class="lh-26 mb-5 pl-60 pos-r">
+						<span class="pos">联系方式：</span>
+						<p>${detail.columns.customer_contact }</p>
+					</div>
+					<div class="lh-26 mb-5 pl-60 pos-r">
+						<span class=" pos">详细地址：</span>
+						<p>${detail.columns.customer_address }</p>
+					</div>
+					
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div class="popupBox qrsfBox">
+	<h2 class="popupHead">
+		修改订单信息
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer ">
+		<div class="popupMain pt-25 pb-20 pl-30 pr-30" >
+			<p class="f-14 mb-10" id="sfNumber">订单编号：PO01714354321546546</p>
+			<div class=" mb-20">
+				<table class="table table-bg table-border table-bordered table-sdrk text-c" style="table-layout: auto;">
+					<thead>
+						<tr>
+							<th class="w-420">商品图片</th>
+							<th class="w-120">商品名称</th>
+							<th class="w-120">商品数量</th>
+						</tr>
+					</thead>
+					<tr>
+						<td class="" id="sfImg">
+							
+						</td>
+						<td id="sfName">漏电保护插座</td>
+						<td id="sfNum">2025个</td>
+					</tr>
+				</table>
+			</div>
+			<p class="f-14 c-fe0101 mb-10" id="lrTips">温馨提示：该商品的结算方式为：按固定金额结算。</p>
+			<div class="cl mb-10">
+				<label class="w-100 f-l"><em class="mark">*</em> 入库价格：</label>
+				<div class="f-l w-140 priceWrap readonly">
+					<input type="text" class="input-text readonly" readonly="readonly" id="sfSitePrice" />
+					<span class="unit">元</span>
+				</div>
+				<label class="w-120 f-l"><em class="mark">*</em> 工程师价格：</label>
+				<div class="f-l w-140 priceWrap readonly">
+					<input type="text" class="input-text readonly" readonly="readonly" id="sfEmployePrice"/>
+					<span class="unit">元</span>
+				</div>
+				<input type="text" hidden="hidden" class="input-text w-140 f-l paixu" id="status2" name="status2"  />
+				<input type="text" hidden="hidden" class="input-text w-140 f-l paixu" id="numberPlat" name="numberPlat"  />
+				<input type="text" hidden="hidden" class="input-text w-140 f-l paixu" id="pNum" name="pNum"  />
+				<input type="text" hidden="hidden" class="input-text w-140 f-l paixu" id="gId" name="gId"  />
+				<label class="w-100 f-l"> 交款金额：</label>
+				<div class="f-l w-140 priceWrap readonly">
+					<input type="text" class="input-text readonly" readonly="readonly" id="realAmount" />
+					<span class="unit">元</span>
+				</div>
+			</div>
+			<div class="cl mb-10">
+				<label class="w-100 f-l"><em class="mark">*</em> 实收金额：</label>
+				<div class="f-l w-140 priceWrap mustfill">
+					<input type="text" class="input-text " id="confirmAmount" name="confirmAmount" />
+					<input type="text" class="input-text " hidden="hidden" id="commissionsRemarks" name="commissionsRemarks" />
+					<input type="text" class="input-text " hidden="hidden" id="oldCommissionsRemarks" name="oldCommissionsRemarks" />
+					<span class="unit">元</span>
+				</div>
+				<div id="ifHasWxjsh" class="f-l">
+					
+				</div>
+			</div>
+			<div class="cl mb-10">
+				<label class="w-100 f-l"> 工程师提成金额：</label>
+				<div class="f-l w-140 priceWrap ">
+					<input type="text" class="input-text " id="salesCommissions" />
+					<span class="unit">元</span>
+				</div>
+				<label class="w-120 f-l"><em class="mark">*</em> 销售人员：</label>
+				<span id="intHtml" class="f-l " >
+					<span class="f-l w-380 dropdown-sin-2 readonly" style="font-size:6px;" >
+						 <select class="select-box w-120 readonly"  id="xiaoName"  multiple="multiple" name="xiaoName"  style="width:140px;font-size:6px;">
+						 	<option  disabled class="check">网点人员</option>
+						 	<c:if test="${rd1 ne null }">
+								<c:forEach items="${rd1 }" var="rd1">
+									<option value="${rd1.columns.uId }">${rd1.columns.name }</option>
+								</c:forEach>
+							</c:if> 
+							<option disabled class="check">服务工程师</option>
+							<c:if test="${rd2 ne null }">
+								<c:forEach items="${rd2 }" var="rd2">
+									<option value="${rd2.columns.uId }">${rd2.columns.name }</option>
+								</c:forEach>
+							</c:if> 
+						 </select>
+					</span> 
+				</span>
+			</div>
+			<div class="mb-10 cl">
+				<label class="w-100 f-l">备注：</label>
+				<textarea id="marks" name="marks" class="textarea f-l h-40" style="width:630px;font-size:12px;"></textarea>
+			</div>
+			<div class="bg-e8f2fa pt-15 pb-5 cl mb-15 xsEmployesss ">
+				<label class="w-80 f-l">提成明细：</label>
+				<div class="f-l w-600" id="xsEmployes">
+				</div>
+			</div>
+			
+			<div class="text-c pt-10">
+				<a href="javascript:confirmGatheringthen();" class="sfbtn sfbtn-opt3 w-70 mr-5">确认修改</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt w-70 " id="btn-confirm-cancel">取消</a>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<!--请在下方写此页面业务相关的脚本-->
+<script type="text/javascript" src="${ctxPlugin}/lib/My97DatePicker/4.8/WdatePicker.js"></script> 
+<script type="text/javascript" src="${ctxPlugin}/lib/datatables/1.10.0/jquery.dataTables.min.js"></script> 
+<script type="text/javascript" src="${ctxPlugin}/lib/laypage/1.2/laypage.js"></script>
+<script src="${ctxPlugin}/static/h-ui.admin/js/sifang.js" type="text/javascript" charset="utf-8"></script>
+<script src="${ctxPlugin}/static/h-ui.admin/js/popUp.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript">
+	
+	$(function(){
+		tableHeight();
+		$(' .proofImg').imgShow({hasIframe:true});
+		
+		$("#editOrderDetail").bind('click',function(){
+			gatheringthen('${detail.columns.id}','${detail.columns.status}');
+		})
+		
+	})
+	
+	window.onresize = function(){
+		tableHeight();
+	}
+	function tableHeight(){
+		var wHeight = $('.sfpagebg').height() - 250;
+		var contHeight = $('#tableBody').height();
+
+		$('#tableBody').css({
+			'max-height':wHeight+'px',
+			'overflow':'auto',
+		});
+		
+		var tWidth = $('#tableBody').find('.table').eq(0).width();
+		$('#tableHead').width(tWidth);
+	}
+	
+	function gatheringthen(rowId,stat){ //列表中点击收款操作
+		/* $.closeDiv($(".sporderdetail"));
+		$('#confirmGatheringbox').empty(); */
+		$.ajax({
+			type:"POST",
+			url:"${ctx}/goods/siteselfOrder/queryByIdMoney",
+			data:{rowId:rowId},
+			//dataType:'json',
+			success:function(data){
+				var result = data.gsd;
+				var salesSet = data.salesSet;
+				var emIds = result.columns.placing_order_by;//工程师ids
+				var emNames = result.columns.placing_name;//工程师names
+				idsArr = emIds;
+				var num = result.columns.purchase_num;//购买数量
+				var allTch = result.columns.sales_commissions;//总的销售提成
+				var tcfs = result.columns.deduct_type;//提成方式
+				var reAmount = result.columns.real_amount;//实收金额
+				var rkPrice = result.columns.site_price;//入库价格
+				var empPrice = result.columns.employe_price;//工程师价格
+				if($.trim(empPrice)=='' || empPrice==null){
+					empPrice=0;
+				}
+				$("#marks").val(result.columns.pay_mark);
+				$("#commissionsRemarks").val(result.columns.commissions_remarks);
+				$("#oldCommissionsRemarks").val(result.columns.commissions_remarks);
+				var tcbl = result.columns.ratio_deduct_val;//提成比列
+				var ids = [];
+				var names = [];
+				var empHtml = '';
+				
+				if(emIds != "" && emNames != ""){
+					ids = emIds.split(",");
+					names = emNames.split(",");
+					var moneyTch = '0';
+					moneyTch = (allTch/ids.length).toFixed(2);//每个工程师的提成金额
+					for(var i=0;i<ids.length;i++){
+					 	empHtml+='<div class="f-l mb-10 mr-15 ceshistyle">'+
+					    	'<label class="nameTag w-90 f-l ceshistyle_label" title="'+names[i]+'">'+names[i]+'</label>'+
+					    	'<div class="priceWrap f-l bg-fff w-80">'+
+								'<input type="text" class="input-text " name="oneTch" value="'+moneyTch+'" />'+
+								'<input type="text" class="input-text " hidden="hidden" name="oneTchIds" value="'+ids[i]+'" />'+
+								'<span class="unit">元</span>'+
+				    		'</div>'+
+			    		'</div>'
+					} 
+				}
+				$("#xsEmployes").empty();
+				$("#xsEmployes").append(empHtml);
+				$("#intHtml").empty();
+				$("#intHtml").append('<span class="f-l w-370 dropdown-sin-2 readonly" >'+
+								' <select class="select-box w-120 readonly"  id="xiaoName"  multiple="multiple" name="xiaoName"  style="width:140px">'+
+								'<option disabled>网点人员</option>'+
+								 '<c:if test="${rd1 ne null }">'+
+									'<c:forEach items="${rd1 }" var="rd1">'+
+										'<option value="${rd1.columns.uId }">${rd1.columns.name }</option>'+
+									'</c:forEach>'+
+								 '</c:if>'+
+								 '<option disabled>服务工程师</option>'+
+								 '<c:if test="${rd2 ne null }">'+
+									'<c:forEach items="${rd2 }" var="rd2">'+
+										'<option value="${rd2.columns.uId }">${rd2.columns.name }</option>'+
+									'</c:forEach>'+
+								 '</c:if>'+
+								'</select>'+
+							'</span> ');
+				//qrsfBox
+				if(!isBlank(result.columns.good_icon)){
+					var imgHtml = "";
+					for(var i=0;i<result.columns.good_icon.split(',').length;i++){
+						imgHtml+='<img src="${commonStaticImgPath}'+result.columns.good_icon.split(',')[i]+'"  class="goosImg" />';
+					}
+					$("#sfImg").empty();
+					$("#sfImg").append(imgHtml);
+				}
+				$("#sfName").text(result.columns.good_name);
+				$("#sfNumber").text("订单编号："+result.columns.number);
+				$("#sfNum").text(result.columns.purchase_num+result.columns.unit);//
+				$("#sfSitePrice").val(rkPrice*num);
+				$("#sfEmployePrice").val(empPrice*num);
+				$("#confirmAmount").val(result.columns.confirm_amount);
+				$("#realAmount").val(result.columns.real_amount);
+				$("#salesCommissions").val(result.columns.sales_commissions);
+				var zfId = result.columns.zfId;
+				var zxHtml = '';
+				if(!isBlank(zfId)){
+					var zfType = result.columns.zfType;
+					zxHtml = '<label class="w-120 f-l"> 无现金收款：</label><span class="c-fe0101 lh-26">'+
+								(zfType=='0' ? '支付宝' : '微信')+'</span><span class="lh-26 pr-5">'+result.columns.zfMoney+
+								'</span><a class="c-0383dc proofImg"><i class="sficon sficon-view"></i>查看凭证 <img src="${commonStaticImgPath}'+result.columns.zfImg+'" /> </a>';
+				}
+				$("#ifHasWxjsh").empty();
+				$("#ifHasWxjsh").append(zxHtml);
+				$('.proofImg').imgShow({hasIframe:true});
+				$("#status2").val(result.columns.status);
+				$("#numberPlat").val(result.columns.number);
+				$("#pNum").val(result.columns.purchase_num);
+				$("#gId").val(result.columns.good_id);
+				
+				
+				var tcwenzi = '按固定金额结算';
+				if(result.columns.deduct_type == "2"){
+					tcwenzi = '按利润比列提成（利润 = 实收金额 - 入库价格）';
+					if(salesSet!=null && $.trim(salesSet)!= ""){
+						tclrWays = salesSet.columns.set_value;
+						if(salesSet.columns.set_value=='2'){
+							tcwenzi = '按利润比列提成（利润 = 实收金额 - 工程师价格）';
+						}
+						if(salesSet.columns.set_value=='3'){
+							tcwenzi = '按利润比列提成（利润 = 实收金额）';
+						}
+					}
+				}
+				$("#lrTips").text("温馨提示：该商品的结算方式为："+tcwenzi);
+				
+				dd = $('.dropdown-sin-2').dropdown({
+			        // data: json2.data,
+			        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+			        choice: function() {
+			        }
+			    }).data("dropdown");
+				$('.dropdown-sin-2').bind('click', function(){ 
+					chagesSty();
+				})
+				if($.trim(emIds)!="" && emIds!=null){
+					dd.choose(emIds.split(","), true);
+				}
+				rId=rowId;
+				$('.qrsfBox').popup();
+				$("#confirmAmount").blur(function(){
+					var confirmAt = $("#confirmAmount").val();
+					var moneyTch = '0';
+					if(tcfs=="2"){
+						moneyTch = ((confirmAt-rkPrice*num)*tcbl*0.01).toFixed(2);
+						var sassionMarks ="比例提成（(实收金额-入库价格)*比列系数*0.01），本次提成："+"("+confirmAt+"-"+rkPrice+"*"+num+")*"+tcbl+"*0.01="+moneyTch+"元";
+						if(tclrWays=='2'){
+							moneyTch = ((confirmAt-empPrice*num)*tcbl*0.01).toFixed(2);
+							sassionMarks = "比例提成（(实收金额-工程师价格)*比列系数*0.01），本次提成："+"("+confirmAt+"-"+empPrice+"*"+num+")*"+tcbl+"*0.01="+moneyTch+"元";
+						}
+						if(tclrWays=='3'){
+							moneyTch = ((confirmAt)*tcbl*0.01).toFixed(2);
+							sassionMarks = "比例提成（实收金额*比列系数*0.01），本次提成："+confirmAt+"*"+tcbl+"*0.01="+moneyTch+"元";
+						}
+						commissionsRemarks = sassionMarks;
+						$("#salesCommissions").val(moneyTch);
+						if( $(".xsEmployesss input[name='oneTch']").length>0){
+							$(".xsEmployesss input[name='oneTch']").each(function(index,el){
+								$(this).attr('value',(moneyTch/ $(".xsEmployesss input[name='oneTch']").length).toFixed(2));
+							});
+						}
+					}
+				})
+				
+				$("#salesCommissions").blur(function(){
+					var tcAll = $("#salesCommissions").val();
+					if( $(".xsEmployesss input[name='oneTch']").length>0){
+						$(".xsEmployesss input[name='oneTch']").each(function(index,el){
+							$(this).attr('value',(tcAll/$(".xsEmployesss input[name='oneTch']").length).toFixed(2));
+						});
+					}
+				})
+				 
+				$(".xsEmployesss input[name='oneTch']").blur(function(){
+					var allOneTch = 0;
+					var oneTch = '';
+					var everyMark = "0";
+					$(".xsEmployesss input[name='oneTch']").each(function(index,el){
+						var elValue = $(el).val();
+						if($.trim(elValue)=="" || elValue==undefined ){
+							elValue=0;
+						}
+						if(!checkMoney(elValue)){
+							everyMark = "1";
+							return;
+						}
+						allOneTch=parseFloat(allOneTch)+parseFloat(elValue);
+						if(oneTch==''){
+							oneTch=elValue;
+						}else{
+							oneTch=oneTch+","+elValue;
+						}
+					})
+					if(everyMark=="1"){
+						layer.msg("工程师提成金额要求大于等于0且最多只能够有两位小数");
+						return;
+					}
+					$("#salesCommissions").val(allOneTch.toFixed(2));
+				})
+				$("#confirmAmount").change(function(){
+					var confirmAt = $("#confirmAmount").val();
+					var moneyTch = '0';
+					if(tcfs=="2"){
+						moneyTch = ((confirmAt-rkPrice*num)*tcbl*0.01).toFixed(2);
+						var sassionMarks ="比例提成（(实收金额-入库价格)*比列系数*0.01），本次提成："+"("+confirmAt+"-"+rkPrice+"*"+num+")*"+tcbl+"*0.01="+moneyTch+"元";
+						if(tclrWays=='2'){
+							moneyTch = ((confirmAt-empPrice*num)*tcbl*0.01).toFixed(2);
+							sassionMarks = "比例提成（(实收金额-工程师价格)*比列系数*0.01），本次提成："+"("+confirmAt+"-"+empPrice+"*"+num+")*"+tcbl+"*0.01="+moneyTch+"元";
+						}
+						if(tclrWays=='3'){
+							moneyTch = ((confirmAt)*tcbl*0.01).toFixed(2);
+							sassionMarks = "比例提成（实收金额*比列系数*0.01），本次提成："+confirmAt+"*"+tcbl+"*0.01="+moneyTch+"元";
+						}
+						$("#commissionsRemarks").val(sassionMarks);
+						//alert($("#commissionsRemarks").val());
+					}
+				}) ;
+		$("#salesCommissions").change(function(){
+			var tcAll = $("#salesCommissions").val();
+			$("#commissionsRemarks").val("手动调整提成金额， 本次提成："+tcAll+"元");
+			//alert($("#commissionsRemarks").val());
+		});
+		$(".xsEmployesss input[name='oneTch']").change(function(){
+			var allOneTch = 0;
+			var oneTch = '';
+			var everyMark = "0";
+			$(".xsEmployesss input[name='oneTch']").each(function(index,el){
+				var elValue = $(el).val();
+				if($.trim(elValue)=="" || elValue==undefined ){
+					elValue=0;
+				}
+				if(!checkMoney(elValue)){
+					everyMark = "1";
+					return;
+				}
+				allOneTch=parseFloat(allOneTch)+parseFloat(elValue);
+				if(oneTch==''){
+					oneTch=elValue;
+				}else{
+					oneTch=oneTch+","+elValue;
+				}
+			})
+			if(everyMark=="1"){
+				//layer.msg("工程师提成金额要求大于等于0且最多只能够有两位小数");
+				return;
+			}
+			$("#commissionsRemarks").val("手动调整提成金额， 本次提成："+allOneTch.toFixed(2)+"元");
+			//alert($("#commissionsRemarks").val());
+		})
+			}
+		});
+	}
+	
+	function isBlank(val) {
+		if (val == null || $.trim(val) == '' || val == undefined) {
+			return true;
+		}
+		return false;
+	}
+	
+	function chagesSty(){
+		var xName = $('#xiaoName').val();
+		if($.trim(xName) != "" && xName != null && xName != undefined ){
+		    var nameArr = $("#intHtml").find(".dropdown-display").attr("title").split(',');
+		    var html = '';
+		    var tije = $("#salesCommissions").val();//总的提成金额
+		    if(tije==null || $.trim(tije) == "") {
+		    		tije=0;
+		    }
+		    if(!checkMoney(tije)){
+		    	layer.msg("工程师提成金额要求大于等于0且最多只能够有两位小数");
+		    	$("#salesCommissions").focus();
+		    	return;
+		    }
+		    var dgtije = (tije/xName.length).toFixed(2);//单个工程师提成金额
+		    for(var i=0;i<xName.length;i++){
+		    	html+='<div class="f-l mb-10 mr-15 ceshistyle">'+
+				    	'<label class="nameTag w-90 f-l ceshistyle_label" title="'+ nameArr[i] +'">'+nameArr[i]+'</label>'+
+				    	'<div class="priceWrap f-l bg-fff w-80">'+
+						'<input type="text" class="input-text " name="oneTch" value="'+dgtije+'" />'+
+						'<input type="text" class="input-text " hidden="hidden" name="oneTchIds" value="'+xName[i]+'" />'+
+						'<span class="unit">元</span>'+
+			    		'</div>'+
+	    		'</div>'
+		    }
+	    }
+		$("#xsEmployes").empty();
+	    $("#xsEmployes").append(html);
+	    $(".xsEmployesss input[name='oneTch']").blur(function(){
+			var allOneTch = 0;
+			var oneTch = '';
+			var everyMark = "0";
+			$(".xsEmployesss input[name='oneTch']").each(function(index,el){
+				var elValue = $(el).val();
+				if($.trim(elValue)=="" || elValue==undefined ){
+					elValue=0;
+				}
+				if(!checkMoney(elValue)){
+					everyMark = "1";
+					return;
+				}
+				allOneTch=parseFloat(allOneTch)+parseFloat(elValue);
+				if(oneTch==''){
+					oneTch=elValue;
+				}else{
+					oneTch=oneTch+","+elValue;
+				}
+			})
+			if(everyMark=="1"){
+				layer.msg("工程师提成金额要求大于等于0且最多只能够有两位小数");
+				return;
+			}
+			$("#salesCommissions").val(allOneTch.toFixed(2));
+		})
+	}
+	
+	function check(number) {
+		var re = /^\d+(?=\.{0,1}\d+$|$)/
+		if (!re.test(number)) {
+			return false;
+		}
+		return true;
+	}
+	
+	function checkMoney(mny){
+		var reg = /^[1-9]{1}\d*(.\d{1,2})?$|^0.\d{1,2}$/;
+		if(parseFloat(mny) == parseFloat(0)){
+			return true;
+		}else{
+			if(reg.test(mny)){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	$('#btn-confirm-cancel').on('click', function() { //点击取消 关闭付款弹出框
+		$.closeDiv($('.qrsfBox'));
+	});
+	
+	var adpoting = false;
+	function confirmGatheringthen(){ //点击确认收款按钮执行收费过程
+		if(adpoting) {
+			return;
+		}
+		var status = $("#status2").val();
+		var marks = $("#marks").val();
+		var confirmAmount = $("#confirmAmount").val();
+		var salesCommissions = $("#salesCommissions").val();
+		var newMsg = $("#commissionsRemarks").val();
+		var oldMsg = $("#oldCommissionsRemarks").val();
+		var finalMsg = newMsg;
+		if(!isBlank(newMsg) || !isBlank(oldMsg)){
+			if(newMsg!=oldMsg){
+				finalMsg = "现在的提成方式为："+newMsg+"；原提成方式为："+oldMsg;
+			}
+		}
+		var allOneTch = 0;
+		var oneTch = '';
+		var everyMark = "0";
+		$("input[name='oneTch']").each(function(index,el){
+			var elValue = $(el).val();
+			if($.trim(elValue)=="" || elValue==undefined ){
+				elValue=0;
+			}
+			if(!checkMoney(elValue)){
+				everyMark = "1";
+				return;
+			}
+			allOneTch=parseFloat(allOneTch)+parseFloat(elValue);
+			if(oneTch==''){
+				oneTch=elValue;
+			}else{
+				oneTch=oneTch+","+elValue;
+			}
+		})
+		if(everyMark=="1"){
+			layer.msg("工程师提成金额要求大于等于0且最多只能够有两位小数");
+			return;
+		}
+		var idAs = $("#xiaoName").val();
+		var idArrs="";
+		for(var i=0;i<idAs.length;i++){
+			if(idArrs==""){
+				idArrs=idAs[i];
+			}else{
+				idArrs=idArrs+","+idAs[i];
+			}
+		}
+		var nameArrs = $(".dropdown-display").attr("title");
+	    var pNum = $("#pNum").val();
+		var gId = $("#gId").val();
+		if($.trim(salesCommissions)!=""  && salesCommissions!=null ){
+			if(check(salesCommissions)==false){
+				layer.msg("工程师提成金额输入格式不正确！");
+				$("#salesCommissions").focus();
+				return;
+			} 
+		}
+		if(isBlank(confirmAmount)){
+			layer.msg("实收金额不能为空！");
+			$("#confirmAmount").focus();
+		}else if(check(confirmAmount)==false){
+			layer.msg("实收金额输入格式不正确！");
+			$("#confirmAmount").focus();
+		} else{
+			adpoting = true;
+			$.ajax({
+				type: "POST",
+				url: "${ctx}/goods/siteselfOrder/editGoodsOrder",
+				data: {
+					rowId: rId,
+					confirmAmount: confirmAmount,
+					status: status,
+					pNum: pNum,
+					gId: gId,
+					salesCommissions:salesCommissions,
+					oneTch:oneTch,
+					idsArr:idArrs,
+					nameArrs:nameArrs,
+					marks:marks, 
+					commissionsRemarks:finalMsg
+				},
+				dataType: 'json',
+				success: function (result) {
+					if (result == "200") {
+						parent.layer.msg("修改成功！");
+						//window.location.reload(true);
+						$.closeDiv($(".qrsfBox"));
+						window.location.reload(true);
+					} else if(result == "420"){
+						parent.layer.msg("订单信息有误，修改失败！");
+					}else {
+						$('body').popup({
+							level: '3',
+							type: 1,
+							content: "修改订单失败，请检查！"
+						})
+					}
+				},
+				complete: function() {
+					adpoting = false;
+				}
+			});
+		} 
+	}
+	
+	function saveMark(){
+		var orderId = $("#orderIdDetail").val();
+		var marks = $("#marksEdit").val();
+		$.ajax({
+			type:"post",
+			dataType:"json",
+			url:"${ctx}/goods/siteselfOrder/saveMarks",
+			data:{orderId:orderId,marks:marks},
+			success:function(data){
+				if(data=='200'){
+					layer.msg("保存成功！");
+				}else{
+					layer.msg("保存失败，请稍后重试！");
+				}
+				return ;
+			},
+			error:function(){
+				layer.msg("保存失败，请稍后重试！");
+				return ;
+			}
+		})
+	}
+</script> 
+</body>
+</html>

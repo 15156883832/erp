@@ -1,0 +1,93 @@
+package com.jojowonet.modules.order.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.google.common.collect.Lists;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.SitetVenderAccountDao;
+import com.jojowonet.modules.order.entity.SiteVenderAccount;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+
+
+/**
+ * 网点的厂家账号信息表Service
+ * @author Ivan
+ * @version 2017-05-04
+ */
+@Component
+@Transactional(readOnly = true)
+public class SitetVenderAccountService extends BaseService{
+	
+	@Autowired
+	private SitetVenderAccountDao sitetVenderAccountDao;
+	
+	public Page<Record> getSiteVenderAccountGrid(String siteId,Page<Record> page) {
+
+		StringBuilder sb = new StringBuilder("");
+		sb.append("SELECT a.* FROM crm_site_vender_account a WHERE a.status='0' AND site_id = '"+siteId+"' ORDER BY vender_id");
+		sb.append(" limit "+page.getPageSize()+" offset " + (page.getPageNo()-1)*page.getPageSize());
+		List<Record> list = Db.find(sb.toString());
+
+		Long count = sitetVenderAccountDao.getCount(siteId);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+		
+	}
+	
+	public Boolean delOne(String rowId) {
+		Db.update("UPDATE crm_site_vender_account SET status = '1' WHERE id = '"+rowId+"'");		
+		return true;
+	}
+	
+	public Record editOne(String rowId) {
+		 Record vender = Db.findFirst("SELECT a.* FROM crm_site_vender_account a WHERE a.status='0' AND id = '"+rowId+"'");
+
+		return vender;
+	}
+	
+	public void saveEdit(String rowId,String loginName,String password) {
+		Db.update("UPDATE crm_site_vender_account a SET a.login_name='"+loginName+"',a.password='"+password+"' WHERE a.status='0' AND a.id='"+rowId+"'");
+		
+	} 
+	
+	public List<Record> getVenderInfo(){
+		return Db.find("SELECT * FROM crm_vender_info WHERE status='0'");
+	}
+	
+	public Boolean addSave(String siteId,String getSelectedId,String loginName,String password) {
+		SiteVenderAccount siteVenderAccount = new SiteVenderAccount();
+		Record record = getVenderInfoById(getSelectedId);
+		siteVenderAccount.setLoginName(loginName);
+		siteVenderAccount.setPassword(password);
+		siteVenderAccount.setVenderId(getSelectedId);
+		siteVenderAccount.setLink(record.getStr("url"));
+		siteVenderAccount.setStatus("0");
+		siteVenderAccount.setName(record.getStr("name"));
+		siteVenderAccount.setSiteId(siteId);
+		sitetVenderAccountDao.save(siteVenderAccount);
+		return true;
+	}
+    
+	public Record getVenderInfoById(String getSelectedId){
+		return Db.findFirst("SELECT * FROM crm_vender_info WHERE status='0' AND id ='"+getSelectedId+"'");
+	}
+
+	public Integer queryAccountByName(String siteId, String loginName) {
+		Integer i=0;
+		i=Db.find("SELECT * FROM crm_site_vender_account WHERE status='0' AND login_name='"+loginName+"'").size();
+		return i;
+	}
+
+	public Record querybyid(String siteId, String names, String id) {
+		Record r=Db.findFirst("SELECT * FROM crm_site_vender_account WHERE status='0'  AND login_name='"+names+"' AND id!='"+id+"'" );
+		return r;
+	}
+}

@@ -1,0 +1,547 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="decorator" content="base"/>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/skin/default/skin.css" id="skin" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/sfskin_blue.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/static/h-ui.admin/css/styleGoods.css" />
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+<script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/jquery.rotate.min.js"></script>
+<style type="text/css">
+		.hide_{
+			display: none;
+		}
+</style>
+<title>订单信息——公司商品订单</title>
+</head>
+<body class="">
+<div class="popupBox qrsfBox" style="min-width: 900px;">
+    <h2 class="popupHead">
+        ${goWhere eq 'detailPage'?'修改订单':'确认收费'}
+        <a href="javascript:;" class="sficon closePopup"></a>
+    </h2>
+    <div class="popupContainer ">
+        <div class="popupMain pt-25 pb-20 pl-30 pr-30">
+            <div class="shouF">
+                <div class="f-14 mb-10 f-l" id="sfNumber"><span>订单编号：</span>
+                    <p>${order.columns.number }</p>
+                </div>
+                <div class="f-r">
+                    <span><em class="mark">*</em>销售人员：</span>
+                    <div class="f-l  dropdown-sin-2 readonly" style="width: 75%;">
+								 <select class="select-box  readonly" style="width: 65%;" id="xiaoName"  multiple="multiple" name="xiaoName"  style="width:140px">
+								<option disabled>网点人员</option>
+								 <c:if test="${rd1 ne null }">
+									<c:forEach items="${rd1 }" var="rdm">
+										
+										<option value="${rdm.columns.uId }" >${rdm.columns.name }</option>
+			                          
+									</c:forEach>
+								 </c:if>
+								 <option disabled>服务工程师</option>
+								 <c:if test="${rd2 ne null }">
+									<c:forEach items="${rd2 }" var="rde">
+										
+											<%-- <option value="${rde.columns.uId }" >${rde.columns.name }</option> --%>
+											<option value="${rde.columns.uId }">${rde.columns.name }</option>
+		
+									 </c:forEach>
+								 </c:if>
+								</select>
+							</div> 
+                    <!-- <input type="text" class="priceWrap"> -->
+                </div>
+            </div>
+            <div class=" mb-20">
+                <table class="table table-bg table-border table-bordered table-sdrk text-c" style="table-layout: auto;">
+                    <thead>
+                    <tr>
+                        <th>商品</th>
+                        <th>入库价</th>
+                        <th>工程师价</th>
+                        <th>零售价</th>
+                        <th>销售数量</th>
+                        <th class="position-r">成交价
+                            <img src="${ctxPlugin}/static/h-ui.admin/images/i.png" alt="" width="15px" class="i_">
+                            <div class="message1">
+                                单个商品的最终成交价
+                            </div>
+                        </th>
+                        <th class="position-r">提成
+                            <img src="${ctxPlugin}/static/h-ui.admin/images/i.png" alt="" width="15px" class="i_">
+                            <div class="message2">
+                                根据商品详情中设置的“工程师提成”方案自动生成提成金额
+                            </div>
+                        </th>
+                    </tr>
+                    </thead>
+                    <c:forEach items="${goods }" var="go">
+                    <tr>
+                        <td width="150">${go.columns.good_name }</td>
+                        <td>${go.columns.site_price }</td>
+                        <td>${go.columns.employe_price }</td>
+                        <td>${go.columns.customer_price }</td>
+                        <td>${go.columns.purchase_num }</td>
+                        <td>${go.columns.real_amount }</td>
+                        <td>${go.columns.sales_commissions }</td>
+                    </tr>
+                    </c:forEach>
+                </table>
+            </div>
+            <div class="cl mb-10">
+                <label class="w-100 f-l">成交总额：</label>
+                <div class="f-l w-140 priceWrap readonly">
+                    <input type="text" class="input-text readonly" readonly="readonly" value="${order.columns.real_amount }"/>
+                    <span class="unit">元</span>
+                </div>
+                <label class="w-120 f-l"><em class="mark">*</em> 实收金额：</label>
+                <div class="f-l w-140 priceWrap ">
+                    <input type="text" class="input-text" value="${order.columns.real_amount }" id="orderConfirmAmount"/>
+                    <span class="unit">元</span>
+                </div>
+            </div>
+            <hr>
+            <div class="cl mb-10 mt-10 position-r">
+                <label class="w-100 f-l"><em class="mark">*</em> 提成总额：</label>
+                <div class="f-l w-140 priceWrap readonly">
+                    <input type="text" class="input-text readonly" id="orderSalesCommissions" readonly="readonly" value="${order.columns.sales_commissions }"/>
+                    <span class="unit">元</span>
+                </div>
+                <img src="${ctxPlugin}/static/h-ui.admin/images/i.png" alt="" width="15px" class="f-l mt-5 ml-5 i_">
+                <div class="message3">
+                    自动累加所有商品的提成合计
+                </div>
+                <label class="w-100 f-l">当日支付：</label>
+                <div class="f-l w-140 priceWrap readonly">
+                    <input type="text" class="input-text readonly paidCommissions" id="orderPaidCommissions"  readonly="readonly" value="${order.columns.paid_commissions }"/>
+                    <span class="unit">元</span>
+                </div>
+                <img src="${ctxPlugin}/static/h-ui.admin/images/i.png" alt="" width="15px" class="f-l mt-5 ml-5 i_">
+                <div class="message4">
+                    自动累加提成明细中“当日支付”的金额
+                </div>
+            </div>
+       
+            <div class="pt-15 cl mb-15 tichengTable">
+				<label class="f-l" style="width: 7%">提成明细：</label>
+				<div class="f-l" style="min-width:855px; max-width: 855px;max-height:146px; overflow: auto;">
+					<table class="bg-e8f2fa table-bg table-border table-bordered table-sdrk text-c mingxi ">
+                      <tbody id="tichengDetail">
+                         <tr>
+                            <td rowspan="2"></td>
+                       <c:forEach var="datalist" items="${deduct.dataList}" varStatus="deductSta">
+	                        <c:if test="${deductSta.count eq 1}">
+	                        <c:forEach var="deduct" items="${deduct.deductList}">
+	                            <c:if test="${deduct.columns.deductId ne null and deduct.columns.deductId ne ''}">
+	                                <c:if test="${datalist.columns.id eq deduct.columns.id}">
+	                                    <td colspan="2" class="${deduct.columns.salesman_id} employeName">${deduct.columns.salesman}</td>
+	                                </c:if>
+	                            </c:if>
+	                        </c:forEach>
+	                        </c:if>
+                    </c:forEach>
+                        </tr>
+                        <tr>
+                            <!-- <td width="150"></td> -->
+                            <c:forEach var="datalist" items="${deduct.dataList}" varStatus="deductSta">
+	                        <c:if test="${deductSta.count eq 1}">
+	                        <c:forEach var="deduct" items="${deduct.deductList}">
+	                            <c:if test="${deduct.columns.deductId ne null and deduct.columns.deductId ne '' and datalist.columns.id eq deduct.columns.id}">
+	                                <td width="130" class="${deduct.columns.salesman_id}">提成</td>
+	                                <td width="130" class="${deduct.columns.salesman_id}">当日支付</td>
+	                            </c:if>
+	                        </c:forEach>
+	                        </c:if>
+	                    </c:forEach>
+                         
+                        </tr>
+                        <c:forEach var="datalist" items="${deduct.dataList}">
+		                    <tr class="deductDetail">
+		                        <c:forEach var="deduct" items="${deduct.deductList}" varStatus="deductSta">
+		                            <c:if test="${deduct.columns.deductId ne null and deduct.columns.deductId ne ''}">
+		                                <c:if test="${deductSta.count eq 1}">
+		                                    <td class="w-120" >${datalist.columns.good_name}<input class="adjustGoodsId" value="${datalist.columns.good_id}" hidden="hidden" /></td>
+		                                </c:if>
+		                                <c:if test="${datalist.columns.id eq deduct.columns.id}">
+		                                <%--  <td class="${deduct.columns.salesman_id}">
+			                                <div class="priceWrap_">
+			                                    <div class="priceWrap">
+			                                        <input type="text" class="input-text everyTicheng" value="${deduct.columns.sales_commissions}" onchange="salescommissions(this)"/>
+			                                        <span class="unit">元</span>
+			                                    </div>
+			                                </div>
+			                            </td>
+			                            <td class="${deduct.columns.salesman_id}">
+			                                <input type="checkbox" class="drzfmark">
+			                                <div class="priceWrap_ " style="display: none;">
+			                                    <div class="priceWrap">
+			                                        <input type="text" class="input-text paid_commissions" value="${deduct.columns.paid_commissions}" onchange="paidCommissions(this)"/>
+			                                        <span class="unit">元</span>
+			                                    </div>
+			                                </div>
+			                            </td> --%>
+									<td class="w-100">
+						                <div class="priceWrap">
+						                    <input type="text" value="${deduct.columns.sales_commissions}" class="input-text everyTicheng" onchange="salescommissions(this)"/>
+						                    <span class="unit">元</span>
+						                </div>
+						            </td>
+						            <td class="w-100">
+						                <input type="checkbox" class="drzfmark">
+						                <div class="priceWrap dangri hide" style="display:none;">
+						                <input type="text" class="input-text paid_commissions" value="${deduct.columns.paid_commissions}" onchange="paidCommissions(this)"/>
+						                    <span class="unit">元</span>
+						                </div>
+						            </td>
+		                                </c:if>
+		                            </c:if>
+		                        </c:forEach>
+		                    </tr>
+		                </c:forEach>
+ 
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="mb-10 cl beizhu">
+                <label class="f-l">备注：</label>
+                <textarea id="payMark" name="payMark" class="textarea f-r h-30">${order.columns.pay_mark }</textarea>
+            </div>
+            <div class="text-c pt-10">
+            <!--     <a href="javascript:confirmGatheringthen();" class="sfbtn sfbtn-opt3 w-70 mr-5">确认收费</a> -->
+                <a href="javascript:saveSales();" class="sfbtn sfbtn-opt3 w-70 mr-5">${goWhere eq 'detailPage'?'确认修改':'确认收费'}</a>
+                <a href="javascript:;" class="sfbtn sfbtn-opt w-70 " id="btn-confirm-cancel">取消</a>
+            </div>
+        </div>
+    </div>
+</div>
+<input type="hidden" id="orderId" value="${order.columns.id }">
+<script type="text/javascript" src="${ctxPlugin}/lib/My97DatePicker/4.8/WdatePicker.js"></script> 
+<script type="text/javascript" src="${ctxPlugin}/lib/datatables/1.10.0/jquery.dataTables.min.js"></script> 
+<script type="text/javascript" src="${ctxPlugin}/lib/laypage/1.2/laypage.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+<script type="text/javascript">
+ var cou = 0;
+function dangrizhifu(){
+	$(".drzfmark").off("click");
+	$(".drzfmark").on("click",function(){
+		if($(this).is(':checked')){
+			$(this).parent("td").find("div").eq(0).show();
+		}else{
+			$(this).parent("td").find("div").eq(0).hide();
+		}
+	//计算当日支付
+	orderPaidCommissions();
+	});
+}
+
+	   var data = [];
+$(function(){
+	 $('.qrsfBox').popup();
+       <c:forEach items="${goods}" var="item" varStatus="status">
+           data.push({
+        	   name: '${item.columns.good_name}',
+               sales_commissions: '${item.columns.sales_commissions}',
+               id: '${item.columns.id}'
+           });
+       </c:forEach>
+       
+		dangrizhifu();
+		var empIds = "${order.columns.placing_order_by }";
+	  dd = $('.dropdown-sin-2').dropdown({
+	        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+	        choice: function() {
+	        	if(cou > 0){
+	        	//选择销售人员事件点击选中后触发的
+	        	employeChanges();
+	        	}
+	        	cou ++;
+	        }
+	    }).data("dropdown");
+	 
+	 
+		if($.trim(empIds)!="" && empIds!=null){
+			dd.choose(empIds.split(","), true);
+		}else{
+			cou=1;
+		}
+		  $("#orderConfirmAmount").change(function(){
+		    	var money = $(this).val();
+		    	if(isBlank(money)){
+		    		$("#orderConfirmAmount").val(0);
+		    	}else if(!checkMoney(money)){
+		    		layer.msg("实收金额格式错误！")
+		    		return
+		    	}
+		   });
+		  
+});
+
+/*收款保存*/
+var saveSalesMark = false;
+function saveSales(){
+	if(saveSalesMark){
+		return;
+	}
+	var orderId = $("#orderId").val();//订单ID
+	var empIds = $("#xiaoName").val();//销售人员id
+	var nameArr = $(".dropdown-display").attr("title");
+	if(isBlank(nameArr)){
+		nameArr = $("#xiaoName").find("option:selected").text();
+	}
+
+	var confirmAmount = $("#orderConfirmAmount").val();//实收金额
+	var salesCommissions = $("#orderSalesCommissions").val();//提成金额
+	var paidCommissions = $("#orderPaidCommissions").val();//当日支付
+	var payMark = $("#payMark").val();//收款备注
+	if(empIds.length <1){
+		layer.msg("请选择销售人员！");
+		return
+	}
+	if(isBlank(confirmAmount)){
+		layer.msg("请输入实收金额！");
+		return
+	}
+	
+	var salesmanId = [];//销售人员id
+	var salesmanName = [];//销售人员姓名
+	var adjustGoodsId = [];//订单详情的id
+	var everyTicheng = [];//提成
+	var paid_commissions = [];//当日支付
+	$(".salesmanId").each(function(){
+		if(!isBlank($(this).val())){
+			salesmanId.push($(this).val());
+			salesmanName.push($(this).attr("title"));
+		}
+
+	});
+		$(".adjustGoodsId").each(function(){
+			var GoodsId = $(this).val();
+				if(!isBlank(GoodsId)){
+					adjustGoodsId.push(GoodsId);
+				}else{
+					adjustGoodsId.push('');
+				}
+		});
+		$(".everyTicheng").each(function(){
+			var Ticheng = $(this).val();
+			var sions = $(this).parent('div').parent('td').next('td').find('.paid_commissions').val();
+				if(!isBlank(Ticheng)){
+					everyTicheng.push(Ticheng);
+				}else{
+					everyTicheng.push(0);
+				}
+				if(!isBlank(sions)){
+					paid_commissions.push(sions);
+				}else{
+					paid_commissions.push(0);
+				}
+		});
+    var result='${goWhere}';
+
+	saveSalesMark = true;
+	  $.ajax({
+					type : "post",
+					url : "${ctx}/goods/siteselfOrder/Receivables",
+					async : false,
+					data : {
+						orderId :orderId,
+						UserId :empIds.join(","),
+						placingName :nameArr,
+						confirmAmount :confirmAmount,
+						salesCommissions : salesCommissions,
+						paidCommissions : paidCommissions,
+						payMark : payMark,
+						salesmanId : JSON.stringify(salesmanId),
+						adjustGoodsId : JSON.stringify(adjustGoodsId),//订单详情的id
+						everyTicheng : JSON.stringify(everyTicheng),
+						paid_commissions : JSON.stringify(paid_commissions),
+						salesmanName : JSON.stringify(salesmanName),
+                        goWhere:result
+					},
+					dataType : "json",
+					success : function(data) {
+						if(data == "420"){
+							layer.msg("保存失败,已确认收款");
+							saveSalesMark = false;
+							return 
+						}else if(data == '401'){
+							layer.msg("保存失败,数据有误，请检查数据")
+							saveSalesMark = false;
+							return
+						}else if(data == '200'){
+							saveSalesMark = false;
+							parent.layer.msg("保存成功");
+							if(result=="detailPage"){
+                                var orderId = '${orderId}';
+                                var mark = '${mark}';
+                                var href="${ctx}/goods/siteselfOrder/toGoodsOrderDetailPage?id="+orderId+"&mark="+mark;
+                                updateOrCreate("订单详情",href);
+                            }else{
+                                parent.search()
+                            }
+						}else{
+							saveSalesMark = false;
+							layer.msg("保存失败");
+						}
+						} 
+					})
+	
+}
+
+ function updateOrCreate(name,href){
+     var bStop = false;
+     var bStopIndex = 1;
+     var show_navLi = $('#min_title_list li',window.top.document);
+     show_navLi.each(function () {
+         $(this).removeClass('active');
+         if ($(this).find('span').text() ==$.trim(name)) {
+             bStopIndex = show_navLi.index($(this));
+             bStop = true;
+         }
+     });
+     if (!bStop) {
+         creatIframe(href, name);
+     } else {
+         show_navLi.eq(bStopIndex).addClass('active');
+         $('#iframe_box .show_iframe',window.top.document).hide().eq(bStopIndex).show().find('iframe').attr({'src': href,});
+     }
+ }
+
+function checkMoney(mny){
+	var reg = /^[1-9]{1}\d*(.\d{1,2})?$|^0.\d{1,2}$/;
+	if(parseFloat(mny) == parseFloat(0)){
+		return true;
+	}else{
+		if(reg.test(mny)){
+			return true;
+		}
+	}
+	return false;
+}
+
+/*选择销售人员*/
+function employeChanges(){
+	var idAs = $("#xiaoName").val();
+	if(isBlank(idAs)){
+		$(".tichengTable").hide();
+		return ;
+	}
+	if($.trim(idAs) != "" && idAs != null && idAs != undefined ){
+		var title = $(".dropdown-display").attr("title");
+		if(isBlank(title)){
+			title = $("#xiaoName").find("option:selected").text();
+		}
+	    var nameArr = title.split(',');
+	    var html = "";
+	    var ht1 = '<td rowspan="2"></td>';
+	    var ht2 = '';
+	    var oneSalesCommision = parseFloat($("#orderSalesCommissions").val()).toFixed(2);
+	    for(var j=0;j<nameArr.length;j++){
+	    	ht1 += '<td colspan="2">'+nameArr[j]+'<input class="salesmanId" title="'+nameArr[j]+'" value="'+idAs[j]+'" hidden="hidden" /></td>';
+	    	ht2 += '<td>提成</td>'+
+                  '<td>当日支付</td>';
+	    }
+	    html +='<tr>'+ht1+'</tr>'+'<tr>'+ht2+'</tr>';
+ 	    for(var i=0;i<data.length;i++){
+	    	var oneSalesCommision = (parseFloat(data[i].sales_commissions)/nameArr.length).toFixed(2);
+	    	html +='<tr class="deductDetail"><td class="w-120" tdIds="'+data[i].id+'">'+data[i].name+'<input class="adjustGoodsId" value="'+data[i].id+'" hidden="hidden" /></td>';
+			for(var h=0;h<nameArr.length;h++){
+		
+			html +=   '<td class="w-100">'+
+                '<div class="priceWrap">'+
+                    '<input type="text" value="'+oneSalesCommision+'" class="input-text everyTicheng" onchange="salescommissions(this)"/>'+
+                    '<span class="unit">元</span>'+
+                '</div>'+
+            '</td>'+
+            '<td class="w-100">'+
+                '<input type="checkbox" class="drzfmark">'+
+                '<div class="priceWrap dangri hide" style="display:none;">'+
+                '<input type="text" class="input-text paid_commissions" value="0" onchange="paidCommissions(this)"/>'+
+                    '<span class="unit">元</span>'+
+                '</div>'+
+            '</td>';
+			}
+			
+			
+			html += '</tr>';
+	    } 
+	    $("#tichengDetail").empty().append(html);
+	    $("#orderPaidCommissions").val(0);
+	   
+	}
+	/*处理提成明细列表中的价格问题*/
+	dangrizhifu();
+	if($('.mingxi td[colspan="2"]').length>2){
+		$('.mingxi').css('width',400+$('.mingxi td[colspan="2"]').length*200+'px');
+	}
+	$(".tichengTable").show();
+}
+
+ /*提成总额   */
+ function salescommissions(obj){
+	var xName = $(obj).val();
+	if(isBlank(xName)){
+		//layer.msg("提成金额不能为空！");
+		$(obj).val(0);
+		return;
+	}
+	if(!checkMoney(xName)){
+		layer.msg("请输入正确的价格！")
+		//$(obj).val(0)
+		return
+	}
+	var countTicheng = 0;
+	$(".everyTicheng").each(function(){
+		if(!isBlank($(this).val())){
+			countTicheng = (parseFloat(countTicheng)+parseFloat($(this).val())).toFixed(2);
+		}
+	})
+	$("#orderSalesCommissions").val(countTicheng);
+} 
+ /*当日支付   */
+ function paidCommissions(obj){
+	 var paid = $(obj).val();
+	 if($(obj).parent("div").parent("td").find("input").eq(0).is(':checked')){
+		if(isBlank(paid)){
+			//layer.msg("当日支付金额不能为空！");
+			$(obj).val(0)
+			return;
+		}
+	} 
+	 if(!checkMoney(paid)){
+			layer.msg("请输入正确的价格！")
+			//$(obj).val(0)
+			return
+		}
+	 orderPaidCommissions();
+} 
+ 
+ function orderPaidCommissions(){
+	 var drzfAll = 0;//当日支付总金额
+		$(".paid_commissions").each(function(){
+			if($(this).parent("div").parent("td").find("input").eq(0).is(':checked')){
+				drzfAll = parseFloat(parseFloat(drzfAll) + parseFloat(isBlank($(this).val()) ? 0 : $(this).val() )).toFixed(2);
+			}
+		})
+		$("#orderPaidCommissions").val(drzfAll);
+ }
+
+function isBlank(val) {
+	if (val == null || $.trim(val) == '' || val == undefined) {
+		return true;
+	}
+	return false;
+}
+
+$('.i_').hover(function () {
+    $(this).next().show()
+}, function () {
+    $(this).next().hide()
+})
+</script> 
+</body>
+</html>

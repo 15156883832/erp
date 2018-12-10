@@ -1,0 +1,260 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+    <meta name="decorator" content="base"/>
+
+    <!--[if IE 6]>
+    <script type="text/javascript" src="lib/DD_belatedPNG_0.0.8a-min.js" ></script>
+    <script>DD_belatedPNG.fix('*');</script>
+    <![endif]-->
+    <script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+    <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/>
+    <script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+    <title>回访结算工单-工单详情</title>
+    <style type="text/css">
+        .has-switch{ min-width: 70px;}
+        .has-switch span, .has-switch label{
+            padding-top: 0;
+            padding-bottom: 0;
+            line-height: 22px;
+            height: 22px;
+        }
+    </style>
+</head>
+<body>
+
+
+<div class="popupBox  orderSettle">
+    <h2 class="popupHead">
+        结算审核
+        <a href="javascript:;" class="sficon closePopup"></a>
+    </h2>
+    <div class="popupContainer pos-r pb-60">
+        <div class="popupMain" >
+            <div class="pcontent pl-15 pt-10"><div class="w-830">
+                <h3 class="modelHead mb-10">收入</h3>
+                <div class="cl ">
+                    <label class="w-100 text-r f-l">厂家结算费：</label>
+                    <span class="f-l lh-26" id="factoryMoney">${st.orderSettlement.factoryMoney}&nbsp;元</span>
+                </div>
+                <div class="cl mb-10 ">
+                    <label class="w-100 text-r f-l">工单收费：</label>
+                    <span class="f-l lh-26" id="orderMoney">${st.orderMoney}&nbsp;元</span>
+                    <div class="f-l ml-20 lh-26 c-888">
+                        （服务费：<span class="va-t" id="serveCost">${st.order.serveCost}&nbsp;元</span>&nbsp;&nbsp;&nbsp;
+                        辅材费：<span class="va-t" id="auxiliaryCost">${st.order.auxiliaryCost}&nbsp;元</span>&nbsp;&nbsp;&nbsp;
+                        延保费：<span class="va-t" id="warrantyCost">${st.order.warrantyCost}&nbsp;元</span>&nbsp;&nbsp;&nbsp;
+                        ）
+                    </div>
+
+                </div>
+                <h3 class="modelHead mb-10">支出</h3>
+                <div class="cl mb-10">
+
+                    <div class="f-l lh-26">
+                        <span class="f-l w-100 text-r">工程师结算费：</span>
+                        <span class="f-l" id="sumMoney">${st.orderSettlement.sumMoney}元</span>
+                        <span class="f-l ml-10 c-888" id="paymentAmount">（当日支付：${st.orderSettlement.paymentAmount}元）</span>
+                    </div>
+                    <label class="f-l  ml-30">辅材成本：</label>
+                    <span class="f-l lh-26" id="fittingCosts">${st.orderSettlement.fittingCosts}&nbsp;元</span>
+
+                </div>
+
+                <div class="retractWrap">
+                    <div class="pos-r pl-160 ">
+                        <div class="lb w-160">
+                            <a href="javascript:;" class="jsbtn mr-5 btn-retract" >收起<i class="Hui-iconfont Hui-iconfont-arrow2-bottom ml-5"></i></a>
+                            <span class="lh-26">派单工程师结算：</span>
+                        </div>
+                        <div class="cl" style="min-height: 26px;">
+
+                            <c:forEach var="item" items="${st.dispEmpSettlementDetail}">
+                                <div class="f-l  ml-10">
+                                    <label class="f-l" id="employeName">${item.employeName}：</label>
+                                    <span class="f-l lh-26" >${item.sumMoney}&nbsp;元</span>
+                                </div>
+                            </c:forEach>
+
+
+
+                        </div>
+                    </div>
+                    <div class="bk-blue-dotted pt-10 mb-10 sdefinedbox retractBox" id="sdefinedbox1">
+                        <div class="cl">
+                            <label class="w-100 text-r f-l ">服务结算方案：</label>
+                            <span class="f-l lh-26" id="jiesuanfangan">${serviceMeasures}</span>
+                        </div>
+                        <div class="sdefined ">
+                            <div class="cl">
+                                <c:forEach items="${st.jiesuanItems}" var="item">
+                                    <div class="f-l" style="width: 50%;">
+                                        <label class="w-100 text-r f-l textColon" title="${item.key}">${item.key}</label>
+                                        <span class="f-l lh-26">${item.value}元</span>
+
+                                    </div>
+                                </c:forEach>
+                            </div>
+
+                                <div class="pos-r pl-90 ml-10 mb-10">
+                                    <label class="w-90 text-r lb">备注：</label>
+                                    <span class="lh-26" id="remarks">${st.orderSettlement.remarks}</span>
+                                </div>
+
+                        </div>
+                    </div>
+                    <div class="retractWrap">
+                        <div class="pos-r pl-160">
+                            <div class="lb w-160">
+                                <a href="javascript:;" class="jsbtn mr-5 btn-retract">收起<i class="Hui-iconfont Hui-iconfont-arrow2-top ml-5"></i></a>
+                                <span class="lh-26">添加工程师结算：</span>
+                            </div>
+                            <div class="cl" style="min-height: 26px;">
+                                <c:forEach var="item" items="${st.addedJisuan}">
+                                    <div class="f-l mb-10 ml-10">
+                                        <label class="f-l">${item.empName}：</label>
+                                        <span class="f-l lh-26">${item.cost}&nbsp;元</span>
+                                    </div>
+                                </c:forEach>
+                            </div>
+                        </div>
+                        <div class="bk-blue-dotted pt-10 mb-10 retractBox hide" >
+                            <c:forEach items="${st.addedEmpSettlementDetail}" var="item">
+                            <div class="mb-5">
+                                <span class="w-130 text-r">${item.employeName}：</span>
+                                <span class="w-260">${item.serviceMeasures}  </span>
+                                <span class="w-60">${item.sumMoney}元</span>
+                                <span class="w-150 c-888"><fmt:formatDate value="${item.settlementTime}" pattern="yyyy-MM-dd"/></span>
+                            </div>
+                            </c:forEach>
+                        </div>
+                    </div>
+
+
+                    <div class="cl mb-10">
+                        <label class="w-100 text-r f-l ">结算归属日期：</label>
+                        <span class="f-l lh-26"><fmt:formatDate value="${st.orderSettlement.settlementTime}" pattern="yyyy-MM-dd"/></span>
+                    </div>
+
+                    <h3 class="modelHead mb-10">利润</h3>
+                    <div class="cl mb-10">
+                        <label class="w-100 f-l">利润：</label>
+                        <span class="f-l lh-26">${st.orderSettlement.profits}&nbsp;元</span>
+                    </div>
+                    <h3 class="modelHead mb-10">结算审核</h3>
+                    <div class="pos-r pl-90 ml-10">
+                        <label class="w-90 text-r lb">审核备注：</label>
+                        <textarea class="textarea h-50 " id="reviewRemark2">${reviewRemark}</textarea>
+                    </div>
+
+                </div></div>
+            </div>
+            <div class="text-c btnWrap">
+                <a  class="sfbtn sfbtn-opt3 w-70 mr-5" onclick="review('${orderId}');">通过</a>
+                <a  class="sfbtn sfbtn-opt w-70 " onclick="noreview('${orderId}');">不通过</a>
+            </div>
+        </div>
+    </div>
+
+    <!--_footer 作为公共模版分离出去-->
+    <script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+
+    <script type="text/javascript">
+
+        $(function(){
+
+            $('.orderSettle').popup({fixedHeight:false});
+
+        })
+
+
+        $('.btn-retract').on('click', function(){
+            var target =  $(this).closest('.retractWrap').find('.retractBox');
+            if(target.is(':visible')){
+                $(this).find('.Hui-iconfont').removeClass('Hui-iconfont-arrow2-bottom').addClass('Hui-iconfont-arrow2-top');
+                target.hide();
+            }else{
+                $(this).find('.Hui-iconfont').removeClass('Hui-iconfont-arrow2-top').addClass('Hui-iconfont-arrow2-bottom');
+                target.show();
+            }
+        });
+
+        $('#btn-dayPay').on('click',function(){
+            if($('#daypayBox').is(':visible')){
+                $('#daypayTotal').hide();
+                $('#daypayBox').hide();
+                $(this).find('.label-cbox2').removeClass('label-cbox2-selected');
+            }else{
+                $('#daypayTotal').show();
+                $('#daypayBox').show();
+                $(this).find('.label-cbox2').addClass('label-cbox2-selected');
+            }
+
+        });
+
+        function review(id){
+            var idArr=new  Array();
+            var reviewRemark=$("#reviewRemark2").val();
+            idArr.push(id);
+            $.ajax({
+                type : "POST",
+                url : "${ctx}/finance/revenue/reviewPass",
+                traditional: true,
+                data : {
+                    "id" : idArr,
+                    "reviewRemark":reviewRemark
+                },
+                success : function(data) {
+                    if (data == "ok") {
+                        layer.msg('操作成功!');
+                        parent.search();
+                        $.closeDiv($('.orderSettle'));
+
+                        //$("#table-waitdispatch").trigger("reloadGrid");
+                    } else {
+                        layer.msg('操作失败!');
+                    }
+                },
+                complete: function() {
+                    $("#reviewRemark2").val("");
+                }
+            });
+        }
+
+
+        function noreview(id){
+            var idArr=new  Array();
+            var reviewRemark=$("#reviewRemark2").val();
+            idArr.push(id);
+            $.ajax({
+                type : "POST",
+                url : "${ctx}/finance/revenue/reviewFailed",
+                traditional: true,
+                data : {
+                    "id" : idArr,
+                    "reviewRemark":reviewRemark
+                },
+                success : function(data) {
+                    if (data == "ok") {
+                        layer.msg('操作成功!');
+                        parent.search();
+                        $.closeDiv($('.orderSettle'));
+
+                       // $("#table-waitdispatch").trigger("reloadGrid");
+                        //window.location.reload(true);
+                    } else {
+                        layer.msg('操作失败!');
+                    }
+                },
+                complete: function() {
+                    $("#reviewRemark2").val("");
+                }
+            });
+        }
+
+
+
+    </script>
+</body>
+</html>

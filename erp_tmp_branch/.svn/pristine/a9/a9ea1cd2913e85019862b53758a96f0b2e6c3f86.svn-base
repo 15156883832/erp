@@ -1,0 +1,1386 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+  <head>
+    <meta name="decorator" content="base"/>
+    <script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+    <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/>
+    <script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+    <script type="text/javascript" src="${ctxPlugin}/lib/jquery.qrcode.min.js"></script>
+</head>
+  
+  <body>
+    <div class="sfpagebg">
+	<div class="sfpage bk-gray table-header-settable">
+	<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+		<a class="btn-tabBar  current" href="${ctx}/operate/SiteManager">服务商管理</a>
+		<a class="btn-tabBar  " href="${ctx}/operate/SiteAddtime/siteAddtimeRecord">添加时长记录</a>
+		<sfTags:pagePermission authFlag="SYSTEM_AUTH_USEAGE_STAT_TAB" html='<a class="btn-tabBar " href="${ctx}/statistic/siteLoginStatistic">系统使用统计</a>'/>
+			<p class="f-r btnWrap">
+			<a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:jsClearForm();;" class="sfbtn sfbtn-opt"><i class="sficon sficon-reset"></i>重置</a>
+			</p>
+		</div>
+			
+		<div class="tabCon">
+			<form id="searchForm">
+				<input type="hidden" name="page" id="pageNo" value="1">
+				<input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+								<div class="bk-gray pt-10 pb-5">
+					<table class="table table-search">
+						<tr>
+					<th style="width: 76px;" class="text-r">服务商名称：</th>
+							<td>
+                              <input type="text" class="input-text" onkeydown="enterEvent(event)" name= "name"/>
+							</td>
+							<th style="width: 76px;" class="text-r">登陆账号：</th>
+							<td>
+								<input type="text" class="input-text" name= "login_name"/>
+							</td>
+							<th style="width: 76px;" class="text-r">联系电话：</th>
+							<td>
+								<input type="text" class="input-text" onkeydown="enterEvent(event)" name= "telephone"/>
+							</td>
+							<th style="width: 76px;" class="text-r">省：</th>
+							<td>
+								<input type="text" class="input-text" onkeydown="enterEvent(event)" name= "province"/>
+							</td>
+							<th style="width: 76px;" class="text-r">当前版本：</th>
+							<td><select class="select w-140 f-l" name="version">
+								<option value="" selected="selected">请选择</option>
+								<option value="1">免费版</option>
+								<option value="2">收费版</option>
+							</select>
+							</td>
+						</tr>
+						<tr>
+							<th style="width: 76px;" class="text-r">是否停用：</th>
+							<td><select class="select w-140 f-l" name="status">
+								<option value="" selected="selected">请选择</option>
+								<option value="3">是</option>
+								<option value="0">否</option>
+							</select>
+							</td>
+							<th style="width: 76px;" class="text-r">网点类型：</th>
+							<td><select class="select w-140 f-l" name="type">
+								<option value="">请选择</option>
+								<option value="1">一级网点</option>
+								<option value="2">二级网点</option>
+								<option value="0">普通网点</option>
+							</select>
+							</td>
+							<td colspan="6">
+								<label class="text-r lb" style="width: 76px;">注册时间：</label>
+								<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'createTimemax\')||\'%y-%M-%d\'}'})" id="createTimemin" name="createTimemin" value="" class="input-text Wdate w-120" style="width:120px">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'createTimemin\')}',maxDate:'%y-%M-%d'})" id="createTimemax" name="createTimemax"  value="" class="input-text Wdate w-120" style="width:120px">
+								<label class="text-r lb" style="width: 76px;">到期时间：</label>
+								<input type="text" onfocus="WdatePicker({lang:'zh-cn',dateFmt:'yyyy-MM-dd'})" id="dueTimemin" name="dueTimemin"  value="" class="input-text Wdate w-120" style="width:120px">
+								至
+								<input type="text" onfocus="WdatePicker({lang:'zh-cn',dateFmt:'yyyy-MM-dd'})" id="dueTimemax" name="dueTimemax" value="" class="input-text Wdate w-120" style="width:120px">
+							</td>
+							</tr>
+							</table>
+							</div>
+							<div class="pt-10 pb-5 cl">
+				<div class="f-l">
+					<sfTags:pagePermission authFlag="SYSTEM_OPERAMGM_SITEMGM_ADD_BTN" html='<a href="javascript:add();" class="sfbtn sfbtn-opt"><i class="sficon sficon-add"></i>新增</a>'/>
+					<sfTags:pagePermission authFlag="SYSTEM_OPERAMGM_SITEMGM_ADDHOURS_BTN" html='<a href="javascript:addtime();" class="sfbtn sfbtn-opt"><i class="sficon sficon-add"></i>添加时长</a>'/>
+					<sfTags:pagePermission authFlag="SYSTEM_OPERAMGM_SITEMGM_STOP_BTN" html='<a href="javascript:stops();" class="sfbtn sfbtn-opt"><i class="sficon sficon-disabled2"></i>停用</a>'/>
+					<sfTags:pagePermission authFlag="SYSTEM_OPERAMGM_SITEMGM_START_BTN" html='<a href="javascript:start();" class="sfbtn sfbtn-opt"><i class="sficon sficon-enabled2"></i>启用</a>'/>
+					<a href="javascript:openTopSite();" class="sfbtn sfbtn-opt"><i class="sficon sficon-ktyjwd"></i>开通一级</a>
+					<a href="javascript:openOrderNoSet();" class="sfbtn sfbtn-opt"><i class="sficon sficon-ktyjwd"></i>开通编号</a>
+					<a href="javascript:cancelOrderNoSet();" class="sfbtn sfbtn-opt"><i class="sficon sficon-disabled2"></i>关闭编号</a>
+					<a href="javascript:areaManager();" class="sfbtn sfbtn-opt"><i class="sficon sficon-ktyjwd"></i>绑定</a>
+					<a href="javascript:RelieveareaManager();" class="sfbtn sfbtn-opt"><i class="sficon sficon-disabled2"></i>解除绑定</a>
+					<a href="javascript:authorizeWxOpen();" class="sfbtn sfbtn-opt"><i class="sficon sficon-ktyjwd"></i>授权微信</a>
+
+				</div>
+					<div class="f-r">
+					<a onclick="return exports()"class="sfbtn sfbtn-opt2" target="_blank"><i class="sficon sficon-export"></i>导出</a>
+				</div>
+								
+			</div>
+				<div>
+					<table id="table-waitdispatch" class="table"></table>
+					<!-- pagination -->
+					<div class="cl pt-10">
+							<div class="f-l">
+							<span class="c-f55025">注：</span>
+							<i class='sficon sficon-disabled'></i><span >已停用</span>
+						</div>
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+					<!-- pagination -->
+				</div>
+			</form>
+		</div>
+	</div>
+</div>
+
+</div>
+</div>
+
+
+<div class="popupBox sysNotice addNotice" style="width:500px">
+	<h2 class="popupHead">
+		新增
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain pt-25 pr-25 pb-15">
+			<div class="cl mb-10">
+				<label class="w-100 text-r f-l"><em class="mark">*</em>服务商名称：</label>
+				<input type="text" class="input-text w-140 f-l addname"  id="addname" name="addname">
+				<label class="w-80 text-r f-l"><em class="mark">*</em>手机号：</label>
+				<input type="text"  id="addtelephone" name="addtelephone" value="" class="input-text w-140 f-l addtelephone">
+			</div>
+			<div class="cl mb-10">
+				<label class="w-100 text-r f-l">当前版本：</label>
+				<select class="select w-140 f-l addversion" name="addversion" id="addversion" >
+					<option value="1" selected="selected">免费版</option>
+					<option value="2">付费版</option>
+				</select>
+				<label class="w-80 text-r f-l">有效时长：</label>
+				<select class="select w-140 f-l "  name="duetime" id="duetime" datatype="*" nullmsg="请选择有效时长！"  disabled="disabled" >
+					<option selected="selected">请选择</option>
+					<option value="1" >一周</option>
+					<option value="2" >两周</option>
+					<option value="3" >一个月</option>
+					<option value="4" >三个月</option>
+					<option value="5" >六个月</option>
+					<option value="6" >不限</option>
+				</select>
+			</div>
+			
+
+			<div class="cl mb-10">
+				<label class="w-100 text-r f-l"><em class="mark">*</em>登陆账号：</label>
+				<input class="input-text w-140 f-l addloginname"  id="addloginname" name="addloginname" type="text"/>
+				<label class="w-80 text-r f-l"><em class="mark">*</em>登陆密码：</label>
+				<input class="input-text w-140 f-l addpassword"  id="addpassword" name="addpassword" type="text"/>
+			</div>
+			<div class="cl mb-10">
+				<label class="f-l w-100 text-r"><em class="mark">*</em>企业地址：</label>
+
+						<span class="select-box w-90 f-l mb-10" id="showProvince" >
+							<select class="select" id="province" >
+							<%-- <option value="${site.columns.province }" selected="selected">${site.columns.province }</option> --%>
+								<c:forEach items="${provincelist }" var="pro">
+									<option value="${pro.columns.ProvinceName }" >${pro.columns.ProvinceName }</option>
+								</c:forEach>
+							</select>
+						</span>
+						<span class="select-box w-90 f-l ml-15 mb-10" id="showCity"  >
+							<select class="select" id="city"  >
+								<c:forEach items="${cities }" var="cs">
+									<option value="${cs.columns.CityName }" >${cs.columns.CityName }</option>
+								</c:forEach>
+							</select>
+						</span>
+						<span class="select-box w-90 f-l ml-15 mb-10" id="showArea" >
+							<select class="select"  id="area" value=""  >
+							<c:forEach items="${districts }" var="ds">
+									<option value="${ds.columns.DistrictName }" >${ds.columns.DistrictName }</option>
+							</c:forEach>
+							</select>
+						</span><br>
+						<input id="spanadress" type="text"  style="margin-left:100px" class="input-text f-l w-300 " value=""/>
+				
+			</div>
+			
+			<div class="cl mb-10 codeadd" style="display: none">
+				<label class="w-100 text-r f-l"><em class="mark">*</em>激活码：</label>
+				<input class="input-text w-140 f-l addcode"  id="addcode" name="addcode" type="text"/>
+			</div>
+			
+			<div class="text-c mt-20">
+				<a href="javascript:;" class="sfbtn sfbtn-opt3 w-70 mr-5" id="btn-publish" onclick="fabu()">确认</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt w-70" onclick="closeds()">取消</a>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<div class="popupBox sysNotice editeNotice" style="width:500px">
+	<h2 class="popupHead">
+		添加时长
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain pt-25 pr-25 pb-15">
+		<div class="cl mb-10">
+		<input id="ids" type="hidden"/>
+				<label class="w-80 text-r f-l">服务商名称：</label>
+				<input type="text" class="input-text w-250 f-l editename"  id="editename" name="editename" disabled="disabled">
+			</div>
+			<div class="cl mb-10">
+				<label class="w-80 text-r f-l">到期日期：</label>
+				<input type="text" class="input-text w-250 f-l editeduetime"  id="editeduetime" name="editeduetime" disabled="disabled">
+			</div>
+						<div class="cl mb-10">
+				<label class="w-80 text-r f-l">添加时长：</label>
+				<input type="text" class="input-text w-140 f-l addduetime"  id="addduetime" name="addduetime" disabled="disabled">
+				至
+				<input type="text" onfocus="WdatePicker({readOnly:true,lang:'zh-cn',dateFmt:'yyyy-MM-dd'})" id="adddueTime" name="adddueTime" value="" class="input-text Wdate w-120" style="width:120px">
+			</div>
+			
+					<div class="text-c mt-20">
+				<a href="javascript:;" class="sfbtn sfbtn-opt3 w-70 mr-5" id="btn-publish" onclick="queren()">确认</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt w-70" onclick="quxiao()">取消</a>
+			</div>
+	
+		</div>
+		</div>
+		</div>
+
+
+
+
+<div class="popupBox w-580 fwsxq">
+	<h2 class="popupHead">
+		服务商详情
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain pd-15">
+			<div class="cl mb-10">
+				<label class="f-l w-100">服务商名称：</label>
+				<input type="text" class="input-text w-380 f-l"  value=""  id="sitename"  readonly="true"/>
+			</div>
+			<div class="cl mb-10">
+				<label class="f-l w-100">联系人：</label>
+				<input type="text" class="input-text w-140 f-l "  id="siteconcate"  readonly="true"/>
+				<label class="f-l w-100	">联系电话：</label>
+				<input type="text" class="input-text w-140 f-l"  value=""  id="sitemobile" readonly="true"/>
+			</div>
+			<div class="cl mb-10">
+				<label class="f-l w-100">登录账号：</label>
+				<input type="text" class="input-text w-140 f-l "  id="siteloginname"  readonly="true"/>
+				<label class="f-l w-100	">注册日期：</label>
+				<input type="text" class="input-text w-140 f-l"  value=""  id="sitecreatetime" readonly="true"/>
+			</div>
+			<div class="cl mb-10">
+				<label class="f-l w-100">企业地址：</label>
+				<input type="text" class="input-text w-380 f-l"  value="" id="siteadress"  readonly="true"/>
+			</div>
+			<div class="line-dashed mb-10"></div>
+			<div class="cl mb-10">
+				<label class="f-l w-100">会员等级：</label>
+				<input type="text" class="input-text w-140 f-l "  id="sitelevel" readonly="true" />
+				<label class="f-l w-100	">当前版本：</label>
+				<input type="text" class="input-text w-140 f-l"  value=""  id="siteversion" readonly="true"/>
+			</div>
+			<div class="cl mb-10">
+				<label class="f-l w-100">激活码：</label>
+				<input type="text" class="input-text w-140 f-l "  id="sitecode" readonly="true"/>
+				<label class="f-l w-100	">分享数量：</label>
+				<input type="text" class="input-text w-140 f-l"  value=""  id="sitesharecount" readonly="true"/>
+			</div>
+			<div class="cl mb-10" >
+				<label class="f-l w-100" id="daoqi">到期日期：</label>
+				<input type="text" class="input-text w-140 f-l "  id="siteduetime"  readonly="true"/>
+				<label class="f-l w-100	">分享人：</label>
+				<input type="text" class="input-text w-140 f-l"  value="" id="sitesharename"  readonly="true"/>
+			</div>
+			
+			<div class="text-c mt-20 buntonStype">
+				<input type="hidden" id="siteIdX" />
+				<a class="sfbtn sfbtn-opt3 w-90" onclick="cancelNoOneSite()">取消一级网点</a>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<!--_footer 作为公共模版分离出去-->
+
+<script type="text/javascript">
+
+var sfGrid;
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+
+$(function(){
+	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	initSfGrid();
+	$("#duetime").change(function(){
+	       if($("#duetime").val()!="0"){
+	    	   $(".addversion option:eq(1)").attr('selected','selected');
+	       }else{
+	    	   $(".addversion option:eq(2)").attr('selected','selected');
+	    	  
+	       }
+		 		 
+			});
+
+});
+
+//初始化jqGrid表格，传递的参数按照说明
+function initSfGrid(){
+	var url = "${ctx}/operate/SiteManager/siteManagerList";
+	sfGrid = $("#table-waitdispatch").sfGrid({
+		url:url, 
+		sfHeader:defaultHeader,
+		sfSortColumns:sortHeader,
+		shrinkToFit: false,
+		multiselect: true,
+		rownumbers : true,
+		gridComplete:function(){
+			_order_comm.gridNum();
+		}
+	});
+}
+
+function areaManager(){
+	 var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+	 var ids ;
+	 if(idArr.length < 1){
+	        layer.msg("请选择一条数据！");
+	        return 
+	  }else{
+		  for (var i = 0; i < idArr.length; i++) {
+              if (isBlank(ids)) {
+            	  ids = idArr[i];
+              } else {
+            	  ids = ids + "," + idArr[i];
+              }
+          }
+		  $.ajax({
+	            type: "POST",
+	            url:"${ctx}/order/areaManager/checkAreaManager",
+	            data:{ids:ids},
+	            datatype:"text",
+	            success: function (result) {
+	            	var che = result.check;
+	            	if(che == "no"){
+	            		 layer.msg(result.data);
+	         	        return 
+	            	}else{
+	            		layer.open({
+	        		  		type : 2,
+	        		  		content:'${ctx}/order/areaManager/areaManagerbindingsite?ids='+ids,
+	        		  		title:false,
+	        		  		area: ['100%','100%'],
+	        		  		closeBtn:0,
+	        		  		shade:0,
+	        		  		anim:-1 
+	        		  	});
+	            	}
+	            	}
+	            });
+		  
+		  }
+}
+/*解除绑定 
+ */
+function RelieveareaManager(){
+	 var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+	 if(idArr.length ==1){
+	 var rowData = $('#table-waitdispatch').jqGrid('getRowData', idArr[0]);
+	 var siteId = rowData.id;
+	 var siteName =rowData.name;
+	 var title ;
+	  $.ajax({
+          type: "POST",
+          url:"${ctx}/order/areaManager/getCheckBinding",
+          data:{siteId:siteId},
+          success: function (result) {
+          	if(result == "no"){
+          		 layer.msg(siteName+"没有绑定区域管理员！");
+        	      return 
+          	}else{
+          		title = result;
+          		 $('body').popup({  
+                     level: '3', 
+                     type: 2,
+                     content: '确定要将'+siteName+'与'+title+'区域人员解除绑定吗？',
+                     fnConfirm: function () {
+                         if(subrepeat){
+                             return;
+                         }
+                         subrepeat=true;
+                         $.ajax({
+                             type: "POST",
+                             url:"${ctx}/order/areaManager/deleteareaManagerSite",
+                             data:{siteId:siteId},
+                             success: function (result) {
+                                 if(result=="ok"){
+                                     layer.msg("解绑成功！");
+                                     $('#table-waitdispatch').trigger("reloadGrid");
+                                 }else{
+                                     layer.msg("提交失败,请联系管理员!");
+                                 }
+                             },
+                             error: function () {
+                                 layer.msg("系统繁忙!");
+                                 return;
+                             },complete:function(){
+                                 subrepeat=false;
+                             }
+                         });
+                     },
+                     fnCancel: function () {
+                     }
+                 }); 
+          	}
+          	}
+          });
+		
+	  }else{
+	   layer.msg("请选择一条数据！");
+	  }
+}
+
+
+var subrepeat=false;
+function openTopSite(){
+    var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+    var rowData = $('#table-waitdispatch').jqGrid('getRowData', idArr);
+    if(idArr.length==0){
+        layer.msg("请选择一条数据！");
+    }else if(idArr.length>1){
+        layer.msg("一次只能选择一条数据！");
+    }else if(rowData.status=='3'){
+        layer.msg("该网点已停用！");
+    }else if(rowData.type=='一级网点'){
+        layer.msg("该网点已经是一级网点！");
+	}else{
+        $.ajax({
+            type: "POST",
+            url:"${ctx}/operate/SiteManager/isVIP",
+            data:{siteId:rowData.id},
+            datatype:"text",
+            success: function (result) {
+                var siteType="免费版";
+                if(result){
+                    siteType="收费版";
+				}
+                $('body').popup({
+                    level: '3',
+                    type: 2,
+                    content: '该网点是'+siteType+',确认要开通一级网点？',
+                    fnConfirm: function () {
+                        if(subrepeat){
+                            return;
+                        }
+                        subrepeat=true;
+                        $.ajax({
+                            type: "POST",
+                            url:"${ctx}/operate/siteParentRel/openNoOne",
+                            data:{id:rowData.id},
+                            datatype:"text",
+                            success: function (result) {
+                                if(result.code=="200"){
+                                    layer.msg("开通成功！");
+                                    $('#table-waitdispatch').trigger("reloadGrid");
+                                }else if(result.code=="201"){
+                                    layer.msg("提交数据存在问题，请联系管理员!");
+                                    $('#table-waitdispatch').trigger("reloadGrid");
+                                }else if(result.code=="401"){
+                                    layer.msg(result.msg);
+                                }else{
+                                    layer.msg("提交失败,请联系管理员!");
+                                }
+                            },
+                            error: function () {
+                                layer.msg("系统繁忙!");
+                                return;
+                            },complete:function(){
+                                subrepeat=false;
+                            }
+                        });
+                    },
+                    fnCancel: function () {
+                    }
+                });
+            },
+            error: function () {
+                layer.msg("系统繁忙!");
+                return;
+            },
+            complate:function(){
+                subrepeat=false;
+            }
+
+        });
+    }
+}
+
+function siteType(rowData){
+    if(rowData.type=='0'){
+        return "普通网点";
+    }else if(rowData.type=='1'){
+        return "一级网点";
+    }else if(rowData.type=='2'){
+        return "二级网点";
+    }else {
+        return "";
+    }
+}
+
+var subRe=false;
+function cancelNoOneSite(){
+    var id = $("#siteIdX").val();
+    if(isBlank(id)){
+        layer.msg("数据存在问题,请联系管理员！");
+	}else{
+        $('body').popup({
+            level: '3',
+            type: 2,
+            content: '确认取消一级网点？',
+            fnConfirm: function () {
+                if(subRe){
+                    return;
+                }
+                subRe=true;
+                $.ajax({
+                    type: "POST",
+                    url:"${ctx}/operate/siteParentRel/cancelNoOne",
+                    data:{id:id},
+                    datatype:"text",
+                    success: function (result) {
+                        if(result.code=="200"){
+                            layer.msg("取消成功！");
+                            guanbi()
+                            $('#table-waitdispatch').trigger("reloadGrid");
+                        }else if(result.code=="201"){
+                            layer.msg("调教数据存在问题，请联系管理员!");
+                            $('#table-waitdispatch').trigger("reloadGrid");
+                        }else if(result.code=="401"){
+                            layer.msg(result.msg);
+                        }else{
+                            layer.msg("提交失败！");
+						}
+                    },
+                    error: function () {
+                        layer.msg("系统繁忙!");
+                        return;
+                    },
+					complete:function(){
+                        subRe=false;
+					}
+
+                });
+            },
+            fnCancel: function () {
+
+            }
+        });
+    }
+}
+
+
+$('#addversion').change(function(){ 
+	var version=$(".addversion").val();
+	if(version==="2"){
+     $("#duetime").attr("disabled",false);
+     $(".codeadd").css("display","block");
+     $(".addcode").val(randomWord(true,4,4))
+   
+	}else{
+		  $("#duetime option:eq(0)").attr('selected','selected');
+		$("#duetime").attr("disabled",true);
+		$(".codeadd").css("display","none");
+		  $(".addcode").val("");
+		
+	}
+})
+
+
+function nameOper(rowData){	
+	if(rowData.status=="3"){
+		return "<span><a  href=javascript:opendetail('"+rowData.id+"') class='c-0383dc' ><i class='sficon sficon-disabled'></i>"+rowData.name+"</a></span>";	
+	}else{
+		return "<span><a href=javascript:opendetail('"+rowData.id+"') class='c-0383dc'>"+rowData.name+"</a></span>";	
+	}
+
+}
+
+function siteOper(rowData){	
+	return "<span><a href=javascript:opensite('"+rowData.id+"') class='c-0383dc'>"+rowData.sharecount+"</a></span>";	
+}
+
+function versionOper(rowData) {
+    var oDate = new Date();
+    if (!rowData.due_time) {
+        return "<span>免费版</span>";
+    } else {
+        var dueTime = new Date(rowData.due_time);
+        if (oDate <= dueTime){
+            return "<span>收费版</span>";
+		} else {
+            return "<span>免费版</span>";
+		}
+	}
+}
+
+function levelOper(rowData){
+	if(rowData.level=="0"){
+		return "<span>普通会员</span>"
+	}else if(rowData.level=="1"){
+		return "<span>银牌会员</span>"
+	}else if(rowData.level=="2"){
+		return "<span>金牌会员</span>"
+	}else if(rowData.level=="3"){
+		return "<span>钻石会员</span>"
+	}else{
+		return "<span>普通会员</span>"
+	}
+	
+}
+
+function countOper(rowData){
+	if(rowData.sms_available_amount==null){
+		return "<span>0</span>";
+	}else{
+		return "<span>"+rowData.sms_available_amount+"</span>";
+	}
+}
+function stops(){
+	var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+	if(idArr.length<1){layer.msg("请选择数据！");}else{
+		var content = "确认要停用"+idArr.length+"个服务商吗？";
+    	 var msg="已停用";
+		$('body').popup({
+			level:3,
+			title:"停用",
+			content:content,
+			 fnConfirm :function(){
+					$.ajax({
+						type:"POST",
+						url:"${ctx}/operate/SiteManager/stops",
+						traditional: true,
+								data:{
+								"idArr":idArr,
+								},
+								async:false,
+							 success:function(result){
+									if(result=="ok"){
+									layer.msg(msg,{time:2000});
+										 window.location.reload(true);
+									}else{			
+									layer.msg("操作失败!",{time:2000});
+									}
+								},
+								error:function(){
+									layer.alert("系统繁忙!");
+									return;
+								}
+					});
+					layer.closeAll('dialog');
+			 }
+		});
+
+	
+}
+}
+function start(){
+	var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+	if(idArr.length<1){layer.msg("请选择数据！");}else{
+		var content = "确认要启用"+idArr.length+"个服务商吗？";
+    	 var msg="已启用";
+		$('body').popup({
+			level:3,
+			title:"启用",
+			content:content,
+			 fnConfirm :function(){
+					$.ajax({
+						type:"POST",
+						url:"${ctx}/operate/SiteManager/start",
+						traditional: true,
+								data:{
+								"idArr":idArr,
+								},
+								//async:false,
+							 success:function(result){
+									if(result=="result"){
+									layer.msg(msg,{time:2000});
+										 window.location.reload(true);
+									}else{			
+									layer.msg(result);
+									}
+								},
+								error:function(){
+									layer.alert("系统繁忙!");
+									return;
+								}
+					});
+					layer.closeAll('dialog');
+			 }
+		});
+
+	
+}
+}
+
+function add(){//打开添加弹出框
+	
+	$('.addNotice').popup();
+	
+}
+function fabu(){
+	var name=$("#addname").val();
+	var telephone=$("#addtelephone").val();
+	var version=$("#addversion").val();
+	var duetimes=$("#duetime").val();
+	var loginName=$("#addloginname").val();
+	var password=$("#addpassword").val();
+	var province=$("#province").val();
+	var city=$("#city").val();
+	var area=$("#area").val();
+	var address=$("#spanadress").val();
+	var duetime="";
+	var code="";
+	if (isBlank(name)) {
+		layer.msg("请输入服务商名称");
+		$("#addname").focus();
+		return;
+		
+	}
+
+	 if (isBlank(telephone)) {
+			layer.msg("请输入联系方式");
+			$("#addtelephone").focus();
+			return;
+			
+	 }
+	 if (isPhoneNo(telephone) == false) {
+			layer.msg("手机号码格式不正确");
+			return;
+		}
+		if (isBlank(loginName)) {
+			layer.msg("请输入登陆账号");
+			$("#addloginname").focus();
+			return;
+		
+		}
+		if (isBlank(password)) {
+			layer.msg("请输入登陆密码");
+			$("#addpassword").focus();
+			return;
+		
+		}
+		
+		 if (isBlank(province)) {
+				layer.msg("请选择省份");
+				$("#province").focus();
+				return;
+				
+		 }
+		 if (isBlank(address)) {
+				layer.msg("输入详细地址");
+				$("#spanadress").focus();
+				return;
+				
+		 }
+		 
+		 var s= $("#addversion option:selected").html();
+		 if(s=="付费版"){
+			 if(duetimes=="1"){
+				  duetime=7;
+			  }else if(duetimes=="2"){
+				  duetime=14;
+			  }else if(duetimes=="3"){
+				  duetime=30;
+			  }else if(duetimes=="4"){
+				  duetime=90;
+			  }else if(duetimes=="5"){
+				  duetime=180;
+			  }else if(duetimes=="6"){
+				  duetime=36500;
+			  }else{
+				  duetime=0;
+			  }
+			 
+			var addcode=$("#addcode").val();
+			if (isBlank(addcode)) {
+				layer.msg("请输入激活码");
+				$("#addcode").focus();
+				return;
+			
+			}
+			if(isCode(addcode)==false){
+				layer.msg("激活码格式不正确");
+				return;
+				
+			}
+			code=addcode;
+		 }
+
+	
+	$.ajax({
+		type:'POST',
+		url:"${ctx}/operate/SiteManager/addsiteManager",
+		traditional: true,
+		data:{
+			"name":name,
+		    "telephone":telephone,
+		    "duetime":duetime,
+		    "loginName":loginName,
+		    "password":password,
+		    "province":province,
+		    "city":city,
+		    "area":area,
+		    "address":address,
+		    "code":code
+		},
+		success:function(result){
+			if(result=="ok"){
+				$.closeDiv($(".addNotice"));
+				window.location.reload(true);
+			}else if(result!=""){
+				layer.msg(result);
+				return;
+			}else{
+				layer.msg("添加失败");
+				return;
+			}
+		},
+		error:function(){
+			layer.msg("系统繁忙请稍后重试")
+			return;
+		}
+	})
+}
+
+function addtime(){//打开修改弹出框
+	
+	var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+	var id="";
+	if(idArr.length!=1){
+		layer.msg("请选择一条数据！");
+	}else{
+		id=idArr[0];
+   	$.ajax({
+		type:'POST',
+		url:"${ctx}/operate/SiteManager/querysiteduetime",
+		traditional: true,
+		data:{
+			"id":id
+		},
+		success:function(site){
+			if(site.columns.status=="3"){
+				layer.msg("该服务商已停用");
+				return;
+			}else{
+				$('.editeNotice').popup();
+				$("#ids").val(site.columns.id);
+	             $("#editename").val(site.columns.name);
+	             $("#editeduetime").val((site.columns.due_time).substring(0,11));
+	             $("#addduetime").val((site.columns.due_time).substring(0,11));
+			}
+	
+             
+		},
+		error:function(){
+			layer.msg("系统繁忙请稍后重试");
+			return;
+		}
+	})
+	}
+}
+
+function queren(){
+		var adddueTime=$("#adddueTime").val();
+       var id=$("#ids").val();
+       var duetime=$("#editeduetime").val();
+       var addduetime=$("#adddueTime").val();
+       var oDate1 = new Date(duetime);
+       var oDate2 = new Date(addduetime);
+   	if (isBlank(addduetime)) {
+		layer.msg("请填写添加时间");
+		return;
+		
+	}
+       if(oDate1.getTime() >= oDate2.getTime()){
+          layer.msg("添加时长必须符合规则");
+          return;
+       } 
+   	$.ajax({
+		type:'POST',
+		url:"${ctx}/operate/SiteManager/updatesiteManager",
+		traditional: true,
+		data:{
+			"id":id,
+			"duetime":duetime,
+			"adddueTime":addduetime
+		},
+		success:function(result){
+			if(result=="ok"){
+				$.closeDiv($(".editeNotice"));
+				window.location.reload(true);
+			}else if(result!=""){
+				layer.msg(result);
+				return;
+			}else{
+				layer.msg("添加失败");
+				return;
+			}
+		},
+		error:function(){
+			layer.msg("系统繁忙请稍后重试")
+			return;
+		}
+	})
+	
+
+}
+
+function opensite(id){//打开关联服务商列表弹出框
+	layer.open({
+		type : 2,
+		content:'${ctx}/operate/SiteManager/topensite?id='+id,
+		title:false,
+		area: ['100%','100%'],
+		closeBtn:0,
+		shade:0,
+		anim:-1 
+	})
+}
+
+
+
+
+
+function closeds(){
+	$.closeDiv($(".addNotice"));
+}
+
+function quxiao(){
+	$.closeDiv($(".editeNotice"));
+}
+function jsClearForm() {
+	$("#searchForm :input[type='text']").each(function () { 
+	$(this).val(""); 
+	}); 
+	
+	$("select").val(""); 
+	$(".textbox-value").val("");
+	 
+
+}
+function search(){
+	var pageSize = $("#pageSize").val();
+	if ($.trim(pageSize) == '' || pageSize == null) {
+		$("#pageSize").val(20);
+	}
+    $("#table-waitdispatch").sfGridSearch({
+        postData: $("#searchForm").serializeJson()
+    });
+
+}
+
+
+function isPhoneNo(phone) {
+	var pattern = /^(0[0-9]{2,3}\-)?([2-9][0-9]{6,7})+(\-[0-9]{1,4})?$|(^(1[0-9])\d{9}$)/;
+	return pattern.test(phone);
+}
+
+function isBlank(val) {
+	if(val==null || val=='' || val == undefined) {
+		return true;
+	}
+	return false;
+}
+
+//联级下拉框的js
+$(function() {
+	$("#province")
+			.change(
+					function() {
+						var province = $("#province").val();
+						$
+								.ajax({
+									type : "post",
+									url : "${ctx}/order/getCity",
+									async : false,
+									data : {
+										province : province
+									},
+									dataType : "json",
+									success : function(data) {
+										var obj = eval(data);
+										var length = obj.length;
+										if (length < 1) {
+											layer.msg("无数据");
+										} else {
+											$("#city").empty();
+											$("#area").empty();
+											var HTML = " ";
+											for (var i = 0; i < length; i++) {
+												if (i == 0) {
+													HTML += '<option value="'+obj[i].columns.CityName+'" selected="selected">'
+															+ obj[i].columns.CityName
+															+ '</option>';
+												} else {
+													HTML += '<option value="'+obj[i].columns.CityName+'">'
+															+ obj[i].columns.CityName
+															+ '</option>';
+												}
+											}
+
+											$("#city").append(HTML);
+										}
+
+									},
+									error : function() {
+										return;
+									},
+									complete : function() {
+										var cls = $("#city").find(
+												"option:selected").prop(
+												"value");
+										$.ajax({
+													type : "post",
+													url : "${ctx}/order/getArea",
+													async : true,
+													data : {
+														city : cls
+													},
+													dataType : "json",
+													success : function(data) {
+														var obj = eval(data);
+														var length = obj.length;
+														if (length < 1) {
+															layer
+																	.msg("无数据");
+														} else {
+
+															$("#area")
+																	.empty();
+															var HTML = " ";
+															for (var i = 0; i < length; i++) {
+																if (i == 0) {
+																	HTML += '<option value="'+obj[i].columns.DistrictName+'" selected="selected">'
+																			+ obj[i].columns.DistrictName
+																			+ '</option>';
+																} else {
+																	HTML += '<option value="'+obj[i].columns.DistrictName+'" >'
+																			+ obj[i].columns.DistrictName
+																			+ '</option>';
+																}
+															}
+															$("#area")
+																	.append(
+																			HTML);
+														}
+													}
+												});
+
+										return;
+									}
+								});
+					});
+
+});
+
+
+function randomWord(randomFlag, min, max){
+    var str = "",
+        range = min,
+        arr = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+ 
+    // 随机产生
+    if(randomFlag){
+        range = Math.round(Math.random() * (max-min)) + min;
+    }
+    for(var i=0; i<range; i++){
+        pos = Math.round(Math.random() * (arr.length-1));
+        str += arr[pos];
+    }
+    return str;
+}
+function isCode(code){
+	var pattern =/^[a-zA-Z0-9]{4}$/;
+	return pattern.test(code);
+}
+
+function getDateTime(date) {
+    var year = date.getFullYear();
+    var month = date.getMonth() + 1;
+    var day = date.getDate();
+    var hh = date.getHours();
+    var mm = date.getMinutes();
+    var ss = date.getSeconds();
+    return year + "-" + month + "-" + day + " " + hh + ":" + mm + ":" + ss; 
+}
+
+
+function opendetail(id){
+   	$.ajax({
+		type:'POST',
+		url:"${ctx}/operate/SiteManager/opendetail",
+		traditional: true,
+		data:{
+			"id":id,
+		},
+		success:function(sitemsg){
+			if(sitemsg!=null){
+				$('.fwsxq').popup();
+				var create_time="";
+				var due_time="";
+				if(sitemsg.columns.create_time!=null){
+					var date=new Date(parseInt(sitemsg.columns.create_time,10));
+					create_time=getDateTime(date);
+				}
+				if(sitemsg.columns.due_time!=null){
+					var date2=new Date(parseInt(sitemsg.columns.due_time,10));
+					due_time=getDateTime(date2);
+				}
+
+				if(sitemsg.columns.type != '1'){
+				    $(".buntonStype").addClass("hide");
+				}else{
+                    $(".buntonStype").removeClass("hide");
+				}
+				$("#siteIdX").val(id);
+				$("#sitename").val(sitemsg.columns.name);
+				$("#siteconcate").val(sitemsg.columns.contacts);
+				$("#sitemobile").val(sitemsg.columns.mobile);
+				$("#siteloginname").val(sitemsg.columns.login_name);
+				$("#sitecreatetime").val(create_time);
+				var adress="";
+				var province="";
+				var city="";
+				var area="";
+				var levels="普通会员";
+				if(sitemsg.columns.province!=null){
+					province=sitemsg.columns.province;
+				}
+				if(sitemsg.columns.city!=null){
+					city=sitemsg.columns.city;
+				}
+				if(sitemsg.columns.area!=null){
+					area=sitemsg.columns.area;
+				}
+				adress=province+city+area+sitemsg.columns.address;
+				$("#siteadress").val(adress);
+				if(sitemsg.columns.level=="0"){
+					levels="普通会员";
+				}else if(sitemsg.columns.level=="1"){
+					levels="银牌会员";
+				}else if(sitemsg.columns.level=="2"){
+					levels="金牌会员";
+				}else if(sitemsg.columns.level=="3"){
+					levels="钻石会员";
+				}else{
+					levels="普通会员";
+				}
+				$("#sitelevel").val(levels);
+				$("#siteversion").val(sitemsg.columns.version);
+				$("#sitecode").val(sitemsg.columns.share_code);
+				$("#sitesharecount").val(sitemsg.columns.sharecount);
+				if(sitemsg.columns.due_time==null||sitemsg.columns.due_time==""){
+					$("#daoqi").hide();
+					$("#siteduetime").hide();
+				}else{
+					$("#daoqi").show();
+					$("#siteduetime").show();
+					$("#siteduetime").val(due_time);
+				}
+				$("#sitesharename").val(sitemsg.columns.shareParentName);
+				
+			}else{
+				layer.msg("查询失败");
+				return;
+			}
+		},
+		error:function(){
+			layer.msg("系统繁忙请稍后重试");
+			return;
+		}
+	})
+}
+
+function guanbi(){
+	$.closeDiv($(".fwsxq"));
+}
+
+function exports(){
+	var idArr=$("#table-waitdispatch").jqGrid('getGridParam','records')
+	var content="共"+idArr+"条数据，本次允许导出前10000条，确定继续导出吗？";
+	if(idArr>10000){
+		$('body').popup({
+			level:3,
+			title:"导出",
+			content:content,
+			 fnConfirm :function(){
+				 location.href="${ctx}/operate/SiteManager/export?formPath=/a/operate/SiteManager&&maps="+$("#searchForm").serialize();
+			 }
+	
+		});
+	}else{
+		location.href="${ctx}/operate/SiteManager/export?formPath=/a/operate/SiteManager&&maps="+$("#searchForm").serialize();
+	}
+
+}
+
+/*enter查询*/
+function enterEvent(event){
+	var keyCode = event.keyCode?event.keyCode:event.which?event.which:event.charCode;
+	if (keyCode ==13){
+		search();
+	}
+}
+
+var orderMark = false;
+function openOrderNoSet(){
+	var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+
+    if(idArr.length==0){
+        layer.msg("请选择一条数据！");
+        return;
+    }
+    var ids="";
+    for(var i=0;i<idArr.length;i++){
+    	var rowData = $('#table-waitdispatch').jqGrid('getRowData', idArr[i]);
+    	var tId = rowData.scsType;
+    	if(tId!='自定义' && tId!='1' ){//开通
+    		if(isBlank(ids)){
+    			ids=idArr[i];
+    		}else{
+    			ids=ids+','+idArr[i];
+    		}
+    	}
+    }
+    if(isBlank(ids)){
+		layer.msg("您选择的服务商都已开通工单编号流水，请不要重复操作！");
+		return;
+	}
+	var msg = "您确定要将这"+idArr.length+"个服务商开通工单编号流水功能吗？";
+	if(idArr.length!=ids.split(',').length){
+		msg = "您选择的"+idArr.length+"个服务商中有"+ids.split(',').length+"个尚未开通工单编号流水功能，您确定要开通吗？";
+	}
+	$('body').popup({
+        level: '3',
+        type: 2,
+        content: msg,
+        fnConfirm: function () {
+        	if(orderMark){
+        		return;
+        	}
+        	orderMark=true;
+        	$.ajax({
+        		type:"post",
+        		url:"${ctx}/operate/SiteManager/openOrderSetConfirm",
+        		data:{ids:ids,typ:'1'},
+        		success:function(data){
+        			if(data=="200"){
+        				layer.msg("开通工单编号流水功能成功！");
+        				search();
+        			}else if(data=="420"){
+        				layer.msg("开通失败，请重新选择！");
+        			}else{
+        				layer.msg("开通失败，请检查！");
+        			}
+        			orderMark=false;
+        			return;
+        		}
+        	})
+        }
+	})
+}
+
+function authorizeWxOpen() {
+    var idArr = $('#table-waitdispatch').jqGrid('getGridParam', 'selarrrow');
+    if (idArr.length === 0) {
+        layer.msg("请选择一条数据！");
+        return;
+    }
+    var msg = "确定要开通第三方微信授权吗？";
+    $('body').popup({
+        level: '3',
+        type: 2,
+        content: msg,
+        fnConfirm: function () {
+            $.ajax({
+                type: "post",
+                url: "${ctx}/operate/SiteManager/authorizeWxOpen",
+                data: {siteIds: idArr},
+                success: function (data) {
+                    if (data && data.code === "200") {
+                        layer.msg("开通微信授权功能成功！");
+                        search();
+                    }
+                }
+            })
+        }
+    });
+}
+
+var orderMarks = false;
+function cancelOrderNoSet(){
+	var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+    if(idArr.length==0){
+        layer.msg("请选择一条数据！");
+        return;
+    }
+    var ids="";
+    for(var i=0;i<idArr.length;i++){
+    	var rowData = $('#table-waitdispatch').jqGrid('getRowData', idArr[i]);
+    	var tId = rowData.scsType;
+    	if(tId=='自定义' || tId=='1' ){//开通
+    		if(isBlank(ids)){
+    			ids=idArr[i];
+    		}else{
+    			ids=ids+','+idArr[i];
+    		}
+    	}
+    }
+    if(isBlank(ids)){
+		layer.msg("您选择的服务商都尚未开通工单编号流水功能，请不要重复操作！");
+		return;
+	}
+	var msg = "您确定要将这"+idArr.length+"个服务商关闭工单编号流水功能吗？";
+	if(idArr.length!=ids.split(',').length){
+		msg = "您选择的"+idArr.length+"个服务商中有"+ids.split(',').length+"个尚未关闭工单编号流水功能，您确定要关闭吗？";
+	}
+	$('body').popup({
+        level: '3',
+        type: 2,
+        content: msg,
+        fnConfirm: function () {
+        	if(orderMarks){
+        		return;
+        	}
+        	orderMarks=true;
+        	$.ajax({
+        		type:"post",
+        		url:"${ctx}/operate/SiteManager/openOrderSetConfirm",
+        		data:{ids:ids,typ:'0'},
+        		success:function(data){
+        			if(data=="200"){
+        				layer.msg("关闭工单编号流水功能成功！");
+        				search();
+        			}else if(data=="420"){
+        				layer.msg("关闭失败，请重新选择！");
+        			}else{
+        				layer.msg("关闭失败，请检查！");
+        			}
+        			orderMarks=false;
+        			return;
+        		}
+        	})
+        }
+	})
+}
+
+function scsTypeeFuc(rowData){
+	var type = rowData.scsType;
+	if(type=='1'){
+		return "自定义";
+	}
+	return "系统默认";
+}
+
+</script>
+  </body>
+</html>

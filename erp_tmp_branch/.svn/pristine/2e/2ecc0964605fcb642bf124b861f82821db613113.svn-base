@@ -1,0 +1,45 @@
+package com.jojowonet.modules.order.dao;
+
+import java.util.List;
+
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.entity.ServiceType;
+import com.jojowonet.modules.order.utils.SqlKit;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.persistence.Page;
+
+@Repository
+public class ServiceTypeDao extends BaseDao<ServiceType> {
+	
+	
+	public List<Record> filterServiceType(Page<Record> page) {
+		SqlKit kit = new SqlKit()
+				.append(" SELECT * FROM crm_service_type WHERE  status='0' ORDER BY sort ASC ");
+				if(page !=null){
+					kit.last("LIMIT " + page.getPageSize() + " OFFSET " + (page.getPageNo() - 1) * page.getPageSize());
+				}
+		return Db.find(kit.toString());
+	}
+
+	public Record getServiceTypeById(Integer id) {
+	String sql="SELECT * FROM crm_service_type WHERE id=? ";
+		Record rd= Db.findFirst(sql,id);
+		return rd;
+	}
+
+	public void updates(String name, String sort, Integer id) {
+String sql="UPDATE crm_service_type SET name=? ,sort=? WHERE id=?";
+Db.update(sql, name,sort,id);
+		
+	}
+	public void deleteByIds(Integer id) {
+		String sql="UPDATE crm_service_type SET status='1'  WHERE id=?";
+		Db.update(sql,id);
+		
+	}
+
+}

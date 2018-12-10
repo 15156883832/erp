@@ -1,0 +1,127 @@
+package com.jojowonet.modules.order.service;
+
+import ivan.common.service.BaseService;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import net.sf.json.JSONArray;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.SiteScheduleDao;
+import com.jojowonet.modules.order.utils.CrmUtils;
+
+/*
+ * 服务商待办事项Service
+ * */
+@Component
+@Transactional
+public class SiteScheduleService extends BaseService{
+	@Autowired
+	private SiteScheduleDao siteScheduleDao;
+	
+	public List<Record> siteScheduleList(String siteId) {
+		return siteScheduleDao.siteScheduleList(siteId);
+	}
+	
+	public List<Record> allsiteScheduleList(String siteId) {
+		return siteScheduleDao.allsiteScheduleList(siteId);
+	}
+
+
+	public List<Record> siteScheduleOtherList(String siteId) {
+		return siteScheduleDao.siteScheduleOtherList(siteId);
+	}
+
+	public List<Record> allsiteScheduleOtherList(String siteId) {
+		return siteScheduleDao.allsiteScheduleotherList(siteId);
+	}
+
+	@Transactional
+	public String saveSiteSchedule(String siteId,String content,String startTime,String endTime,String id,String type){
+		return siteScheduleDao.saveSiteSchedule(siteId, content, startTime, endTime,id,type);
+	}
+	
+	public String[] siteScheduleTime(String siteId) {
+		List<Record> rds = siteScheduleDao.siteScheduleTime(siteId);
+		String[] array = new String[rds.size()];
+		DateFormat sf = new SimpleDateFormat("yyyy-M-dd");
+		for(int i=0;i<rds.size();i++){
+			Date d1 = rds.get(i).getDate("start_time");
+			String aa = "{date:"+DateUtils.formatDate(d1, "yyyy-M-d")+"}";
+			array[i] = aa;
+		}
+		return array;
+	}
+
+	public String[] siteScheduleOtherTime(String siteId) {
+		List<Record> rds = siteScheduleDao.siteScheduleOtherTime(siteId);
+		String[] array = new String[rds.size()];
+		DateFormat sf = new SimpleDateFormat("yyyy-M-dd");
+		for(int i=0;i<rds.size();i++){
+			Date d1 = rds.get(i).getDate("start_time");
+			String aa = "{date:"+DateUtils.formatDate(d1, "yyyy-M-d")+"}";
+			array[i] = aa;
+		}
+		return array;
+	}
+	
+	
+	public String[] backOrAhead(String siteId,String recordDate,String mark) {
+		List<Record> rds =	siteScheduleDao.backOrAhead(siteId, recordDate, mark);
+		String[] array = new String[rds.size()];
+		for(int i=0;i<rds.size();i++){
+			Date d1 = rds.get(i).getDate("start_time");
+			String aa = "{date:"+DateUtils.formatDate(d1, "yyyy-M-d")+"}";
+			array[i] = aa;
+		}
+		return array;
+	}
+
+	public String[] backOrAheadother(String siteId,String recordDate,String mark) {
+		List<Record> rds =	siteScheduleDao.backOrAheadother(siteId, recordDate, mark);
+		String[] array = new String[rds.size()];
+		for(int i=0;i<rds.size();i++){
+			Date d1 = rds.get(i).getDate("start_time");
+			String aa = "{date:"+DateUtils.formatDate(d1, "yyyy-M-d")+"}";
+			array[i] = aa;
+		}
+		return array;
+	}
+	
+	public Record recordDate(String recordDate,String mark) {
+		return siteScheduleDao.recordDate(recordDate, mark);
+	}
+	
+	public List<Record> dailySchedule(String siteId,String compareDate){
+		return siteScheduleDao.dailySchedule(siteId,compareDate);
+	}
+
+	public List<Record> dailyScheduleOther(String siteId,String compareDate){
+		return siteScheduleDao.dailyScheduleOther(siteId,compareDate);
+	}
+
+	public boolean deleteSiteSchedule(String id, String siteId) {
+      
+		return siteScheduleDao.deleteSiteSchedule(id,siteId);
+	}
+
+
+
+
+
+}

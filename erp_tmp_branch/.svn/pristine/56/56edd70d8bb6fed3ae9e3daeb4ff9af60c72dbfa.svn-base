@@ -1,0 +1,968 @@
+package com.jojowonet.modules.goods.web;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Maps;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.entity.OldFitting;
+import com.jojowonet.modules.fmss.utils.HttpUtils;
+import com.jojowonet.modules.goods.dao.GoodsEmployeOwnDao;
+import com.jojowonet.modules.goods.dao.GoodsSiteSelfDao;
+import com.jojowonet.modules.goods.entity.GoodsSiteSelf;
+import com.jojowonet.modules.goods.form.PageForm;
+import com.jojowonet.modules.goods.service.GoodsEmployeOwnService;
+import com.jojowonet.modules.goods.service.GoodsSiteSelfService;
+import com.jojowonet.modules.goods.service.PlatFormOrderService;
+import com.jojowonet.modules.goods.utils.GoodsCategoryUtil;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteMsgService;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.GoodsCategoryService;
+import com.jojowonet.modules.order.service.UnitService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.sys.util.FreeOrVipUtils;
+import com.jojowonet.modules.sys.util.TrimMap;
+import com.jojowonet.modules.unipay.utils.TradeNoUtils;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+@Controller
+@RequestMapping(value = "${adminPath}/goods/siteself")
+public class GoodsSiteSelfController extends BaseController {
+
+	@Autowired
+	private SiteService siteService;
+	@Autowired
+	private GoodsCategoryService goodsCategoryService;
+
+	@Autowired
+	private NonServicemanService nonService;
+	
+	@Autowired
+	private GoodsSiteSelfDao goodsSiteSelfDao;
+	
+	@Autowired
+	private GoodsEmployeOwnDao goodsEmployeOwnDao;
+
+	@Autowired
+	private GoodsSiteSelfService goodsSiteSelfService;
+
+	@Autowired
+	private GoodsEmployeOwnService goodsEmployeOwnService;
+
+	@Autowired
+	private PlatFormOrderService platFormOrderService;
+	@Autowired
+	private UnitService unitService;
+	
+	
+	@Autowired
+	private SiteMsgService siteMsgService;
+	// 我的商品公司库存表头
+	@RequestMapping(value = "WholeCompanySite")
+	public String getHeader(HttpServletRequest request,HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String,Object> map = getParams(request);
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		List<Record> rd1 = goodsSiteSelfService.getSiteServiceInfoList(siteId);//网点人员
+		List<Record> rd2 = goodsSiteSelfService.getSiteEmployeList(siteId);//服务工程师
+		Record rd3 = goodsSiteSelfService.getSiteName(siteId);//网点名称
+		model.addAttribute("categoryList",listR);//商品类别
+		model.addAttribute("siteId", siteId);
+		model.addAttribute("rd1", rd1);
+		model.addAttribute("rd2", rd2);
+		model.addAttribute("dict", FreeOrVipUtils.freeVip());
+		model.addAttribute("rd3", rd3.getStr("name"));
+		model.addAttribute("rd4",UserUtils.getUser().getId() );
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = new Page<Record>();
+		page = goodsSiteSelfService.loadSiteGoodsList(map,siteId,pages);
+		model.addAttribute("page",page);
+		model.addAttribute("map",map);
+		return "modules/goods/siteList";
+	}
+	
+	//编辑商品
+	@RequestMapping(value="toEditSiteSelfGoods")
+	public String toEditSiteSelfGoods(HttpServletRequest request,HttpServletResponse response, Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String id = request.getParameter("id");
+		String jp = request.getParameter("jp");
+		String zNumber=CrmUtils.Spno();
+		model.addAttribute("number","SP"+zNumber);
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		model.addAttribute("categoryList",listR);
+		Record gss = goodsSiteSelfService.showBJ(id);
+		if(StringUtils.isNotEmpty(gss.getStr("icon"))){
+			String[] str = gss.getStr("icon").split(",");
+			model.addAttribute("icons",str);
+			model.addAttribute("count",str.length);
+		}else{
+			model.addAttribute("count",0);
+		}
+		Record salesSet = goodsCategoryService.getGoodsSalesSet(siteId);
+		model.addAttribute("salesSet", salesSet);
+		model.addAttribute("editNumber", goodsSiteSelfService.checkNumberEdit(id));//区分商品编号是否可编辑
+		model.addAttribute("siteSelf", gss);
+		model.addAttribute("jp", jp);
+		model.addAttribute("units", unitService.getUnitList());
+		//对漏电保护系列特殊处理
+		String gSign = gss.getStr("good_sign");
+		if("LB20180106".equals(gSign) || "LB20180105".equals(gSign) || "BS20180108".equals(gSign) || "BS20180107".equals(gSign) || "CZ20180117".equals(gSign)  ){
+			return "modules/goods/editLBSiteSelfGoods";
+		}
+		return "modules/goods/editSiteSelfGoods";
+	}
+	
+	//查询服务商自营商品列表
+	/*@ResponseBody
+	@RequestMapping(value="loadSiteGoodsList")
+	public Page<Record> loadSiteGoodsList(HttpServletRequest request,HttpServletResponse response){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		
+		return page;
+	}*/
+
+	// 我的商品公司库存信息
+	@ResponseBody
+	@RequestMapping(value = "getWholeSite")
+	public String list(OldFitting oldFitting, HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = goodsSiteSelfService.getAllSiteInfo(pages, siteId,
+				map);
+		return renderJson(new JqGridPage<>(page));
+	}
+	
+	//服务商新增商品
+	@RequestMapping(value="toAddSiteSelfGoods")
+	public String toAddSiteSelfGoods(HttpServletRequest request,HttpServletResponse response, Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String zNumber=CrmUtils.Spno();
+		model.addAttribute("number","PT"+zNumber);
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		model.addAttribute("categoryList",listR);
+		model.addAttribute("units", unitService.getUnitList());
+		return "modules/goods/addSiteSelfGoods"; 
+	}
+
+	// 上架
+	@ResponseBody
+	@RequestMapping(value = "doSJ")
+	public String doSJ(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		String id = request.getParameter("id");
+		goodsSiteSelfService.doSJ(id);
+		return "ok";
+	}
+
+	// 下架
+	@ResponseBody
+	@RequestMapping(value = "doXJ")
+	public String doXJ(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		String id = request.getParameter("id");
+		goodsSiteSelfService.doXJ(id);
+		return "ok";
+	}
+ 
+	// 删除商品
+	@ResponseBody
+	@RequestMapping(value = "doSC")
+	public String doSC(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		String id = request.getParameter("id");
+		String r="ok";
+		//判断该商品是否已有订单
+		String result=goodsSiteSelfService.checkHave(CrmUtils.getCurrentSiteId(UserUtils.getUser()), id);
+		if("daiShou".equals(result)){
+			r=result;
+		}else if("daiChu".equals(result)){
+			r=result;
+		}else{
+			r = goodsSiteSelfService.doSC(id);
+		}
+		return r;
+	}
+	
+	//弹出新增页面
+	@RequestMapping(value = "showXZ")
+	public Object showXZ(HttpServletRequest request,HttpServletResponse response, Model model) {
+		String zNumber=CrmUtils.Spno();
+		model.addAttribute("number","PT"+zNumber);
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		model.addAttribute("categoryList",listR);
+		model.addAttribute("units", unitService.getUnitList());
+		return "modules/goods/mygoodsTC/spaddsp";
+	}
+	
+	//新增操作
+	@ResponseBody
+	@RequestMapping(value = "doXZ",method= RequestMethod.POST)
+  	public String doXZ(HttpServletRequest request, HttpServletResponse response,GoodsSiteSelf gss, Model model) {
+  		Map<String, Object> map = getParams(request);
+  		User user = UserUtils.getUser();
+		String uname = "";
+		if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+			uname = siteService.getUserSite(user.getId()).getName();
+		} else {
+			uname = nonService.getNonServiceman(user).getName();
+		}
+		gss.setIcon(map.get("pickerImg").toString());
+		map.put("userName", uname);
+		String html = request.getParameter("html");
+		gss.setHtml(html);
+		return goodsSiteSelfService.addGoods(gss, map);
+  	}
+  	//判断编号是否已存在
+  	@ResponseBody
+	@RequestMapping(value = "isNull")
+  	public String isNull(HttpServletRequest request,
+			HttpServletResponse response, Model model){
+  		String r="ok";
+  		String number=request.getParameter("number");
+  		long result=goodsSiteSelfService.getByNumberCount(CrmUtils.getCurrentSiteId(UserUtils.getUser()),number);
+		if(result>=1){
+			r="fal";
+		}
+  		return r;
+  	}
+  	//判断编号是否已存在
+  	@ResponseBody
+  	@RequestMapping(value = "isNullEdit")
+  	public String isNullEdit(HttpServletRequest request,
+  			HttpServletResponse response, Model model){
+  		String r="ok";
+  		String number=request.getParameter("number").trim();
+  		String oldNumber=request.getParameter("oldNumber").trim();
+  		long result=goodsSiteSelfService.getByNumberCount(CrmUtils.getCurrentSiteId(UserUtils.getUser()),number);
+  		if(!number.equals(oldNumber)){
+  			if(result>=1){
+  	  			r="fal";
+  	  		}
+  		}
+  		Long platCount = goodsSiteSelfService.getPlatCountNumber(number);
+  		if(platCount > 1){
+  			r="fal";
+  		}
+  		return r;
+  	}
+	// 零售操作
+	@ResponseBody
+	@RequestMapping(value = "doLS")
+	public String doLS(HttpServletRequest request,HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		User user = UserUtils.getUser();
+		String userId=user.getId();
+		map.put("userId", userId);
+		String sql="select * from crm_goods_siteself where id='"+map.get("id")+"' and site_id='"+CrmUtils.getCurrentSiteId(user)+"' and status='0' ";
+		Record re=Db.findFirst(sql);
+		if(re==null){
+			return "420";
+		}
+		if (Double.parseDouble(map.get("lsNum").toString()) > re.getBigDecimal("stocks").doubleValue()) {
+			return "full";
+		}else if(map.get("source").toString().equals("1")||Double.parseDouble(map.get("lsNum").toString())<=re.getBigDecimal("stocks").doubleValue()){
+			goodsSiteSelfService.doLS(map);//自营商品零售操作及平台（转自营）商品库存足够时的零售
+		}
+		return "ok";
+	}
+	
+	// 商品详情(编辑)
+	@RequestMapping(value = "showBJ")
+	public Object showBJ(HttpServletRequest request,HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String id = request.getParameter("id");
+		String zNumber=CrmUtils.Spno();
+		model.addAttribute("number","SP"+zNumber);
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		model.addAttribute("categoryList",listR);
+		Record gss = goodsSiteSelfService.showBJ(id);
+		if(StringUtils.isNotEmpty(gss.getStr("imgs"))){
+			String[] str = gss.getStr("imgs").split(",");
+			model.addAttribute("images",str);
+			model.addAttribute("count",str.length);
+		}else{
+			model.addAttribute("count",0);
+		}
+		Record salesSet = goodsCategoryService.getGoodsSalesSet(siteId);
+		model.addAttribute("salesSet", salesSet);
+		model.addAttribute("editNumber", goodsSiteSelfService.checkNumberEdit(id));//区分商品编号是否可编辑
+		model.addAttribute("siteSelf", gss);
+		model.addAttribute("units", unitService.getUnitList());
+		return "modules/goods/mygoodsTC/speditsp";
+	}
+	
+	// 商品详情
+	@RequestMapping(value = "showDetail")
+	public Object showDetail(HttpServletRequest request,HttpServletResponse response, Model model) {
+		String id = request.getParameter("id");
+		String jp = request.getParameter("jp");
+		String zNumber=CrmUtils.Spno();
+		model.addAttribute("number","SP"+zNumber);
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		model.addAttribute("categoryList",listR);
+		Record gss = goodsSiteSelfService.showBJ(id);
+		if(StringUtils.isNotEmpty(gss.getStr("imgs"))){
+			String[] str = gss.getStr("imgs").split(",");
+			model.addAttribute("images",str);
+			model.addAttribute("count",str.length);
+		}else{
+			model.addAttribute("count",0);
+		}
+		String icons = gss.getStr("icon");
+		gss.set("firstIcon","");
+		if(StringUtils.isNotBlank(icons)){
+			gss.set("firstIcon", icons.split(",")[0]);
+			model.addAttribute("iconArr", icons.split(","));
+		}
+		model.addAttribute("siteSelf", gss);
+		model.addAttribute("jp", jp);
+		model.addAttribute("units", unitService.getUnitList());
+		return "modules/goods/goodsDetail";
+	}
+	
+	//异步获取当前商品利润计算方式
+	@ResponseBody
+	@RequestMapping(value="ajaxGetSalesSet",method= RequestMethod.POST)
+	public Record ajaxGetSalesSet(HttpServletRequest request, HttpServletResponse response){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return goodsCategoryService.getGoodsSalesSet(siteId);
+	}
+	
+	
+	
+	//编辑操作
+	@ResponseBody
+	@RequestMapping(value = "doBJ",method= RequestMethod.POST)
+  	public String doBJ(HttpServletRequest request, HttpServletResponse response,GoodsSiteSelf gss, Model model) {
+  		Map<String, Object> map = getParams(request);
+
+		String uname = CrmUtils.getUserXM();
+		String html = request.getParameter("html");
+		gss.setHtml(html);
+		gss.setIcon(map.get("pickerImg").toString());
+		map.put("userName", uname);
+		return goodsSiteSelfService.doBJ(gss, map);
+  	}
+
+	// 展示领用登记信息
+	@ResponseBody
+	@RequestMapping(value = "showLYDJ")
+	public Object showLYDJ(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		String idd = map.get("id").toString();
+		Record gss = goodsSiteSelfService.showBJ(map.get("id").toString());
+		return gss;
+	}
+	
+	// 零售信息展示
+	@ResponseBody
+	@RequestMapping(value = "showSelfSale")
+	public Map<String,Object> showSelfSale(HttpServletRequest request,HttpServletResponse response, Model model) {
+		Map<String,Object>  mapMsg = new HashMap<String, Object>();
+		Map<String, Object> map = getParams(request);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Record gss = goodsSiteSelfService.showBJ(map.get("id").toString());
+		Record salesSet = goodsCategoryService.getGoodsSalesSet(siteId);
+		mapMsg.put("gss", gss);
+		mapMsg.put("salesSet", salesSet);
+		return mapMsg;
+	}
+
+	// 确认出库(领用登记)
+	@ResponseBody
+	@RequestMapping(value = "doChuKu")
+	public String doChuKu(HttpServletRequest request,HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		Record re = Db.findFirst("select * from crm_goods_siteself where id='"+ map.get("id") + "' and status='0' and site_id='"+CrmUtils.getCurrentSiteId(UserUtils.getUser())+"'");// 获取该商品所有信息
+		if(re==null){
+			return "420";//商品信息有误
+		}
+		if(re.getBigDecimal("stocks").doubleValue() < Double.valueOf(map.get("cnum").toString())){
+			return "full";//库存不足
+		}
+		String uname = CrmUtils.getUserXM();
+		map.put("userName", uname);
+		return goodsSiteSelfService.doChuKu(map);
+	}
+	
+	// 确认出库(工程师自购)
+	@ResponseBody
+	@RequestMapping(value = "doChuKugm")
+	public String doChuKugm(HttpServletRequest request,HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		Record re = Db.findFirst("select * from crm_goods_siteself where id='"+ map.get("id") + "' and status='0' and site_id='"+CrmUtils.getCurrentSiteId(UserUtils.getUser())+"'");// 获取该商品所有信息
+		if(re==null){
+			return "420";//商品信息有误
+		}
+		if(re.getBigDecimal("stocks").doubleValue() < Double.valueOf(map.get("cnum").toString())){
+			return "full";//库存不足
+		}
+		String uname = CrmUtils.getUserXM();
+		map.put("userName", uname);
+		return goodsSiteSelfService.doChuKugm(map);
+	}
+
+	// 商品入库
+	@ResponseBody
+	@RequestMapping(value = "doRuKu")
+	public String doRuKu(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		String uname = CrmUtils.getUserXM();
+		map.put("userName", uname);
+		return goodsSiteSelfService.doRuKu(map);
+	}
+
+	// 展示入库信息
+	@ResponseBody
+	@RequestMapping(value = "showRuKu")
+	public JSONObject showRuKu(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		Map<String, Object> map = getParams(request);
+		Record gss = goodsSiteSelfService.showBJ(map.get("id[]").toString());
+		return JSONObject.fromObject(gss);
+	}
+
+	// 我的商品工程师库存表头
+	@RequestMapping(value = "WholeEmployeSite")
+	public String getHeaderEmp(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		model.addAttribute("categoryList",listR);//商品类别
+		model.addAttribute("siteId", siteId);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = goodsEmployeOwnService.getAllSiteInfo(pages,siteId, map);
+		model.addAttribute("page", page);
+		model.addAttribute("map", map);
+		return "modules/goods/employeOwnList";
+	}
+	
+	// 我的商品工程师库存表头
+	@RequestMapping(value = "BuyEmployeSite")
+	public String BuyEmployeSite(HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		List<Record> listR=GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+		model.addAttribute("categoryList",listR);//商品类别
+		model.addAttribute("siteId", siteId);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = goodsEmployeOwnService.getAllSiteInfogm(pages,siteId, map);
+		model.addAttribute("page", page);
+		model.addAttribute("map", map);
+		return "modules/goods/employeBuyOwnList";
+	}
+
+	// 我的商品工程师库存信息
+	@ResponseBody
+	@RequestMapping(value = "getWholeEmploye")
+	public String empList(OldFitting oldFitting, HttpServletRequest request,HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = goodsEmployeOwnService.getAllSiteInfo(pages,siteId, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+	
+	//导出工程师领取库存数据
+	@RequestMapping(value="exportEmp")
+	public String exportfileEmp(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String,Object> map = new TrimMap(getParams(request));
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+	        String fileName = title+"数据"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+	        List<Record> list = goodsEmployeOwnDao.getAllSiteInfo(pages,siteId, map);
+	        if(list.size()>0){
+		        for(Record rd : list){
+		        	if(rd.getStr("source")!=null){
+		        		/*String source = rd.getStr("source");
+		        		if(source.equals("1")){
+		        			rd.set("source", "自营");
+		        		}else if(source.equals("2")){
+		        			rd.set("source", "平台");
+		        		}*/
+		        		rd.set("source", "领取");
+		        	}
+		        }
+	        }
+			new ExportJqExcel(title+"数据", stf.getTableHeader(), stf.getSortHeader())
+				.setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+	
+	//导出工程师自购库存数据
+	@RequestMapping(value="exportEmpZg")
+	public String exportfileEmpZg(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String,Object> map = new TrimMap(getParams(request));
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+			String fileName = title+"数据"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+			List<Record> list = goodsEmployeOwnDao.getAllSiteInfogm(pages,siteId, map);
+			if(list.size()>0){
+				for(Record rd : list){
+					if(rd.getStr("source")!=null){
+						/*String source = rd.getStr("source");
+						if(source.equals("1")){
+							rd.set("source", "自营");
+						}else if(source.equals("2")){
+							rd.set("source", "平台");
+						}*/
+						rd.set("source", "自购");
+					}
+				}
+			}
+			new ExportJqExcel(title+"数据", stf.getTableHeader(), stf.getSortHeader())
+			.setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+	
+	//导出公司库存数据
+	@RequestMapping(value="export")
+	public String exportfile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes){
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId= CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String,Object> map = getParams(request);
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+            jarray.remove(0);
+			String title = stf.getExcelTitle();
+	        String fileName = title+"数据"+DateUtils.getDate("yyyyMMddHHmmss")+".xlsx"; 
+	        List<Record> list = goodsSiteSelfDao.loadSiteGoodsList(map,siteId,pages);
+	        if(list.size()>0){
+		        for(Record rd : list){
+		        	if(rd.getStr("source")!=null){
+		        		String source = rd.getStr("source");
+		        		if(source.equals("1")){
+		        			rd.set("source", "自营");
+		        		}else if(source.equals("2")){
+		        			rd.set("source", "平台");
+		        		}
+		        	}
+		        	if(rd.getStr("sell_flag")!=null){
+		        		String flg = rd.getStr("sell_flag");
+		        		if(flg.equals("1")){
+		        			rd.set("sell_flag", "已上架");
+		        		}else if(flg.equals("2")){
+		        			rd.set("sell_flag", "未上架");
+		        		}
+		        	}
+		        }
+	        }
+			new ExportJqExcel(title+"数据", jarray.toString(), stf.getSortHeader())
+				.setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息："+e.getMessage());
+		}
+		return "redirect:"+Global.getAdminPath()+"/sys/user/?repage";
+	}
+		
+		@ResponseBody
+		@RequestMapping(value="checkSelfGoodsNum")
+		public String checkSelfGoodsNum(HttpServletRequest request, HttpServletResponse response){
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			if(StringUtils.isBlank(siteId)){
+				return "show";
+			}
+			return goodsSiteSelfService.checkSelfGoodsNum(siteId);
+		}
+		
+		@RequestMapping(value="getPrototypeList")
+		public String getPrototypeList(HttpServletRequest request,HttpServletResponse response,Model model){
+			Page<Record> page = new Page<Record>(request, response);
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			Site site = siteService.get(siteId);
+			model.addAttribute("site", site);
+			String url = Global.getConfig("sended.sms.interface.url")+"getproto";
+			Map<String, String> params = Maps.newHashMap();
+			params.put("province", site.getProvince());
+			params.put("city", site.getCity());
+			params.put("pageNo", String.valueOf(page.getPageNo()));
+			params.put("pageSize", String.valueOf(page.getPageSize()));
+			System.out.println(url);
+			String retStr = HttpUtils.doPost(url, params);
+			PageForm ft =  new Gson().fromJson(retStr, new TypeToken<PageForm>(){}.getType());
+			if(ft!=null){
+				if (ft.getCount() <= 0) {
+					return "modules/goods/blank";
+				}
+				List<Record> rds = ft.getList();
+				for(Record rd :rds){
+					String img = rd.getStr("imgs");
+					if(StringUtils.isNotBlank(img)){
+						rd.set("imgs", img.split(",")[0]);
+					}
+				}
+				page.setCount(ft.getCount());
+				page.setList(rds);
+			} else {
+				return "modules/goods/blank";
+			}
+			model.addAttribute("orderNo",TradeNoUtils.genUniqueNo("tp"));
+			model.addAttribute("page", page);
+			return "modules/goods/platformList";
+		}
+		@RequestMapping(value="getMyorder")
+		public String getMyorder(HttpServletRequest request,HttpServletResponse response,Model model){
+			Page<Record> page = new Page<Record>(request, response);
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			String url = Global.getConfig("sended.sms.interface.url")+"getMyorder"; 
+			Map<String, String> params = Maps.newHashMap();
+			Map<String, Object> maps = getParams(request);
+			if(maps.get("number") != null && StringUtils.isNotBlank((String)maps.get("number"))){
+				params.put("number", (String)maps.get("number"));
+			}
+			if(maps.get("category") != null && StringUtils.isNotBlank((String)maps.get("category"))){
+				params.put("category", (String)maps.get("category"));
+			}
+			if(maps.get("name") != null && StringUtils.isNotBlank((String)maps.get("name"))){
+				params.put("name", (String)maps.get("name"));
+			}
+			if(maps.get("model") != null && StringUtils.isNotBlank((String)maps.get("model"))){
+				params.put("model", (String)maps.get("model"));//商品型号
+			}
+			if(maps.get("orderStatus") != null && StringUtils.isNotBlank((String)maps.get("orderStatus"))){
+				params.put("orderStatus", (String)maps.get("orderStatus"));
+			}
+			params.put("siteId", siteId);
+			params.put("province", String.valueOf(page.getPageNo()));
+			params.put("city", String.valueOf(page.getPageSize()));
+			String retStr = HttpUtils.doPost(url, params);
+			PageForm ft =  new Gson().fromJson(retStr, new TypeToken<PageForm>(){}.getType());
+			if(ft!=null){
+				List<Record> rds = ft.getList();
+				for(Record rd :rds){
+					String img = rd.getStr("imgs");
+					if(StringUtils.isNotBlank(img)){
+						rd.set("imgs", img.split(",")[0]);
+					}
+				}
+				page.setCount(ft.getCount());
+				page.setList(rds);
+			}
+			model.addAttribute("maps",maps);
+			model.addAttribute("page",page);
+			return "modules/goods/siteGoodsOrderList";
+		}
+		
+		//查看样机商品详情调用
+		@RequestMapping(value="getPrototypeId")
+		public Object getPrototypeId(HttpServletRequest request,HttpServletResponse response,Model model){
+			String id = request.getParameter("id");
+			String url = Global.getConfig("sended.sms.interface.url")+"getPrototypeId"; 
+			Map<String, String> params = Maps.newHashMap();
+			params.put("id", id);
+			String retStr = HttpUtils.doPost(url, params);
+			Record ft =  new Gson().fromJson(retStr, new TypeToken<Record>(){}.getType());
+			ft.set("number", TradeNoUtils.genUniqueNo("tp"));
+			if(ft != null){
+				String img = ft.getStr("imgs");
+				if(StringUtils.isNotBlank(img)){
+					String[] imgs = img.split(",");
+					model.addAttribute("img", imgs);
+				}
+			}
+			model.addAttribute("rds", ft);
+			return "modules/goods/platformForm";
+		}
+		//查看样机订单详情调用
+		@RequestMapping(value="getOrderId")
+		public Object getOrderId(HttpServletRequest request,HttpServletResponse response,Model model){
+			String id = request.getParameter("id");
+			String url = Global.getConfig("sended.sms.interface.url")+"getOrderId"; 
+			Map<String, String> params = Maps.newHashMap();
+			params.put("id", id);
+			String retStr = HttpUtils.doPost(url, params);
+			Record ft =  new Gson().fromJson(retStr, new TypeToken<Record>(){}.getType());
+			System.out.println(ft);
+			if(ft != null){
+				String img = ft.getStr("imgs");
+				if(StringUtils.isNotBlank(img)){
+					String[] imgs = img.split(",");
+					model.addAttribute("imgs", imgs);
+					
+				}
+			}
+			model.addAttribute("rds", ft);
+			return "modules/goods/siteGoodsOrderForm";
+		}
+
+		
+		//取消样机订单
+		@ResponseBody
+		@RequestMapping(value="cancellationofOrder")
+		public Object cancellationofOrder(HttpServletRequest request,HttpServletResponse response){
+			String id = request.getParameter("id");
+			String ptotoId = request.getParameter("protoId");
+			String url = Global.getConfig("sended.sms.interface.url")+"cancellationofOrder"; 
+			Map<String, String> params = Maps.newHashMap();
+			params.put("id", id);
+			params.put("protoId", ptotoId);
+			String retStr = HttpUtils.doPost(url, params);
+			return retStr;
+		}
+		
+		//重新提交订单凭证
+		@ResponseBody
+		@RequestMapping(value="resubmitIcon")
+		public Object resubmitIcon(HttpServletRequest request,HttpServletResponse response){
+			String id = request.getParameter("id");
+			String icon = request.getParameter("icon");
+			String url = Global.getConfig("sended.sms.interface.url")+"resubmitIcon"; 
+			Map<String, String> params = Maps.newHashMap();
+			params.put("id", id);
+			params.put("icon", icon);
+			String retStr = HttpUtils.doPost(url, params);
+			return retStr;
+		}
+		
+	
+		//重新提交页面
+		@RequestMapping(value = "prototypePay")
+		public String prototypePay(HttpServletRequest request, Model model){
+			String id=request.getParameter("id");
+			String url = Global.getConfig("sended.sms.interface.url")+"getOrderId"; 
+			Map<String, String> params = Maps.newHashMap();
+			params.put("id", id);
+			String retStr = HttpUtils.doPost(url, params);
+			Record ft =  new Gson().fromJson(retStr, new TypeToken<Record>(){}.getType());
+			String images=ft.getStr("imgs");
+			if(StringUtils.isNotBlank(images)){
+				model.addAttribute("imgs",images.split(",")[0]);
+			}
+			System.out.println(ft);
+			model.addAttribute("rds", ft);
+			return "modules/" + "goods/prototypePay";
+		}
+		
+		/*使用统计*/
+		@RequestMapping(value="goodsAnalyse")
+		public  String toGoodsAnalyse(HttpServletRequest request,HttpServletResponse response,Model model){
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+			List<Record> provincelist=siteMsgService.getprovincelist();
+			model.addAttribute("headerData", stf);
+			model.addAttribute("listarea", provincelist);
+			return  "modules/operate/goodsAnalyse";		
+		}
+		
+		@ResponseBody
+		@RequestMapping(value="goodsAnalyseList")
+		public String goodsAnalyseList(HttpServletRequest request,HttpServletResponse response){
+			Map<String, Object> map = new TrimMap(getParams(request));
+			Page<Record> pages = new Page<Record>(request, response);
+			Page<Record> page = goodsSiteSelfService.goodsAnalyse(pages, map);
+			return renderJson(new JqGridPage<>(page));
+		}
+		
+		
+	    @RequestMapping(value = "export2")
+	    public String exportFile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+	        try {
+	            String formPath = request.getParameter("formPath");
+	            User user = UserUtils.getUser();
+	            String siteId = CrmUtils.getCurrentSiteId(user);
+	            Page<Record> pages = new Page<Record>(request, response);
+	            pages.setPageNo(1);
+	            pages.setPageSize(10000);
+	            SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+	            String title = stf.getExcelTitle();
+	            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+	            Map<String, Object> ma = new TrimMap(getParams(request));
+	            JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+	           // jarray.remove(0);
+	            List<Record> list = null;
+	            Date now = new Date();
+	            if ("商品分析".equals(title)) {
+	                list =goodsSiteSelfService.goodsAnalyse(pages, ma).getList();
+	                for (Record rd : list) {
+						if (rd.getDate("due_time") == null) {
+							rd.set("version", "免费版");
+						} else {
+							if (rd.getDate("due_time").getTime() >= now.getTime()) {
+								rd.set("version", "收费版");
+							} else {
+								rd.set("version", "免费版");
+							}
+						}
+					}
+
+	            } else {
+
+
+	            }
+	            new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader())
+	                    .setDataList(list).write(request, response, fileName).dispose();
+	            return null;
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	            addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+	        }
+	        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	    }
+		
+	    
+		/*使用统计*/
+		@RequestMapping(value="ewmCollectionHeader")
+		public  String ewmCollectionHeader(HttpServletRequest request,HttpServletResponse response,Model model){
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+			model.addAttribute("headerData", stf);
+			return  "modules/operate/ewmAnalyse";		
+		}
+		
+		@ResponseBody
+		@RequestMapping(value="ewmCollectionList")
+		public String ewmCollectionList(HttpServletRequest request,HttpServletResponse response){
+			Map<String, Object> map = new TrimMap(getParams(request));
+			Page<Record> pages = new Page<Record>(request, response);
+			Page<Record> page = goodsSiteSelfService.ewmCollectionList(pages, map);
+			return renderJson(new JqGridPage<>(page));
+		}
+		
+		 @RequestMapping(value = "exportEwmAnalyse")
+		    public String exportEwmAnalyse(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		        try {
+		            String formPath = request.getParameter("formPath");
+		            User user = UserUtils.getUser();
+		            String siteId = CrmUtils.getCurrentSiteId(user);
+		            Page<Record> pages = new Page<Record>(request, response);
+		            pages.setPageNo(1);
+		            pages.setPageSize(10000);
+		            SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+		            String title = stf.getExcelTitle();
+		            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+		            Map<String, Object> ma = new TrimMap(getParams(request));
+		            JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+		            jarray.remove(1);
+		            List<Record> list = null;
+	                list =goodsSiteSelfService.ewmCollectionList(pages, ma).getList();
+	                for (Record rd : list) {
+	                	if("0".equals(rd.getStr("payment_type"))){
+	        				rd.set("payment_type", "支付宝");
+	        			}else if("1".equals(rd.getStr("payment_type"))){
+	        				rd.set("payment_type", "微信");
+	        			}else{
+	        				rd.set("payment_type", "---");
+	        			}
+					}
+		            new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader())
+		                    .setDataList(list).write(request, response, fileName).dispose();
+		            return null;
+		        } catch (Exception e) {
+		            e.printStackTrace();
+		            addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		        }
+		        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+		    }
+	@ResponseBody
+	@RequestMapping(value="checkIfAllowAddGoods")
+	 public String checkIfAllowAddGoods(HttpServletRequest request, HttpServletResponse response){
+         String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+         return goodsSiteSelfService.checkIfAllowAddGoods(siteId);
+	 }
+	
+	//校验商品是否已被删除
+	@ResponseBody
+	@RequestMapping(value="checkGoodsIfExist")
+	public String checkGoodsIfExist(HttpServletRequest request, HttpServletResponse response){
+		String id = request.getParameter("id");
+		return goodsSiteSelfService.checkGoodsIfExist(id);
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="queryEmpGoodsStocks")
+	public Record queryEmpGoodsStocks(String id,HttpServletRequest request) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return goodsSiteSelfService.queryEmpGoodsStocks(id,siteId);
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="doReturnGoods")
+	public String doReturnGoods(HttpServletRequest request) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String id = request.getParameter("id");
+		String nums = request.getParameter("nums");
+		return goodsSiteSelfService.doReturnGoods(siteId,id,nums);
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="doReturnGoodsZg")
+	public String doReturnGoodsZg(HttpServletRequest request) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String id = request.getParameter("id");
+		String nums = request.getParameter("nums");
+		String thMoney = request.getParameter("thMoney");
+		return goodsSiteSelfService.doReturnGoodsZg(siteId,id,nums,thMoney);
+	}
+	
+}

@@ -1,0 +1,198 @@
+package com.jojowonet.modules.finance.service;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.lang3.StringUtils;
+import org.hibernate.SQLQuery;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.finance.dao.ExacctDao;
+import com.jojowonet.modules.finance.entity.Exacct;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.UserUtils;
+
+/**
+ * Created by Administrator on 2017/12/26.
+ * 费用科目service
+ */
+@Component
+@Transactional(readOnly = true)
+public class ExacctService  extends BaseService{
+    @Autowired
+    private ExacctDao exacctDao;
+
+    public Page <Record> getexacctlist(Page <Record> page, String siteId, Map <String, Object> map) {
+        List <Record> exacctlist = exacctDao.getexacctlist(page, siteId, map);
+        long count = exacctDao.getcount(siteId, map);
+        page.setList(exacctlist);
+        page.setCount(count);
+        return page;
+    }
+    
+    public Page <Record> getexacctlistSite(Page <Record> page, String siteId, Map <String, Object> map) {
+    	List <Record> exacctlist = exacctDao.getexacctlistSite(page, siteId, map);
+    	long count = exacctDao.getcountSite(siteId, map);
+    	page.setList(exacctlist);
+    	page.setCount(count);
+    	return page;
+    }
+    
+    @Transactional(rollbackFor=Exception.class)
+    public Map<String,Object> saveExacctAdd(String siteId,String userId,String[] nameArr) {
+    	Map<String,Object> map = new HashMap<>();
+    	Set<String> set = new HashSet<String>(); 
+    	for(String str : nameArr) {
+    		set.add(str);
+    	}
+    	nameArr = set.toArray(new String[set.size()]);  //去重后的数组
+    	Record rd = Db.findFirst("select a.* from crm_exacct a where a.site_id=? and a.name in ("+StringUtil.joinInSql(nameArr)+") and a.status='0' limit 1",siteId);
+    	if(rd!=null) {//重复
+    		map.put("code", "420");
+    		map.put("data",rd.getStr("name") );
+    		return map;
+    	}
+    	Date dt = new Date();
+    	List<Exacct> list = new ArrayList<Exacct>();
+    	for(String st : nameArr) {
+    		Exacct ect = new Exacct();
+    		ect.setCreateBy(userId);
+    		ect.setCreateTime(dt);
+    		ect.setName(st);
+    		ect.setSiteId(siteId);
+    		ect.setStatus("0");
+    		list.add(ect);
+    	}
+    	if(list.size() > 0){
+			exacctDao.save(list);
+		}
+    	map.put("code", "200");
+		return map;
+    }
+    
+    //新增时系统默认费用科目处理
+    @Transactional(rollbackFor=Exception.class)
+    public void addDefault(String siteId,String id,String name) {
+    	Long count = queryIfDefined(siteId);
+    	if(count < 1) {//没有自定义过
+    		List<Record> list = queryDefaultExacctList();
+    		List<Exacct> lists = new ArrayList<Exacct>();
+    		if(list.size() > 0) {
+    			for(Record rd : list) {
+        			Exacct ect = new Exacct();
+        			ect.setCreateBy(rd.getStr("create_by"));
+        			ect.setCreateTime(rd.getDate("create_time"));
+        			ect.setName(rd.getStr("name"));
+        			ect.setSiteId(siteId);
+        			ect.setStatus("0");
+        			if(id.equals(rd.getStr("id"))) {
+        				ect.setName(name);
+        			}
+        			lists.add(ect);
+        		}
+    		}
+    		if(lists.size() > 0){
+    			exacctDao.save(lists);
+    		}
+    	}
+    	exacctDao.flush();
+    }
+    
+    
+    //先看该服务商有没有自定义费用科目，包括删除的
+    public Long queryIfDefined(String siteId) {
+    	return Db.queryLong("select count(*) from crm_exacct a where a.site_id=? ",siteId);
+    }
+    
+    //查询系统默认的费用科目
+    public List<Record> queryDefaultExacctList(){
+    	return Db.find("select a.* from crm_exacct a where a.status='0' and a.site_id is null");
+    }
+    
+    public List<Record> queryDefaultExacctListIds(String ids){
+    	return Db.find("select a.* from crm_exacct a where a.status='0' and a.id and a.site_id is null");
+    }
+    
+    @Transactional(rollbackFor=Exception.class)
+    public Map<String,Object> updateExacctEdit(String siteId,String userId,String name,String id) {
+    	Map<String,Object> map = new HashMap<>();
+    	Long count = queryIfDefined(siteId);
+    	if(count < 1) {//没有自定义过
+    		Long count1 = Db.queryLong("select count(*) from crm_exacct a where a.status='0' and a.site_id is null and a.id!=? and a.name=?",id,name);
+    		if(count1 > 0) {
+    			map.put("code", "420");
+    			return map;
+    		}
+    		addDefault(siteId,id,name);
+    		map.put("code", "200");
+			return map;
+    	}
+    	Long count2 = Db.queryLong("select count(*) from crm_exacct a where a.status='0' and a.site_id=? and a.name=? and a.id!=?",siteId,name,id);
+    	if(count2 > 0) {
+    		map.put("code", "420");
+			return map;
+    	}
+    	SQLQuery sql = exacctDao.getSession().createSQLQuery("update crm_exacct a set a.name='"+name+"' where a.id='"+id+"'");
+    	sql.executeUpdate();
+    	map.put("code", "200");
+		return map;
+    }
+    
+    @Transactional(rollbackFor=Exception.class)
+    public Map<String,Object> deleteExacctCount(String siteId,String[] ids) {
+    	Map<String,Object> map = new HashMap<>();
+    	Long count = queryIfDefined(siteId);
+    	if(count < 1) {//没有自定义过
+    		deleteDefault(siteId,ids);
+    		map.put("code", "200");
+    		return map;
+    	}
+    	SQLQuery sql = exacctDao.getSession().createSQLQuery("update crm_exacct a set a.status='1' where a.id in ("+StringUtil.joinInSql(ids)+")");
+    	sql.executeUpdate();
+    	map.put("code", "200");
+    	return map;
+    }
+    
+    //批量删除时系统默认费用科目处理
+    @Transactional(rollbackFor=Exception.class)
+    public void deleteDefault(String siteId,String[] ids) {
+    	Long count = queryIfDefined(siteId);
+    	if(count < 1) {//没有自定义过
+    		List<Record> list = queryDefaultExacctListDel(ids);
+    		List<Exacct> lists = new ArrayList<Exacct>();
+    		if(list.size() > 0) {
+    			for(Record rd : list) {
+        			Exacct ect = new Exacct();
+        			ect.setCreateBy(rd.getStr("create_by"));
+        			ect.setCreateTime(rd.getDate("create_time"));
+        			ect.setName(rd.getStr("name"));
+        			ect.setSiteId(siteId);
+        			ect.setStatus("0");
+        			lists.add(ect);
+        		}
+    		}
+    		if(lists.size() > 0){
+    			exacctDao.save(lists);
+    		}
+    	}
+    	exacctDao.flush();
+    }
+    
+  //查询系统默认的费用科目
+    public List<Record> queryDefaultExacctListDel(String[] ids){
+    	return Db.find("select a.* from crm_exacct a where a.status='0' and a.site_id is null and a.id not in("+StringUtil.joinInSql(ids)+")");
+    }
+    
+}

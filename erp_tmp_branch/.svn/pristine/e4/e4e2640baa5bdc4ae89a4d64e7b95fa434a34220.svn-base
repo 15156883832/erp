@@ -1,0 +1,276 @@
+package com.jojowonet.modules.order.web;
+
+import java.io.IOException;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import ivan.common.config.Global;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONObject;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Record;
+
+
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.entity.GoodsCategory;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+
+
+import com.jojowonet.modules.order.service.GoodsCategoryService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+
+@Controller
+@RequestMapping(value = "${adminPath}/order/goodscategory")
+public class GoodsCategoryController extends BaseController {
+	
+	@Autowired
+	private GoodsCategoryService goodsCateService;
+
+	
+	@Autowired
+	private SiteService siteSeivice;
+	
+
+	//服务商商品种类
+	@RequestMapping(value = {"list", ""})
+	public String list(GoodsCategory goodsCategory, HttpServletRequest request, HttpServletResponse response, Model model) {
+		//需要涉及到表头设置时才调用，如果不需要使用表头设置，则不需
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+    	model.addAttribute("headerData", stf);
+    	String userType =  UserUtils.getUser().getUserType();
+		//model.addAttribute("usertype", UserUtils.getUser().getUserType());
+		if("1".equals(userType)){
+			return "modules/" + "order/goodsCateListforsys";
+		}else{
+			return "modules/" + "order/goodsCateList";
+		}
+	}
+	
+	//商品利润设置
+	@RequestMapping(value = "goodsSalesSet")
+	public String goodsSalesSet(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		model.addAttribute("salesSet", goodsCateService.getGoodsSalesSet(siteId));
+		return "modules/" + "order/goodsSalesSet";
+	}
+	
+	//保存商品利润设置
+	@ResponseBody
+	@RequestMapping(value="setSaveSalesSave")
+	public String setSaveSalesSave(HttpServletRequest request){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String id = request.getParameter("id");
+		String salesSet = request.getParameter("salesSet");
+		return goodsCateService.saveSalesSave(siteId,id,salesSet);
+	}
+	
+	
+	
+	@RequestMapping(value = "goodsCateList")
+	@ResponseBody
+	public String goodsCateList(GoodsCategory goodsCategory, HttpServletRequest request, HttpServletResponse response, Model model) {
+		Page<Record> page = new Page<Record>(request, response);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		page = goodsCateService.filterGoodsCate(page, siteId);
+		model.addAttribute("page",page);
+		JqGridPage<Record> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+//点击添加跳转到添加页面
+	@RequestMapping(value = "form")
+	public String form(GoodsCategory goodsCategory, Model model) {
+		model.addAttribute("goodsCategory", goodsCategory);
+		return "modules/" + "order/goodsCateForm";
+	}
+	//点击修改跳转到修改页面
+	@RequestMapping(value="edite")
+	public String edite(String id,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		//OrderOrigin orderOrigin =new OrderOrigin();
+		Integer ids=Integer.valueOf(id);
+		Record rd=goodsCateService.getGoodsById(ids,siteId);
+
+		
+		model.addAttribute("goodsCate",rd);
+		return "modules/" + "order/goodsCateEdite";
+	}
+
+//保存添加的信息（批量添加）
+	@RequestMapping(value = "save")
+	public @ResponseBody String save(String[] nameArr, String[] sortsArr, HttpServletResponse response, Model model,RedirectAttributes redirectAttributes ) {
+
+		for (int i=0;i<nameArr.length;i++) {
+			GoodsCategory goodsCategory=new GoodsCategory();
+			goodsCategory.setName(nameArr[i]);
+			if(sortsArr.length>0&&sortsArr[i].length()!=0){
+				if(sortsArr[i].equals("0")){
+					sortsArr[i]="0";
+				}
+				goodsCategory.setSort(sortsArr[i]);
+			}
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			if(siteId!=null){
+				goodsCategory.setSiteId(siteId);
+			}
+			
+			goodsCateService.save(goodsCategory);	
+		}
+		return null;
+	}
+	//修改信息
+	@RequestMapping("update")
+	public void update(String names,String sorts,String id){
+      if(sorts.length()==0||sorts.equals("0")){
+	      sorts="0";
+       }
+      Integer ids=Integer.valueOf(id);
+      goodsCateService.updates(names,sorts,ids);
+		
+	}
+	
+//批量删除信息
+	@RequestMapping(value = "deletegoodsCate")
+	public String delete(String[] idArr, RedirectAttributes redirectAttributes) {
+		System.out.println(idArr.length);
+		for(int i=0;i<idArr.length;i++){
+			Integer ids=Integer.valueOf(idArr[i]);
+			goodsCateService.delete(ids);
+		}
+	
+		return "redirect:"+Global.getAdminPath()+"/order/goodscategory";
+		//return "modules/" + "order/orderOrigin";
+	}
+	
+
+	//用于删除和修改判断是否重名
+	@RequestMapping(value="queryNums")
+	public void queryNumByNames(String[] nameArr,String id,HttpServletRequest request,HttpServletResponse response){
+		String site_id = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		boolean flag=false;
+		Integer ids=null;
+		if(id!=null&&id.length()!=0){
+           ids=Integer.valueOf(id);
+		}
+		for(int i=0;i<nameArr.length;i++){
+			 flag = goodsCateService.queryNumByNames(site_id, nameArr[i], ids);
+			 if(flag){
+			break;
+			 }
+		}
+		
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	//平台商品种类
+	@RequestMapping(value = "goodsCateForPlat")
+	public String listForPlat(GoodsCategory goodsCategory, HttpServletRequest request, HttpServletResponse response, Model model) {
+		//需要涉及到表头设置时才调用，如果不需要使用表头设置，则不需
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+    	model.addAttribute("headerData", stf);
+		
+		return "modules/" + "order/goodsCateListForPlat";
+	}
+	
+	
+	
+	@RequestMapping(value = "goodsCateListForPlat")
+	@ResponseBody
+	public String goodsCateListForPlat(GoodsCategory goodsCategory, HttpServletRequest request, HttpServletResponse response, Model model) {
+		Page<Record> page = new Page<Record>(request, response);
+		String userId = UserUtils.getUser().getId();
+		page = goodsCateService.filterGoodsCateForplat(page, userId);
+		model.addAttribute("page",page);
+		JqGridPage<Record> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+	
+	//点击添加跳转到添加页面
+		@RequestMapping(value = "formForPlat")
+		public String formForPlat(GoodsCategory goodsCategory, Model model) {
+			model.addAttribute("goodsCategory", goodsCategory);
+			return "modules/" + "order/goodsCateFormForPlat";
+		}
+		//点击修改跳转到修改页面
+		@RequestMapping(value="editeForPlat")
+		public String editeForPlat(String id,Model model){
+			String userId = UserUtils.getUser().getId();
+			//OrderOrigin orderOrigin =new OrderOrigin();
+			Integer ids=Integer.valueOf(id);
+			Record rd=goodsCateService.getGoodsByIdForplat(ids, userId);
+
+			
+			model.addAttribute("goodsCate",rd);
+			return "modules/" + "order/goodsCateEditeForPlat";
+		}
+
+	//保存添加的信息（批量添加）
+		@RequestMapping(value = "saveForPlat")
+		public @ResponseBody String saveForPlat(String[] nameArr, String[] sortsArr, HttpServletResponse response, Model model,RedirectAttributes redirectAttributes ) {
+
+			for (int i=0;i<nameArr.length;i++) {
+				GoodsCategory goodsCategory=new GoodsCategory();
+				goodsCategory.setName(nameArr[i]);
+				if(sortsArr.length>0&&sortsArr[i].length()!=0){
+					if(sortsArr[i].equals("0")){
+						sortsArr[i]="0";
+					}
+					goodsCategory.setSort(sortsArr[i]);
+				}
+				String userId = UserUtils.getUser().getId();
+
+				goodsCategory.setCreateBy(userId);
+				goodsCateService.save(goodsCategory);
+			}
+			return null;
+		}
+		
+		
+		@RequestMapping(value="queryNumsForPlat")
+		public void queryNumByNamesForPlat(String[] nameArr,String id,HttpServletRequest request,HttpServletResponse response){
+			String userId = UserUtils.getUser().getId();
+			boolean flag=false;
+			Integer ids=null;
+			if(id!=null&&id.length()!=0){
+	           ids=Integer.valueOf(id);
+			}
+			for(int i=0;i<nameArr.length;i++){
+				 flag = goodsCateService.queryNumByNamesForplat(userId, nameArr[i], ids);
+				 if(flag){
+				break;
+				 }
+			}
+			
+			Map<String,Boolean> map = Maps.newHashMap();
+			map.put("flag", flag);
+			try {
+				response.getWriter().print(JSONObject.fromObject(map));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+}

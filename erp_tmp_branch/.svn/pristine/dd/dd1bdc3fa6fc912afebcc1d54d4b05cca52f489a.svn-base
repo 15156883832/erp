@@ -1,0 +1,872 @@
+package com.jojowonet.modules.sys.smallProgram;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.service.EmployeService;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.operate.service.SiteMsgService;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.entity.OrderCallBack;
+import com.jojowonet.modules.order.service.ChangeSelfOrderService;
+import com.jojowonet.modules.order.service.OrderCallBackService;
+import com.jojowonet.modules.order.service.OrderDispatchService;
+import com.jojowonet.modules.order.service.OrderMallService;
+import com.jojowonet.modules.order.service.OrderOriginService;
+import com.jojowonet.modules.order.service.OrderService;
+import com.jojowonet.modules.order.service.PushMessageService;
+import com.jojowonet.modules.order.utils.BrandUtils;
+import com.jojowonet.modules.order.utils.CategoryUtils;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.OrderNo;
+import com.jojowonet.modules.order.utils.RandomUtil;
+import com.jojowonet.modules.order.utils.SFIMCache;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.order.utils.Tuple;
+import com.jojowonet.modules.order.utils.WebPageFunUtils;
+import com.jojowonet.modules.sys.service.SystemService;
+import com.jojowonet.modules.sys.util.TranslationUtils;
+import com.jojowonet.modules.sys.util.TrimMap;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.MD5;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONObject;
+
+@Controller
+@RequestMapping(value = "${adminPath}/main/orderSmallProgram")
+public class OrderSmallProgramController extends BaseController {
+
+	@Autowired
+	private NonServicemanService noService;
+	@Autowired
+	private OrderService orderService;
+	@Autowired
+	private EmployeService employeService;
+	@Autowired
+	private OrderDispatchService orderDispatchService;
+	@Autowired
+	private OrderMallService orderMallService;
+	@Autowired
+	private SystemService systemService;
+	@Autowired
+	private ChangeSelfOrderService changeSelfOrderService;
+	@Autowired
+	private OrderCallBackService callbackService;
+	@Autowired
+	private OrderOriginService orderOriginServicce;
+	@Autowired
+	private SiteMsgService siteMsgService;
+	@Autowired
+	private PushMessageService pushMessageService;
+
+	// 待派工
+	@RequestMapping(value = "getDpgList")
+	public @ResponseBody Page<Record> getWwgList(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String userId = request.getParameter("userId");
+		String siteId = getSiteId(request);
+		Page<Record> pages = new Page<Record>(request, response);
+		String pageNo = request.getParameter("page");
+		pages.setPageSize(8);
+		pages.setPageNo(Integer.parseInt(pageNo));
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> page = null;
+		String cate = noService.servicemanCate(userId, siteId);
+		String brand = noService.servicemanBrand(userId, siteId);
+		List<String> cateList = StringUtil.tolist(cate);
+		List<String> brandList = StringUtil.tolist(brand);
+		page = orderService.getOrderWaitForDis(pages, siteId, "1", map, cateList, brandList);
+		return page;
+	}
+
+	// 维修中
+	@RequestMapping(value = "getWxzList")
+	public @ResponseBody Page<Record> getWxzList(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String userId = request.getParameter("userId");
+		String siteId = getSiteId(request);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		String pageNo = request.getParameter("page");
+		pages.setPageSize(8);
+		pages.setPageNo(Integer.parseInt(pageNo));
+		String cate = noService.servicemanCate(userId, siteId);
+		String brand = noService.servicemanBrand(userId, siteId);
+		List<String> cateList = StringUtil.tolist(cate);
+		List<String> brandList = StringUtil.tolist(brand);
+		return orderService.getOrderWaitForDis(pages, siteId, "2", map, cateList, brandList);
+	}
+
+	// 待回访结算
+	@RequestMapping(value = "getStayVisitList")
+	public @ResponseBody Page<Record> getStayVisitList(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String userId = request.getParameter("userId");
+		String siteId = getSiteId(request);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		String pageNo = request.getParameter("page");
+		pages.setPageSize(8);
+		pages.setPageNo(Integer.parseInt(pageNo));
+		String status = (String) map.get("status");
+		if (!StringUtils.isNotBlank(status)) {
+			status = "3,4";
+		}
+		String cate = noService.servicemanCate(userId, siteId);
+		String brand = noService.servicemanBrand(userId, siteId);
+		List<String> cateList = StringUtil.tolist(cate);
+		List<String> brandList = StringUtil.tolist(brand);
+		return orderService.getOrderHis(pages, siteId, status, map, cateList, brandList);
+	}
+
+	// 历史
+	@RequestMapping(value = "getHistoryList")
+	public @ResponseBody Page<Record> getHistoryList(Order order, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String userId = request.getParameter("userId");
+		String siteId = getSiteId(request);
+		// User user = UserUtils.getUserById(userId);
+		Map<String, Object> map = new TrimMap(getParams(request));
+		Page<Record> pages = new Page<Record>(request, response);
+		String pageNo = request.getParameter("page");
+		pages.setPageSize(8);
+		pages.setPageNo(Integer.parseInt(pageNo));
+		String status = (String) map.get("status");
+		if (status == null) {
+			status = "5,8";
+		}
+		String cate = noService.servicemanCate(userId, siteId);
+		String brand = noService.servicemanBrand(userId, siteId);
+		List<String> cateList = StringUtil.tolist(cate);
+		List<String> brandList = StringUtil.tolist(brand);
+		map.put("__WXGDList", "8"); // HACK,用此来表明是无效工单列表
+
+		return orderService.getOrderHis(pages, siteId, status, map, cateList, brandList);
+	}
+
+	/*
+	 * ERP全部工单查询
+	 */
+	@RequestMapping(value = "getWholeList")
+	public @ResponseBody Page<Record> getWholeList(HttpServletRequest request, HttpServletResponse response) {
+		String userId = request.getParameter("userId");
+		String siteId = getSiteId(request);
+		String ordernumberMobile = request.getParameter("ordernumberMobile");
+		Page<Record> pages = new Page<Record>(request, response);
+		if (StringUtils.isBlank(ordernumberMobile)) {
+			return pages;
+		}
+		Map<String, Object> map = new TrimMap(getParams(request));
+		String pageNo = request.getParameter("page");
+		pages.setPageSize(8);
+		pages.setPageNo(Integer.parseInt(pageNo));
+		Tuple<String, String> cateAndBrand = noService.getNonServicemanCateAndBrand(userId, siteId);
+		List<String> cateList = StringUtil.tolist(cateAndBrand.getVal1());
+		List<String> brandList = StringUtil.tolist(cateAndBrand.getVal2());
+		return orderService.getOrderWholeList(pages, siteId, null, map, cateList, brandList, true);
+	}
+
+	/*
+	 * 获取400工单列表
+	 */
+	@RequestMapping(value = "FourHandurandOrder")
+	public @ResponseBody Page<Record> getFourHandurandOrderGrid(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = getSiteId(request);
+		Map<String, Object> map = getParams(request);
+		String factory = request.getParameter("brand");
+		Page<Record> pages = new Page<Record>(request, response);
+		String pageNo = request.getParameter("page");
+		pages.setPageSize(8);
+		pages.setPageNo(Integer.parseInt(pageNo));
+		Page<Record> page = null;
+		if ("meidi".equals(factory)) {
+			// 美的
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "2");
+		} else if ("haier".equals(factory)) {
+			// 海尔
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "5");
+		} else if ("haixin".equals(factory)) {
+			// 海信
+			changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "4");
+		} else if ("huierpu".equals(factory)) {
+			// 惠而浦
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "3");
+		} else if ("geli".equals(factory)) {
+			// 格力
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "8");
+		} else if ("aokesi".equals(factory)) {
+			// 奥克斯
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "9");
+		} else if ("meiling".equals(factory)) {
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "f");
+		} else if ("tcl".equals(factory)) {
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "g");
+		} else if ("suning".equals(factory)) {
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "h");
+		}
+
+		return page;
+	}
+
+	/*
+	 * 查询获取400工单列表
+	 */
+	@RequestMapping(value = "factoryHandurandOrder")
+	public @ResponseBody Page<Record> getfactoryHandurandOrder(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = getSiteId(request);
+		Map<String, Object> map = getParams(request);
+		String factory = request.getParameter("brand");
+		String ordernumberMobile = request.getParameter("ordernumberMobile");
+		Page<Record> pages = new Page<Record>(request, response);
+		if (StringUtils.isBlank(ordernumberMobile)) {
+			return pages;
+		}
+		String pageNo = request.getParameter("page");
+		pages.setPageSize(8);
+		pages.setPageNo(Integer.parseInt(pageNo));
+		Page<Record> page = null;
+		if ("meidi".equals(factory)) {
+			// 美的
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "2");
+		} else if ("haier".equals(factory)) {
+			// 海尔
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "5");
+		} else if ("haixin".equals(factory)) {
+			// 海信
+			changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "4");
+		} else if ("huierpu".equals(factory)) {
+			// 惠而浦
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "3");
+		} else if ("geli".equals(factory)) {
+			// 格力
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "8");
+		} else if ("aokesi".equals(factory)) {
+			// 奥克斯
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "9");
+		} else if ("meiling".equals(factory)) {
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "f");
+		} else if ("tcl".equals(factory)) {
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "g");
+		} else if ("suning".equals(factory)) {
+			page = changeSelfOrderService.getFourHandurandOrderGrid(siteId, pages, map, "h");
+		}
+
+		return page;
+	}
+
+	// 获取已经维护的厂家
+	@ResponseBody
+	@RequestMapping(value = "getFactorySite")
+	public Object getFactorySite(HttpServletRequest request, HttpServletResponse response) {
+		String siteId = getSiteId(request);
+		List<Record> reList = changeSelfOrderService.selectFactory(siteId);
+		Map<String, Object> map = Maps.newHashMap();
+		if (reList.size() > 0) {
+			for (Record re : reList) {
+				if ("美的".equals(re.getStr("name"))) {
+					map.put("meidi", "美的");
+				} else if ("海尔".equals(re.getStr("name"))) {
+					map.put("haier", "海尔");
+				} else if ("海信".equals(re.getStr("name"))) {
+					map.put("haixin", "海信");
+				} else if ("惠而浦".equals(re.getStr("name"))) {
+					map.put("huierpu", "惠而浦");
+				} else if ("格力".equals(re.getStr("name"))) {
+					map.put("geli", "格力");
+				} else if ("奥克斯".equals(re.getStr("name"))) {
+					map.put("aokesi", "奥克斯");
+				} else if ("美菱".equals(re.getStr("name"))) {
+					map.put("meiling", "美菱");
+				} else if ("tcl".equals(re.getStr("name")) || "TCL".equals(re.getStr("name"))) {
+					map.put("tcl", "TCL");
+				} else if ("苏宁".equalsIgnoreCase(re.getStr("name"))) {
+					map.put("suning", "苏宁");
+				}
+			}
+		}
+		return map;
+	}
+
+	private String getSiteId(HttpServletRequest request) {
+		String siteId = request.getParameter("siteId");
+		if (StringUtils.isBlank(siteId)) {
+			siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		}
+		return siteId;
+	}
+
+	// 工单入库
+	@ResponseBody
+	@RequestMapping(value = "ordersave")
+	public Object save(Order or, RedirectAttributes redirectAttributes, HttpServletRequest request) {
+		String siteId = getSiteId(request);
+		String userId = request.getParameter("userId");
+		String province = request.getParameter("province");
+		String city = request.getParameter("city");
+		String area = request.getParameter("area");
+		try {
+			String code = siteMsgService.ifOpenOrderSet(siteId);
+			if ("200".equals(code)) {
+				OrderNo odn = CrmUtils.genOrderNo(siteId);
+				if (odn != null) {
+					or.setNumber(odn.getData());
+					or.setSeq(odn.getSeq());
+				}
+			}
+			if (StringUtils.isBlank(or.getApplianceCategory()) || "请选择".equals(or.getApplianceCategory())) {
+				// 请选择品类
+				return "401";
+			}
+			if (StringUtils.isBlank(or.getApplianceBrand()) || "请选择".equals(or.getApplianceBrand())) {
+				// 请选择品牌
+				return "402";
+			}
+			Long count = Db.queryLong("select count(1) as cnt from crm_order where number=? and site_id=?", or.getNumber(), siteId);
+			if (count > 0) {
+				return "420";
+			}
+			String level = request.getParameter("level");
+			String warranty_type = request.getParameter("warrantyType");
+			String lev = "2";
+			if (StringUtils.isNotBlank(level)) {
+				if ("紧急".equals(level)) {
+					lev = "1";
+				}
+			}
+			or.setLevel(lev);
+			String warrantyType = "";
+			if (StringUtils.isNotBlank(warranty_type)) {
+				if ("保内".equals(warranty_type)) {
+					warrantyType = "1";
+				} else {
+					warrantyType = "2";
+				}
+			}
+			or.setWarrantyType(warrantyType);
+			or.setRepairTime(new Date());
+			orderService.save(or, userId);
+			logger.error("微信小程序新建工单,sid=：" + siteId + "orderId=" + or.getId() + ",time" + DateUtils.getDateTime());
+		} catch (Exception e) {
+			return "no";
+		}
+
+		return "ok";
+	}
+
+	@RequestMapping(value = "getBrand")
+	public void getBrand(HttpServletRequest request, HttpServletResponse response) {
+		PrintWriter write;
+		try {
+			write = response.getWriter();
+			String category = request.getParameter("category");
+			String siteId = getSiteId(request);
+			Map<String, String> brand = BrandUtils.getSiteBrand(siteId, CategoryUtils.getSiteCategoryId(category, siteId));
+			// 将lists转换成json
+			JSONObject obj = new JSONObject();
+			if (brand.size() < 1) {
+				obj.accumulate("count", 2); // 标记没有品类
+			} else {
+				obj.accumulate("count", 1);
+			}
+			obj.accumulate("brand", brand);
+			write.print(obj);
+		} catch (IOException e) {
+		}
+	}
+
+	@SuppressWarnings({ "unchecked", "unused" })
+	@RequestMapping(value = "getCategory")
+	public void getCategory(HttpServletRequest request, HttpServletResponse response) {
+		PrintWriter write;
+		String brand = request.getParameter("brand");
+		try {
+			write = response.getWriter();
+			Map<String, Object> map = request.getParameterMap();
+			String siteId = getSiteId(request);
+			Map<String, String> cate = CategoryUtils.getSiteCategory(siteId, BrandUtils.getBrandId(brand));
+			// 将lists转换成json
+			JSONObject obj = new JSONObject();
+			if (cate.size() < 1) {
+				obj.accumulate("count", 2);
+			} else {
+				obj.accumulate("count", 1);
+			}
+			obj.accumulate("cate", cate);
+			write.print(obj);
+		} catch (IOException e) {
+		}
+	}
+
+	/*
+	 * 新建工单获取当前服务商的省市区
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getAddOrderProvince")
+	public Object getAddOrderProvince(HttpServletResponse response, HttpServletRequest request) {
+		String siteId = request.getParameter("siteId");
+		Record rd = siteMsgService.getSiteId(siteId);
+		return rd;
+	}
+
+	/*
+	 * 新建工单需要的工单编号数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getAddOrderNumber")
+	public Object getAddOrderNumber(HttpServletResponse response, HttpServletRequest request) {
+		String orderNumber = RandomUtil.randomOrderNumber();
+		return orderNumber;
+	}
+
+	/*
+	 * 新建工单品牌数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getAddOrderBrand")
+	public Object getAddOrderBrand(HttpServletResponse response, HttpServletRequest request) {
+		String siteId = getSiteId(request);
+		Map<String, String> brand = BrandUtils.getSiteBrand(siteId, null);
+		return brand;
+	}
+
+	/*
+	 * 新建工单品类数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getAddOrderCategory")
+	public Object getAddOrderCategory(HttpServletResponse response, HttpServletRequest request) {
+		String siteId = getSiteId(request);
+		List<Record> category = CategoryUtils.getListCategorySite(siteId);
+		return category;
+	}
+
+	/*
+	 * 信息来源需要的数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getOrderOrigin")
+	public Object getOrderOrigin(HttpServletResponse response, HttpServletRequest request) {
+		String siteId = getSiteId(request);
+		List<Record> listOrigin = orderOriginServicce.filterOrderOrigin(siteId);
+		return listOrigin;
+	}
+
+	/*
+	 * 购机商场数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getAddOrdermalllist")
+	public Object getAddOrdermalllist(HttpServletResponse response, HttpServletRequest request) {
+		String siteId = getSiteId(request);
+		// 购机商场
+		List<Record> malllist = orderMallService.getlist(siteId);
+
+		return malllist;
+	}
+
+	/*
+	 * 时间要求数据
+	 */
+	@SuppressWarnings("unchecked")
+	@ResponseBody
+	@RequestMapping(value = "getAddOrderlimitList")
+	public Object getAddOrderlimitList(HttpServletResponse response, HttpServletRequest request) {
+		List<Record> limitList = (List<Record>) SFIMCache.get("PL");
+		return limitList;
+	}
+
+	/*
+	 * 工单服务类型的数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getAddOrderserviceTypes")
+	public Object getAddOrderserviceTypes(HttpServletResponse response, HttpServletRequest request) {
+		return CrmUtils.getNewServiceType();
+	}
+
+	/*
+	 * 服务方式的数据
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getAddOrderserviceModes")
+	public Object getAddOrderserviceModes(HttpServletResponse response, HttpServletRequest request) {
+		// 服务方式
+		List<Record> serviceModes = CrmUtils.getNewServiceMode();
+		return serviceModes;
+	}
+
+	/**
+	 * 直接派工时，需要显示网点的所有服务工程师。
+	 */
+	@ResponseBody
+	@RequestMapping(value = "dispatchList")
+	public Object getEmployeList(HttpServletRequest request) {
+		String lnglat = request.getParameter("lnglat");
+		String category = request.getParameter("category");
+		String address = request.getParameter("address");
+		String ids = null;
+		String siteId = getSiteId(request);
+		if (StringUtils.isEmpty(category)) {
+		} else {
+			ids = CategoryUtils.getSiteCategoryId1(category, siteId);
+		}
+		return employeService.getEmployeOrder2(siteId, lnglat, ids, address);
+	}
+
+	/*
+	 * 待派工派单
+	 */
+	@ResponseBody
+	@RequestMapping(value = "disOrdersave")
+	public Boolean save(Model model, HttpServletRequest request, HttpServletResponse response) {
+		String employeId = request.getParameter("empId");
+		String orderId = request.getParameter("orderId");
+		String userId = request.getParameter("userId");
+		boolean proving = true;
+		try {
+			orderDispatchService.Disorder(orderId, employeId, userId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			proving = false;
+		}
+		return proving;
+	}
+
+	/*
+	 * 转派工单
+	 */
+	@RequestMapping(value = "Redispatch")
+	@ResponseBody
+	public Boolean Redispatch(Model model, HttpServletRequest request, HttpServletResponse response) {
+		String employeId = request.getParameter("empId");
+		String orderId = request.getParameter("orderId");
+		String siteId = request.getParameter("siteId");
+		String userId = request.getParameter("userId");
+		String disId = "";
+		String transferReasons = request.getParameter("transferReasons");
+		boolean proving = true;
+		try {
+			String[] orderIds = orderId.split(",");
+			if (orderIds.length <= 0) {
+				return false;
+			}
+			Record rds = orderDispatchService.getOrderId(orderId, siteId);
+			disId = rds.getStr("id");
+			String joinedOrderIds = StringUtil.joinInSql(orderIds);
+			String mark = orderService.mark(joinedOrderIds, siteId);
+			if ("1".equals(mark)) {
+				logger.error("有配件申请信息，不可转派，sid：" + siteId + ";orderIds=" + Arrays.toString(orderIds));
+				// 有申请配件的不可以再转派
+				return false;
+			}
+
+			// 检查相应的派工是否已经处于转派状态
+			if (StringUtil.isNotBlank(disId)) {
+				String[] disIds = disId.split(",");
+				Long count = Db.queryLong("select count(1) as count from crm_order_dispatch as od where od.status='6' and od.id in(" + StringUtil.joinInSql(disIds) + ")");
+				if (count > 0) {
+					logger.error("派工单子状态已经处于转派状态，不可重复转派,sid=：" + siteId + "disId=" + disId);
+					return false;
+				}
+			}
+			// 检查工单是否已经完工（即工单状态为待回访待结算）
+			Long count1 = Db.queryLong("select count(1) as count from crm_order as o where o.id in(" + joinedOrderIds + ") and o.`status`<>'2'");
+			if (count1 > 0) {
+				logger.error("只有服务中的工单才能转派,sid=：" + siteId + ";orderIds=" + orderId);
+				return false;
+			}
+
+			orderDispatchService.Turntosend(siteId, orderId, employeId, disId, transferReasons, userId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			proving = false;
+		}
+		return proving;
+	}
+
+	/*
+	 * 登陆验证,暂时只能是信息眼登陆
+	 */
+	@ResponseBody
+	@RequestMapping(value = "loginName")
+	public Object loginName(HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = Maps.newHashMap();
+		String loginname = request.getParameter("loginName");
+		String password = request.getParameter("passWord");
+		User user = systemService.findByLoginNamePassword(loginname, MD5.MD5(password));
+		if (user != null) {
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Record rd = siteMsgService.getSiteId(siteId);
+			Date dueTime = rd.getDate("due_time");
+			if (!dueTime.after(new Date())) {
+				map.put("check", "nodue");
+				return map;
+			}
+			if (User.USER_TYPE_XXY.equals(user.getUserType()) && getNonCount(siteId, user)) {
+				map.put("check", "ok");
+				map.put("siteId", siteId);
+				map.put("userId", user.getId());
+			} else {
+				// 不是信息员角色不允许登陆
+				map.put("check", "noMess");
+			}
+		} else {
+			map.put("check", "no");
+		}
+		return map;
+	}
+
+	private boolean getNonCount(String siteId, User user) {
+		return CrmUtils.getNonCount(siteId, user);
+	}
+
+	/*
+	 * 查看工单详情
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getwholeform")
+	public Object getwholeform(HttpServletRequest request, HttpServletResponse response) {
+		String orderId = request.getParameter("id");
+		Order order = null;
+		if (StringUtils.isNotBlank(orderId)) {
+			order = orderService.get(orderId);
+			// 派工信息
+			if (StringUtils.isBlank(order.getProcessDetail())) {
+				order.setProcessDetail(" ");
+			}
+		}
+		return order;
+
+	}
+
+	/*
+	 * 工单详情过程信息
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getOrderProcess")
+	public Object getOrderProcess(HttpServletRequest request, HttpServletResponse response) {
+		String process = request.getParameter("orderProcess");
+		return WebPageFunUtils.getOrderProcess(process);
+	}
+
+	/*
+	 * 工单的反馈信息
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getOrderFeedback")
+	public Object getOrderFeedback(HttpServletRequest request, HttpServletResponse response) {
+		String orderId = request.getParameter("orderId");
+		String siteId = request.getParameter("siteId");
+		Map<String, Object> feedbackInfo = orderService.getOrderFeedbackRecords(orderId, siteId);
+		Record rds = orderDispatchService.getOrderId(orderId, siteId);
+		String odStatus = (rds == null ? "" : rds.getStr("status"));
+		feedbackInfo.put("dispStatus", (rds == null ? "" : TranslationUtils.translateDispatchOrderStatus(odStatus)));
+		return feedbackInfo;
+	}
+
+	/*
+	 * 工单的回访信息
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getOrderCallbacks")
+	public Object getOrderCallbacks(HttpServletRequest request, HttpServletResponse response) {
+		String orderId = request.getParameter("orderId");
+		String siteId = request.getParameter("siteId");
+		Record callbacks = callbackService.getCallBackInfo(orderId, siteId);
+		try {
+			// 回访信息
+			// 安全
+			String safety_evaluation = callbacks.get("safety_evaluation");
+			String service_attitude = callbacks.get("service_attitude");
+			String serviceAttitude = "";
+			if ("5".equals(service_attitude)) {
+				serviceAttitude = "十分满意";
+			} else if ("4".equals(service_attitude)) {
+				serviceAttitude = "满意";
+			} else if ("3".equals(service_attitude)) {
+				serviceAttitude = "一般";
+			} else if ("2".equals(service_attitude)) {
+				serviceAttitude = "不满意";
+			} else if ("1".equals(service_attitude)) {
+				serviceAttitude = "十分不满意";
+			} else if ("6".equals(service_attitude)) {
+				serviceAttitude = "无效回访";
+			} else if ("7".equals(service_attitude)) {
+				serviceAttitude = "回访未成功";
+			}
+			callbacks.set("service_attitude", serviceAttitude);
+			String safetyEvaluation = "";
+			if ("1".equals(safety_evaluation)) {
+				safetyEvaluation = "按安全规范操作";
+			} else if ("2".equals(safety_evaluation)) {
+				safetyEvaluation = "未出示上岗证";
+			} else if ("3".equals(safety_evaluation)) {
+				safetyEvaluation = "未穿工作服鞋套";
+			} else if ("4".equals(safety_evaluation)) {
+				safetyEvaluation = "未清理现场";
+			} else if ("5".equals(safety_evaluation)) {
+				safetyEvaluation = "未按安全规范操作";
+			}
+			callbacks.set("safety_evaluation", safetyEvaluation);
+		} catch (Exception e) {
+			return "no";
+		}
+
+		return callbacks;
+	}
+
+	/* 确认单个转自接操作 */
+	@ResponseBody
+	@RequestMapping(value = "confirmOne")
+	public String confirmOne(String id400, String[] employes, String orderStatus, HttpServletRequest request, HttpServletResponse response) {
+		String siteId = getSiteId(request);
+		String userId = request.getParameter("userId");
+		String employs = StringUtil.join(employes);
+		String status = "1";
+		if (StringUtil.isBlank(orderStatus)) {
+			return "no";
+		}
+		if ("服务中".equals(orderStatus)) {
+			status = "2";
+		} else if ("待回访".equals(orderStatus)) {
+			status = "3";
+		}
+		Map<String, Object> mapRet = changeSelfOrderService.confirmOne(siteId, id400, employs, status, userId);
+		String code = mapRet.get("code") != null ? mapRet.get("code").toString() : "";
+		if ("2".equals(status)) {// 服务中
+			if ("ok".equals(code)) {// 转自接成功
+				Order od = (Order) mapRet.get("ids");
+				Map<String, String> idMap = Maps.newHashMap();
+				idMap.put(od.getId(), od.getNumber());
+				pushMessageService.notifyOrderSmallProgram(idMap, "1", "", UserUtils.getUserById(userId));// 推送消息
+			}
+		}
+		return code;
+	}
+
+	/*
+	 * 工单回访
+	 */
+	@RequestMapping(value = "saveCallback")
+	@ResponseBody
+	public String saveCallback(OrderCallBack orderCallback, HttpServletRequest request) {
+		Map<String, Object> map = getParams(request);
+		String userId = request.getParameter("userId");
+		String siteId = getSiteId(request);
+		String orderId = request.getParameter("orderId");
+		String warranty_type = request.getParameter("warranty_type");// 保修类型
+		String service_attitude = request.getParameter("service_attitude");// 服务态度
+		String multiple_dropin = request.getParameter("multiple_dropin");// 多次上门
+		String safety_evaluation = request.getParameter("safety_evaluation");// 安全评价
+		String result = request.getParameter("result");// 回访结果
+		String return_card = request.getParameter("return_card");// 交回卡单
+		try {
+			if ("已完工".equals(result)) {
+				map.put("result", "1");
+				orderCallback.setResult("1");
+			} else if ("仍需上门".equals(result)) {
+				map.put("result", "2");
+				orderCallback.setResult("2");
+			} else {// 待回访
+				map.put("result", "3");
+				orderCallback.setResult("3");
+			}
+			if ("是".equals(return_card)) {
+				map.put("return_card", "1");
+			} else {
+				map.put("return_card", "0");
+			}
+			if ("是".equals(multiple_dropin)) {
+				map.put("multipleDropin", "1");
+				orderCallback.setMultipleDropin("1");
+			} else {
+				map.put("multipleDropin", "0");
+				orderCallback.setMultipleDropin("0");
+			}
+			if ("保内".equals(warranty_type)) {
+				map.put("warranty_type", "1");
+			} else {
+				map.put("warranty_type", "2");
+			}
+			String serviceAttitude = "";
+			if ("十分满意".equals(service_attitude)) {
+				serviceAttitude = "5";
+			} else if ("满意".equals(service_attitude)) {
+				serviceAttitude = "4";
+			} else if ("一般".equals(service_attitude)) {
+				serviceAttitude = "3";
+			} else if ("不满意".equals(service_attitude)) {
+				serviceAttitude = "2";
+			} else if ("十分不满意".equals(service_attitude)) {
+				serviceAttitude = "1";
+			} else if ("无效回访".equals(service_attitude)) {
+				serviceAttitude = "6";
+			} else if ("回访未成功".equals(service_attitude)) {
+				serviceAttitude = "7";
+			}
+			map.put("serviceAttitude", serviceAttitude);
+			orderCallback.setServiceAttitude(serviceAttitude);
+			String safetyEvaluation = "1";
+			if ("按安全规范操作".equals(safety_evaluation)) {
+				safetyEvaluation = "1";
+			} else if ("未出示上岗证".equals(safety_evaluation)) {
+				safetyEvaluation = "2";
+			} else if ("未穿工作服鞋套".equals(safety_evaluation)) {
+				safetyEvaluation = "3";
+			} else if ("未清理现场".equals(safety_evaluation)) {
+				safetyEvaluation = "4";
+			} else if ("未按安全规范操作".equals(safety_evaluation)) {
+				safetyEvaluation = "5";
+			}
+			map.put("safetyEvaluation", safetyEvaluation);
+			orderCallback.setSafetyEvaluation(safetyEvaluation);
+
+			User user = UserUtils.getUserById(userId);
+			String userName = CrmUtils.getCreateName(user);
+			Record rds = orderDispatchService.getOrderId(orderId, siteId);
+			if (rds == null) {
+				return "no";
+			}
+			String disId = rds.getStr("id");
+			orderCallback.setDispatchId(disId);
+			orderCallback.setCreateBy(userId);
+			orderCallback.setCreateName(userName);
+			orderCallback.setCreateTime(new Date());
+			orderCallback.setSiteId(siteId);
+			callbackService.saveCallBack(orderCallback, map);
+		} catch (Exception e) {
+			return "no";
+		}
+		return "ok";
+	}
+
+	/*
+	 * 400工单详情
+	 */
+	@ResponseBody
+	@RequestMapping(value = "getOrder400Form")
+	public Object getOrder400Form(HttpServletRequest request, HttpServletResponse response) {
+		String orderId = request.getParameter("orderId");
+		// 400工单信息
+		return changeSelfOrderService.changeSelfOrderService(orderId);
+	}
+
+}

@@ -1,0 +1,7 @@
+package com.jojowonet.modules.sys.config;
+
+public class SFCacheKey {
+
+    public static final String uidSiteIdMap = "uid_siteid_map_%s"; // struct: kv, params: uid
+    public static final String nonServicemanCateBrandMap = "nonserviceman_cb_map"; // struct: hash, key: nonserviceman_cb_map field: uid, val: {c: '', b: ''} c表示品类，b表示品牌
+}

@@ -1,0 +1,287 @@
+package com.jojowonet.modules.goods.dao;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+
+@Repository
+public class SitePlatformGoodsDao {
+
+	// 获取平台商品的list
+	public List<Record> getSitePlatformGoodsList(Page<Record> page, String siteId, Map<String, Object> map) {
+
+		StringBuffer sql = new StringBuffer("");
+
+		sql.append("select cgp.id,cgp.sort_num, cgp.number, cgp.name, cgp.brand, cgp.model, cgp.category, cgp.unit,cgp.type, ");
+		sql.append("cgp.unit_type, cgp.description, cgp.icon, cgp.imgs,truncate(cgp.no_vip_price,1) as no_vip_price,cgp.good_sign, ");
+		sql.append(" truncate(cgp.site_price,1) as site_price,  cgp.platform_price, cgp.profit, cgp.distribution_type, cgp.stocks, cgp.sales, cgs.site_id, cgs.status ");
+		sql.append("from crm_goods_platform cgp ");
+		sql.append("left join crm_goods_siteself cgs on cgp.number = cgs.number and  cgs.site_id = '" + siteId + "' AND cgs.status='0' ");
+		sql.append(" where cgp.status = '0' and cgp.sell_flag = '1' ");
+		sql.append(getQuery(map, siteId));
+		sql.append(" order by cgp.sort_num,cgp.number asc ");
+		if (page != null) {
+			sql.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+
+		return Db.find(sql.toString());
+	}
+
+	// 获取平台商品的list
+	public List<Record> getSitePlatformGoodsListSiteShow(Page<Record> page, String siteId, Map<String, Object> map) {
+
+		StringBuffer sql = new StringBuffer("");
+
+		sql.append("select cgp.id,cgp.sort_num, cgp.number, cgp.name, cgp.brand, cgp.model, cgp.category, cgp.unit,cgp.type, ");
+		sql.append("cgp.unit_type, cgp.description, cgp.icon, cgp.imgs,truncate(cgp.no_vip_price,1) as no_vip_price,cgp.good_sign, ");
+		sql.append(" truncate(cgp.site_price,1) as site_price,  cgp.platform_price, cgp.profit, cgp.distribution_type, cgp.stocks, cgp.sales, cgs.site_id, cgs.status ");
+		sql.append("from crm_goods_platform cgp ");
+		sql.append("left join crm_goods_siteself cgs on cgp.number = cgs.number and  cgs.site_id = '" + siteId + "' AND cgs.status='0' ");
+		sql.append(" where cgp.status = '0' and cgp.sell_flag = '1' ");
+		sql.append(getQuery(map, siteId));
+		sql.append(" order by cgp.sort_num,cgp.number asc ");
+		/*
+		 * if (page != null) { sql.append(" limit " + page.getPageSize() + " offset " +
+		 * (page.getPageNo() - 1) * page.getPageSize()); }
+		 */
+
+		return Db.find(sql.toString());
+	}
+
+	// 获取平台商品的数量
+	public long getSitePlatformListCount(Map<String, Object> map) {
+
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select count(*) from crm_goods_platform cgp ");
+		sql.append("where  cgp.status='0' ");// 状态正常
+		sql.append("AND cgp.sell_flag='1' ");// 上架状态
+
+		return Db.queryLong(sql.toString());
+	}
+
+	// 平台商品查询条件
+	public String getQuery(Map<String, Object> map, String siteId) {
+
+		if (map == null) {
+			return "";
+		}
+
+		StringBuffer sf = new StringBuffer();
+		if (StringUtils.isNotEmpty((CharSequence) map.get("number"))) {
+			String number = map.get("number").toString().trim();
+			sf.append(" and cgp.number like '%" + number + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) map.get("name"))) {
+			String name = map.get("name").toString().trim();
+			sf.append(" and cgp.name like '%" + name + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) map.get("model"))) {
+			String model = map.get("model").toString().trim();
+			sf.append(" and cgp.model like '%" + model + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) map.get("category"))) {
+			String category = map.get("category").toString().trim();
+			sf.append(" and cgp.category like '%" + category + "%' ");
+		}
+		if (StringUtils.isNotEmpty((CharSequence) map.get("sale_status"))) {
+			String sale_status = map.get("sale_status").toString().trim();
+			if ("2".equals(sale_status)) { // crm_goods_siteself 服务商自营产品 已经将平台产品转自营
+				// sf.append(" and cgs.status = '0' "); // 状态正常
+				sf.append(" and cgs.site_id = '" + siteId + "' ");
+			} else if ("1".equals(sale_status)) { // 没有将平台产品转自营
+				sf.append(" and cgs.site_id IS NULL");
+			}
+		}
+
+		return sf.toString();
+	}
+
+	// 获取平台系统助手的商品list
+	public List<Record> getPlatformAssistantList(Page<Record> page, Map<String, Object> map) {
+
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select * from crm_goods_platform cgp ");
+		sql.append(" where cgp.type = '1' "); // 系统助手
+		sql.append("and cgp.status = '0' ");// 状态正常
+		sql.append("and cgp.sell_flag = '1' ");// 上架状态
+
+		sql.append(" order by cgp.sort_num asc  ");
+		if (page != null) {
+			sql.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+
+		return Db.find(sql.toString());
+	}
+
+	public long getPlatformAssistantListCount(Map<String, Object> map) {
+
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select count(*) from crm_goods_platform cgp ");
+		sql.append(" where cgp.type = '1' "); // 系统助手
+		sql.append("and cgp.status = '0' ");// 状态正常
+		sql.append("and cgp.sell_flag = '1' ");// 上架状态
+
+		return Db.queryLong(sql.toString());
+	}
+
+	// 服务商付款记录明细
+	public List<Record> getSitePlatformGoodsRecord(Page<Record> page, String siteId, Map<String, Object> map) {
+
+		StringBuffer sql = new StringBuffer("");
+
+		// sql.append("select gpo.number, gpo.good_number, gpo.good_name, gpo.good_icon,
+		// gpo.good_brand, gpo.good_model, gpo.good_category, ");
+		// sql.append("gpo.customer_name, gpo.customer_contact, gpo.customer_address,
+		// gpo.purchase_num, ");
+		// sql.append("gpo.good_amount, gpo.payment_time, gpo.payment_type,
+		// gpo.trade_no, gpo.logistics_name, gpo.logistics_no, gpo.creator ");
+		sql.append("select gpo.*,ia.review_status ");
+		sql.append("from crm_goods_platform_order gpo left join crm_invoice_application as ia on gpo.invoice_record_id=ia.id");
+		sql.append(" where gpo.site_id = ? and gpo.status != '5' ");
+		sql.append(getRecordQuery(map));
+		sql.append(" order by gpo.placing_order_time desc  ");
+		if (page != null) {
+			sql.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+
+		System.out.println(sql.toString());
+
+		return Db.find(sql.toString(), siteId);
+	}
+
+	public List<Record> getSitePlatformGoodsRecordPayed(Page<Record> page, String siteId, Map<String, Object> map) {
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select gpo.*,ia.review_status,d.name as placeOrderName,c.mobile,plat.good_sign,plat.type as goodsType  ");
+		sql.append("from crm_goods_platform_order gpo left join crm_invoice_application as ia on gpo.invoice_record_id=ia.id  ");
+		sql.append(" left join crm_goods_platform plat on plat.id=gpo.good_id ");
+		sql.append(" left join sys_user c on gpo.placing_order_by=c.id  ");
+		sql.append(" left join crm_site d on d.user_id=c.id  ");
+		sql.append(" where gpo.site_id = ? and pay_status='1' and gpo.good_id is not null ");
+		sql.append(getRecordQuery(map));
+		sql.append(" order by gpo.placing_order_time desc  ");
+		if (page != null) {
+			sql.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo() - 1) * page.getPageSize());
+		}
+		return Db.find(sql.toString(), siteId);
+	}
+
+	// 服务商付款记录明细查询条件
+	private Object getRecordQuery(Map<String, Object> map) {
+
+		if (map == null) {
+			return "";
+		}
+
+		StringBuffer sf = new StringBuffer();
+		String good_number = getTrimmedParamValue(map, "good_number");
+		if (StringUtil.isNotBlank(good_number)) {
+			sf.append(" and gpo.good_number like '%" + good_number + "%' ");
+		}
+		String number = getTrimmedParamValue(map, "number");
+		if (StringUtil.isNotBlank(number)) {
+			sf.append(" and gpo.number like '%" + number + "%' ");
+		}
+		String orderMan = getTrimmedParamValue(map, "orderMan");
+		if (StringUtil.isNotBlank(orderMan)) {
+			sf.append(" and gpo.placing_order_by = '" + orderMan + "' ");
+		}
+		String good_name = getTrimmedParamValue(map, "good_name");
+		if (StringUtil.isNotBlank(good_name)) {
+			sf.append(" and gpo.good_name like '%" + good_name + "%' ");
+		}
+		String good_brand = getTrimmedParamValue(map, "good_brand");
+		if (StringUtil.isNotBlank(good_brand)) {
+			sf.append(" and gpo.good_brand like '%" + good_brand + "%' ");
+		}
+		String good_model = getTrimmedParamValue(map, "good_model");
+		if (StringUtil.isNotBlank(good_model)) {
+			sf.append(" and gpo.good_model like '%" + good_model + "%' ");
+		}
+		String good_category = getTrimmedParamValue(map, "good_category");
+		if (StringUtil.isNotBlank(good_category)) {
+			sf.append(" and gpo.good_category like '%" + good_category + "%' ");
+		}
+
+		String status = getTrimmedParamValue(map, "status");
+		if (StringUtil.isNotBlank(status)) {
+			if (status.equals("1")) {
+				sf.append(" and (gpo.status = '1' or gpo.status = '2' ) ");
+			} else {
+				sf.append(" and gpo.status = '" + status + "' ");
+			}
+		}
+
+		String customer_name = getTrimmedParamValue(map, "customer_name");
+		if (StringUtil.isNotBlank(customer_name)) {
+			sf.append(" and gpo.customer_name like '%" + customer_name + "%' ");
+		}
+
+		String customer_contact = getTrimmedParamValue(map, "customer_contact");
+		if (StringUtil.isNotBlank(customer_contact)) {
+			sf.append(" and gpo.customer_contact like '%" + customer_contact + "%' ");
+		}
+
+		String createTimeMin = getTrimmedParamValue(map, "createTimeMin");
+		if (StringUtil.isNotBlank(createTimeMin)) {// 接入时间
+			sf.append(" and gpo.payment_time >= '" + createTimeMin + " 00:00:00' ");
+		}
+
+		String createTimeMax = getTrimmedParamValue(map, "createTimeMax");
+		if (StringUtil.isNotBlank(createTimeMax)) {
+			sf.append(" and gpo.payment_time <= '" + createTimeMax + " 23:59:59' ");
+		}
+
+		return sf.toString();
+	}
+
+	// 服务商付款记录
+	public long getSitePlatformRecordCount(Map<String, Object> map, String siteId) {
+
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select count(*) from crm_goods_platform_order gpo ");
+		sql.append(" where gpo.site_id = ? and gpo.status != '5' ");
+
+		return Db.queryLong(sql.toString(), siteId);
+	}
+
+	public long getSitePlatformRecordPayedCount(Map<String, Object> map, String siteId) {
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select count(*) from crm_goods_platform_order gpo ");
+		sql.append(" where gpo.site_id = ?  and pay_status='1' and gpo.good_id is not null ");
+		sql.append(getRecordQuery(map));
+		return Db.queryLong(sql.toString(), siteId);
+	}
+
+	// 转换为String类型
+	private String getParamValue(Map<String, Object> map, String param) {
+		Object value = map.get(param);
+		return value == null ? null : (map.get(param).toString());
+	}
+
+	// 去空格
+	private String getTrimmedParamValue(Map<String, Object> map, String param) {
+		return StringUtils.trim(getParamValue(map, param));
+	}
+
+	// 商品购买记录-取消订单
+	public String cancelPlatOrder(String id, String soId, String gId, Double pNum) {
+		Db.update("update crm_goods_platform_order a set a.status='5'where a.id='" + id + "' ");
+		Db.update("update crm_goods_siteself_order a set a.status='2' where a.id='" + soId + "'");
+		Db.update("update crm_goods_siteself a set a.sales=(sales-'" + pNum + "') where a.id='" + gId + "'");
+		return "ok";
+	}
+
+	// 订单过程
+	public Record orderProgress(String id) {
+		return Db.findFirst("select * from crm_goods_platform_order a where a.id='" + id + "'");
+	}
+
+}

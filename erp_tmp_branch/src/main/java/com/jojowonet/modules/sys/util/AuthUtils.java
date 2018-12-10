@@ -1,0 +1,344 @@
+package com.jojowonet.modules.sys.util;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.SFIMCache;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.entity.SystemMenuRule;
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.utils.UserUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.*;
+
+public class AuthUtils {
+	public static List<Record> pageMenus;
+	private static Set<String> permNameForL1SiteSet;
+	private static Set<String> permNameForL2SiteSet;
+	private static Set<String> permNameForMicroFactorys;
+	private static Logger logger = Logger.getLogger(AuthUtils.class);
+	public static List<Record> tabMenus;
+
+	static {
+		if(pageMenus == null || pageMenus.isEmpty()){
+			initPageMenus();
+		}
+		if(tabMenus == null){
+			initTabMenus();
+		}
+	}
+
+	/**
+	 * 点击二级菜单的时候确定跳转到哪个tab页面
+	 * @param menuId
+	 * @return
+	 */
+	public static String ensureTabPathByL2Menu(String menuId, String defaultUrl){
+		User user = UserUtils.getUser();
+		if(!"3".equalsIgnoreCase(user.getUserType())){
+			return defaultUrl;
+		}
+
+		List<Record> rds = getTabMenusByParentId(menuId);
+		boolean hasTab = false;
+		for(Record rd : rds){
+			String id = rd.getStr("id");
+			hasTab = true;
+			if(user.getPermission().indexOf(id) != -1){//包含tab权限，那么直接跳转到该tab的路径
+				String url = rd.getStr("permission");
+				return StringUtil.isNotBlank(url) ? url : defaultUrl;
+			}
+		}
+		if(hasTab){//如果进入到这里，那么说明所有的tab都没有授权
+			return "/main/redirect/noAuthPage?mid=" + menuId;
+		}
+		return defaultUrl;
+	}
+
+	private static List<Record> getTabMenusByParentId(String pmenuId){
+		List<Record> tabRds = Lists.newArrayList();
+		for(Record rd : tabMenus){
+			String parentId = rd.getStr("parent_id");
+			if(pmenuId.equalsIgnoreCase(parentId)){
+				tabRds.add(rd);
+			}
+		}
+		return tabRds;
+	}
+	
+	public static List<Record> getPageMenu(){
+		if(pageMenus == null || pageMenus.isEmpty()){
+			initPageMenus();
+		}
+		return pageMenus;
+	}
+
+	public static void initTabMenus(){
+		tabMenus = Db.find("select * from sys_menu a where 1=1 and a.status = '0' and a.target = '1' order by a.sort asc, a.id asc");
+	}
+
+	public static void initPageMenus(){
+		pageMenus = Lists.newArrayList();
+		permNameForL1SiteSet = new HashSet<>();
+		permNameForL2SiteSet = new HashSet<>();
+		permNameForMicroFactorys = new HashSet<>();
+		List<Record> pageMenuRds = Db.find(" select a.id, a.parent_id, a.href, a.target from sys_menu a where a.status = '0' and a.target in ('1', '2', '3', '4', 'L1SITE', 'L2SITE') ");
+		pageMenus.addAll(pageMenuRds);
+		initPermNamesForL1L2Site(permNameForL1SiteSet, permNameForL2SiteSet);
+		initPermNamesForMicroFactorys(permNameForMicroFactorys);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void initPermNamesForMicroFactorys(Set<String> permNameForMicroFactorys) {
+		Map<String, Map<String, Record>> factoryMenuMap = (Map<String, Map<String, Record>>) SFIMCache.get("micro_factory_binding_menu");
+		if (factoryMenuMap == null) {
+			throw new RuntimeException("read cache error");
+		}
+		permNameForMicroFactorys.addAll(factoryMenuMap.get("all").keySet());
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void initPermNamesForL1L2Site(Set<String> permNameForL1SiteSet, Set<String> permNameForL2SiteSet) {
+		Map<String, Record> map1 = (Map<String, Record>) SFIMCache.get("L1SITE");
+		if (map1 == null) {
+			throw new RuntimeException("read cache error");
+		}
+		Collection<Record> menus = map1.values();
+		for (Record r : menus) {
+			permNameForL1SiteSet.add(r.getStr("href"));
+		}
+
+		Map<String, Record> map2 = (Map<String, Record>) SFIMCache.get("L2SITE");
+		if (map2 == null) {
+			throw new RuntimeException("read cache error");
+		}
+		menus = map2.values();
+		for (Record r : menus) {
+			permNameForL2SiteSet.add(r.getStr("href"));
+		}
+	}
+
+	public static boolean clearUserCache(String siteId){
+		initPageMenus();
+		List<Record> rds = Db.find("select a.user_id from crm_non_serviceman a where a.site_id = ? and a.status = '0' ", siteId);
+		for(Record rd : rds){
+			String key = rd.getStr("user_id");
+			UserUtils.removeCache(key);
+		}
+		return true;
+	}
+	
+	public static void refreshPageMenus(){
+		pageMenus = null;
+		initPageMenus();
+	}
+
+	public static boolean checkTopMenuAuth(String menuId){
+		User user = UserUtils.getUser();
+		if("3".equalsIgnoreCase(user.getUserType())){
+			String permissionStr = user.getPermission();
+			if(permissionStr.indexOf(menuId) != -1){
+				return true;
+			}else{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * 某个用户对应的网点所拥有的小厂家菜单。
+	 */
+	@SuppressWarnings("unchecked")
+	private static Set<String> userSiteAvailFactoryMenus(User user) {
+		long start = System.currentTimeMillis();
+		Map<String, Map<String, Record>> factoryMenuMap = (Map<String, Map<String, Record>>) SFIMCache.get("micro_factory_binding_menu");
+		if (factoryMenuMap == null) {
+			throw new RuntimeException("read cache error");
+		}
+		Set<String> bindingFactorys = CrmUtils.getUserBindingFactorys(user);
+		Set<String> availFactoryMenus = new HashSet<>(); // common factory menus + 绑定厂家的相应菜单
+		for (String fid : bindingFactorys) {
+			Map<String, Record> menus = factoryMenuMap.get(fid);
+			if (menus != null) {
+				availFactoryMenus.addAll(menus.keySet());
+			}
+		}
+		if (bindingFactorys.size() > 0) {
+			availFactoryMenus.addAll(factoryMenuMap.get("common").keySet());
+		}
+		logger.info("userSiteAvailFactoryMenus.consumed=" + (System.currentTimeMillis() - start));
+		return availFactoryMenus;
+	}
+
+	// 二级网点的菜单不应该和普通网点的authflag不能重复，表现在target(L1SITE/L2SITE)的href,和所有其他的都不能重复。
+	public static boolean checkPagePermission(HttpServletRequest request, String authFlag) {
+		User user = UserUtils.getUser();
+		if (permNameForMicroFactorys.contains(authFlag)) {
+			// 是小厂家关联的权限
+			Set<String> bindingFactorys = CrmUtils.getUserBindingFactorys(user);
+			if (bindingFactorys.size() <= 0) {
+				return false;
+			} else {
+				Set<String> set = userSiteAvailFactoryMenus(user); // 网点所有小厂家菜单
+				if("2".equals(user.getUserType())) {
+					return set.contains(authFlag);
+				} else if("3".equals(user.getUserType())) {
+					return set.contains(authFlag) && checkPagePermissionOrigin(request, authFlag);
+				}
+			}
+		}
+
+		return checkPagePermissionOrigin(request, authFlag);
+	}
+
+	public static boolean checkPagePermissionOrigin(HttpServletRequest request, String authFlag) {
+		User user = UserUtils.getUser();
+		boolean flag = true;
+		if ("2".equals(user.getUserType())) {
+			Record r = Db.findFirst("select `type` from crm_site where user_id=? and status='0'", user.getId());
+			String type = r.getStr("type");
+			if ("0".equals(type)) {
+				// 普通网点(不应该有一二级网点相关的权限)
+				if (permNameForL2SiteSet.contains(authFlag) || permNameForL1SiteSet.contains(authFlag)) {
+					return false;
+				}
+			} else if ("1".equals(type)) {
+				// 一级网点(不应该有二级网点相关的权限)
+				if (permNameForL2SiteSet.contains(authFlag)) {
+					return false;
+				}
+			} else {
+				// 二级网点(不应该有一级网点相关的权限)
+				if (permNameForL1SiteSet.contains(authFlag)) {
+					return false;
+				}
+			}
+		} else if("3".equalsIgnoreCase(user.getUserType())){
+			String permissions = user.getPermission();
+			for(Record rd : pageMenus){
+				if(authFlag.equals(rd.getStr("href")) && permissions.contains(rd.getStr("id"))){
+					flag = true;
+					return flag;
+				}else{
+					flag = false;
+				}
+			}
+		}else if("1".equals(user.getUserType())){//system的权限，需要进行内部system使用人员的鉴权
+			return checkSystemAuth(user.getLoginName(), authFlag);
+		}
+		return flag;
+	}
+	
+	public static boolean checkBtnPermission(String label){
+		return checkPagePermission(null, label);
+	}
+	
+	public static List<Map<String, String>> getPageBtns(String pageMenuId){
+		List<Map<String, String>> btns = Lists.newArrayList();
+		for(Record rd : AuthUtils.getPageMenu()){
+			if("2".equalsIgnoreCase(rd.getStr("target")) && rd.getStr("parent_id").equalsIgnoreCase(pageMenuId)){
+				Map<String, String> btn = Maps.newHashMap();
+				btn.put("menuId", rd.getStr("id"));
+				btn.put("href", rd.getStr("href"));
+				btns.add(btn);
+			}
+		}
+		return btns;
+	}
+	
+	public static Map<String, String> getSitePermissionArr(){
+		String permissionStr = ",4300551da6f44d3eab5c9c760b1b74c7,ce8f45fffdb744c5816fcf8c69e25b70,5b160e3dac654b9e898462aa88ecd2cc,3aa1f64baf424a95ba0c4a061e588178,5a498fbdcef1438da838efa83f40b978,3b6a3664f27148a9ad6a296fc60acb94,379c64a1e75849889ff74875d53bfb24,c25116030e8141c98cd95a1d3b48647c";
+		Map<String, String> map = Maps.newHashMap();
+		String[] perArr = permissionStr.split(",");
+		for(int i = 0; i < perArr.length; i++){
+			map.put(perArr[i], "1");
+		}
+		return map;
+	}
+	
+	/**
+	 * 
+	 * @param target	:服务商自定义的角色的ID
+	 * @param relList	:关系表的ID 集合	
+	 * @return
+	 */
+	public static boolean checkSiteRoleById(String target, List<Record> relList){
+		for(Record rd : relList){
+			if("1".equalsIgnoreCase(target) && ("1".equals(rd.getStr("site_role_id")) || "1".equals(rd.getStr("sys_role_id")))){
+				return true;
+			}else if("2".equalsIgnoreCase(target) && ("2".equals(rd.getStr("site_role_id")) || "2".equals(rd.getStr("sys_role_id")))){
+				return true;
+			}else if("3".equalsIgnoreCase(target) && ("3".equals(rd.getStr("site_role_id")) || "3".equals(rd.getStr("sys_role_id")))){
+				return true;
+			}else{
+				if(target.equalsIgnoreCase(rd.getStr("site_role_id"))){
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	public static String getNonserviceManRoleName(String str, List<Record> rds){
+		if(StringUtils.isEmpty(str) || rds == null){
+			return "";
+		}
+		for(Record rd : rds){
+			if(str.equalsIgnoreCase(rd.getStr("roleId"))){
+				return rd.getStr("roleName");
+			}
+		}
+		return "";
+	}
+	
+	public static boolean checkSystemAuth(String userName, String authTag){
+		SystemMenuRule smr = getSysMenuByUserName(userName);
+		return smr.isPageBtnValid(authTag);
+	}
+	
+	/**
+	 * 未完成，更新无妨
+	 * @param userName
+	 * @return
+	 */
+	public static String getSysMenus(String userName){
+		Gson gson = new Gson();
+		return gson.toJson(getSysMenuByUserName(userName));
+	}
+	
+	public static SystemMenuRule getSysMenuByUserName(String userName){
+		List<SystemMenuRule> items = getSysMenus();
+		for(SystemMenuRule sr : items){
+			if(userName.equals(sr.getUserName())){
+				return sr;
+			}
+		}
+		return new SystemMenuRule();
+	}
+	
+	/**
+	 * 获取所有的system权限下的菜单
+	 * @return
+	 */
+	public static List<SystemMenuRule> getSysMenus(){
+		Record rd = Db.findFirst("select remarks from sys_dict a where a.type = 'sys_menu_exclude'");
+		if(rd != null){
+			String systemExcludeMenus = rd.getStr("remarks");
+			return new Gson().fromJson(systemExcludeMenus,  new TypeToken<List<SystemMenuRule>>() {}.getType());
+			//return new ArrayList<SystemMenuRule>();
+		}else{
+			//测试
+			List<SystemMenuRule> retList = Lists.newArrayList();
+			return new ArrayList<SystemMenuRule>();
+		}
+	}
+}

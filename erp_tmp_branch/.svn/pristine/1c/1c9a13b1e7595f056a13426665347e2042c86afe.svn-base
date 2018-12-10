@@ -1,0 +1,11 @@
+package com.jojowonet.modules.order.web;
+
+import ivan.common.web.BaseController;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+@RequestMapping(value = "${adminPath}/order2017/orderDispatch")
+public class OrderDispatch2017Controller extends BaseController {
+
+}

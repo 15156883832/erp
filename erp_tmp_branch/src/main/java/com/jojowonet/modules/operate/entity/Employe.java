@@ -1,0 +1,265 @@
+/**
+ */
+package com.jojowonet.modules.operate.entity;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.utils.StringUtils;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
+import javax.persistence.Transient;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
+
+import com.drew.lang.annotations.NotNull;
+import com.google.common.collect.Lists;
+
+
+/**
+ * 品牌Entity
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Entity
+@Table(name = "crm_employe")
+//@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class Employe implements Serializable {
+	
+	private static final long serialVersionUID = 1L;
+	private String id; 		// 编号
+	private String name; 	// 名称
+	private User user;
+	private String img;
+	private String brand;
+	private String readTime;
+	private String idCard;
+	private String workNo;
+	
+	public Date getHiredate() {
+		return hiredate;
+	}
+
+	public void setHiredate(Date hiredate) {
+		this.hiredate = hiredate;
+	}
+
+	public String getProvince() {
+		return province;
+	}
+
+	public void setProvince(String province) {
+		this.province = province;
+	}
+
+	public String getCity() {
+		return city;
+	}
+
+	public void setCity(String city) {
+		this.city = city;
+	}
+
+	public String getArea() {
+		return area;
+	}
+
+	public void setArea(String area) {
+		this.area = area;
+	}
+
+	public String getAddress() {
+		return address;
+	}
+
+	public void setAddress(String address) {
+		this.address = address;
+	}
+
+	private String mobile;
+	private Date hiredate;
+	private String province;
+	private String city;
+	private String area;
+	private String address;
+	private String category;
+	private Site site; 
+	private Date updateTime; 
+	private String remarks; 
+	private String status; 
+	private String createBy; 
+	private Date createTime;
+	private BigDecimal ratio;
+	private List<Long> categoryIdList = Lists.newArrayList();
+	
+
+	public Employe() {
+		super();
+		this.createTime = new Date();
+	}
+	@Id
+	@GeneratedValue(generator = "idGenerator")
+	@GenericGenerator(name ="idGenerator" , strategy ="uuid")
+	public String getId() {
+		return id;
+	}
+	public void setId(String id) {
+		this.id = id;
+	}
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	 /**
+     * @OneToOne：一对一关联
+      * cascade：级联,它可以有有五个值可选,分别是：
+      * CascadeType.PERSIST：级联新建
+      * CascadeType.REMOVE : 级联删除
+      * CascadeType.REFRESH：级联刷新
+      * CascadeType.MERGE  ： 级联更新
+      * CascadeType.ALL    ： 以上全部四项
+      * @JoinColumn:主表外键字段
+      * cid：Person所映射的表中的一个字段
+      */
+	@OneToOne(cascade = CascadeType.ALL , optional = false , fetch = FetchType.LAZY)
+	@JoinColumn(name = "user_id" , insertable = true , unique = true)
+	@NotFound(action = NotFoundAction.IGNORE)
+	public User getUser() {
+		return user;
+	}
+	public void setUser(User user) {
+		this.user = user;
+	}
+	public String getImg() {
+		return img;
+	}
+	public void setImg(String img) {
+		this.img = img;
+	}
+	public String getMobile() {
+		return mobile;
+	}
+	public void setMobile(String mobile) {
+		this.mobile = mobile;
+	}
+	public String getCategory() {
+		return category;
+	}
+	public void setCategory(String category) {
+		this.category = category;
+	}
+	@ManyToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "site_id")
+	@NotFound(action = NotFoundAction.IGNORE)
+	@NotNull
+	public Site getSite() {
+		return site;
+	}
+	public void setSite(Site site) {
+		this.site = site;
+	}
+	public Date getUpdateTime() {
+		return updateTime;
+	}
+	public void setUpdateTime(Date updateTime) {
+		this.updateTime = updateTime;
+	}
+	public String getRemarks() {
+		return remarks;
+	}
+	public void setRemarks(String remarks) {
+		this.remarks = remarks;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	public String getCreateBy() {
+		return createBy;
+	}
+	public void setCreateBy(String createBy) {
+		this.createBy = createBy;
+	}
+	public Date getCreateTime() {
+		return createTime;
+	}
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+	
+	
+	public String getIdCard() {
+		return idCard;
+	}
+
+	public void setIdCard(String idCard) {
+		this.idCard = idCard;
+	}
+
+	public String getWorkNo() {
+		return workNo;
+	}
+
+	public void setWorkNo(String workNo) {
+		this.workNo = workNo;
+	}
+
+	@Transient
+	public List<Long> getCategoryIdList() {
+		if (StringUtils.isNotBlank(category)) {
+			String[] ids = StringUtils.split(category, ",");
+			for (String id : ids) {
+				categoryIdList.add(Long.valueOf(id));
+			}
+		}
+		return categoryIdList;
+	}
+
+	@Transient
+	public void setCategoryIdList(List<Long> list) {
+		category = "," + StringUtils.join(list, ",") + ",";
+	}
+
+	public String getBrand() {
+		return brand;
+	}
+
+	public void setBrand(String brand) {
+		this.brand = brand;
+	}
+
+	public String getReadTime() {
+		return readTime;
+	}
+
+	public void setReadTime(String readTime) {
+		this.readTime = readTime;
+	}
+
+	public BigDecimal getRatio() {
+		return ratio;
+	}
+
+	public void setRatio(BigDecimal ratio) {
+		this.ratio = ratio;
+	}
+}

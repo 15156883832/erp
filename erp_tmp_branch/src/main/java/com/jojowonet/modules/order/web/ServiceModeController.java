@@ -1,0 +1,275 @@
+package com.jojowonet.modules.order.web;
+
+import java.io.IOException;
+import java.util.Map;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import net.sf.json.JSONObject;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.entity.ServiceMode;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.ServiceModeService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+
+
+@Controller
+@RequestMapping(value = "${adminPath}/order/serviceMode")
+public class ServiceModeController extends BaseController {
+	
+	@Autowired
+	private ServiceModeService serviceModeService;
+	
+	@ModelAttribute
+	public ServiceMode get(@RequestParam(required=false) Integer id) {
+		if (id!=null){
+			return serviceModeService.get(id);
+		}else{
+			return new ServiceMode();
+		}
+	}
+	
+	@RequestMapping(value={"list",""})
+	public String list(ServiceMode serviceMode,HttpServletRequest request,HttpServletResponse response,Model model){		
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		if(StringUtils.isNotBlank(siteId)) {
+			return "modules/" + "order/siteServiceMode";
+		}
+		return "modules/" + "order/serviceMode";
+	}
+	
+	@RequestMapping(value="serviceModeList")
+	@ResponseBody
+	public String serviceTypeList(ServiceMode serviceMode,HttpServletRequest request,HttpServletResponse response,Model model){
+		Page<ServiceMode> page = new Page<>(request, response);
+		page = serviceModeService.find(new Page<ServiceMode>(request, response),serviceMode);
+		model.addAttribute("page",page);
+		JqGridPage<ServiceMode> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+	
+	/*服务商自定义*/
+	@RequestMapping(value="siteServiceModeList")
+	@ResponseBody
+	public String siteServiceModeList(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId =  CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Page<Record> page = new Page<>(request, response);
+		page = serviceModeService.getServiceModePage(new Page<Record>(request, response), siteId);
+		model.addAttribute("page",page);
+		JqGridPage<Record> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+	
+	/*
+	 * 删除，如果是平台默认的，则新增一条删除记录，否则只是更改状态
+	*/
+	@RequestMapping(value = "deleteMall")
+    @ResponseBody
+	public String delete(String id,HttpServletRequest request,HttpServletResponse response) {
+		if(StringUtils.isNotBlank(id)){
+			Integer ids = Integer.valueOf(id);
+		serviceModeService.siteDelete(ids);
+		return "ok";
+		}
+		return "no";
+	}
+	
+	@RequestMapping(value = "siteform")
+	public String siteform(ServiceMode serviceMode, Model model) {
+		String siteId =  CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		model.addAttribute("siteId", siteId);
+		model.addAttribute("serviceMode", serviceMode);
+		return "modules/" + "order/siteServiceModeForm";
+	}
+	/*服务上新增时验证*/
+	@RequestMapping(value="sitequeryNum")
+	public void sitequeryNum(String[] nameArr,HttpServletRequest request,HttpServletResponse response){
+		boolean flag=false;
+		String siteId = request.getParameter("siteId");
+		for(int i=0;i<nameArr.length;i++){
+			 flag = serviceModeService.sitequeryNumByName(nameArr[i],siteId,null);
+			 if(flag){
+			break;
+			 }
+		}	
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	/*服务商修改时验证*/
+	@RequestMapping(value="siteUpdaqueryNums")
+	public void siteUpdaqueryNums(String names,String id,HttpServletRequest request,HttpServletResponse response){
+		boolean flag=false;
+		String siteId = request.getParameter("siteId");
+		Integer ids=Integer.valueOf(id);
+	    flag = serviceModeService.sitequeryNumByName(names,siteId,ids);
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/*服务商自定义添加*/
+	@RequestMapping(value = "saveServiceMode")
+	public @ResponseBody String saveServiceMode(String[] nameArr, String[] sortsArr, String[] isDefaultArr,HttpServletResponse response, Model model,RedirectAttributes redirectAttributes ) {
+		try {
+			for (int i=0;i<nameArr.length;i++) {
+				User user =UserUtils.getUser();
+				String siteId = CrmUtils.getCurrentSiteId(user);
+				ServiceMode serviceMode=new ServiceMode();
+				serviceMode.setName(nameArr[i]);
+				if(sortsArr.length>0&&sortsArr[i].length()!=0){
+					if(sortsArr[i].equals("0")){
+						sortsArr[i]="0";
+					}
+					serviceMode.setSort(Integer.valueOf(sortsArr[i]));
+				}
+				serviceMode.setIsDefault(isDefaultArr[i]);
+				serviceMode.setSiteId(siteId);
+				serviceMode.setCreate_by(user.getId());
+				serviceModeService.save(serviceMode);	
+			}
+			
+		} catch (Exception e) {
+			return "no";
+		}
+		return "ok";
+	}
+	/*服务商修改*/
+	@ResponseBody
+	@RequestMapping("siteupdate")
+	public Object siteupdate(String names,String sorts,String id,HttpServletRequest request,HttpServletResponse response){
+		try {
+			String isDef = request.getParameter("isDef");
+			if(sorts.length()==0||sorts.equals("0")){
+				sorts="0";
+			}
+			if(StringUtils.isBlank(id)) {
+				return "no";
+			}
+			Integer ids=Integer.valueOf(id);
+			serviceModeService.siteupdates(names,sorts,ids,isDef);	
+		} catch (Exception e) {
+			return "no";
+		}
+      return "ok";
+	}
+	
+	
+	
+	@RequestMapping(value = "form")
+	public String form(ServiceMode serviceMode, Model model) {
+		model.addAttribute("serviceMode", serviceMode);
+		return "modules/" + "order/serviceModeForm";
+	}
+	
+	@RequestMapping(value="edite")
+	public String edite(String id,Model model){
+		User user = UserUtils.getUser();
+		Integer ids=Integer.valueOf(id);
+		Record rd=serviceModeService.getServiceModeById(ids);
+		model.addAttribute("serviceMode",rd);
+		if(user.getUserType().equals(User.USER_TYPE_YYS)) {
+			return "modules/" + "order/serviceModeEdite";
+		}
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		model.addAttribute("siteId",siteId);
+		return "modules/" + "order/siteServiceModeEdite";
+	}
+	
+	@RequestMapping(value = "save")
+	public @ResponseBody String save(String[] nameArr, String[] sortsArr, HttpServletResponse response, Model model,RedirectAttributes redirectAttributes ) {
+		for (int i=0;i<nameArr.length;i++) {
+      ServiceMode serviceMode=new ServiceMode();
+      serviceMode.setName(nameArr[i]);
+			if(sortsArr.length>0&&sortsArr[i].length()!=0){
+				if(sortsArr[i].equals("0")){
+					sortsArr[i]="0";
+				}
+				serviceMode.setSort(Integer.valueOf(sortsArr[i]));
+			}
+			serviceMode.setSiteId("0");
+			serviceModeService.save(serviceMode);	
+		}
+		return null;
+	}
+	
+	@RequestMapping("update")
+	public void update(String names,String sorts,String id){
+      if(sorts.length()==0||sorts.equals("0")){
+	      sorts="0";
+       }
+      Integer ids=Integer.valueOf(id);
+      serviceModeService.updates(names,sorts,ids);	
+	}
+	
+	@RequestMapping(value = "deleteserviceMode")
+	public String delete(String id, RedirectAttributes redirectAttributes) {
+			Integer ids=Integer.valueOf(id);
+			serviceModeService.delete(ids);
+		return "redirect:"+Global.getAdminPath()+"/order/serviceMode";
+	}
+	
+	@RequestMapping(value="queryNum")
+	public void queryNumByName(String[] nameArr,HttpServletRequest request,HttpServletResponse response){
+		boolean flag=false;
+		for(int i=0;i<nameArr.length;i++){
+			 flag = serviceModeService.queryNumByName(nameArr[i]);
+			 if(flag){
+			break;
+			 }
+		}
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	@RequestMapping(value="queryNums")
+	public void queryNumByNames(String names,String id,HttpServletRequest request,HttpServletResponse response){
+		boolean flag=false;
+		Integer ids=Integer.valueOf(id);
+			 flag = serviceModeService.queryNumByNames(names,ids);
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+}

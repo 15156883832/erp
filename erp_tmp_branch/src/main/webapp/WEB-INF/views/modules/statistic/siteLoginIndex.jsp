@@ -1,0 +1,201 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+  <head>
+    
+    <meta name="decorator" content="base"/>
+	<script src="${ctxPlugin }/lib/Highcharts/highcharts.js"></script>
+  </head>
+  
+  <body>
+    <div class="sfpagebg bk-gray">
+	<div class="sfpage  table-header-settable">
+	<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-20">
+		<c:choose>
+		<c:when test="${types eq '1' }">
+			<a class="btn-tabBar  " href="${ctx}/operate/SiteManager/areaTubesiteManager">服务商管理</a>
+		</c:when>
+		<c:otherwise>
+			<a class="btn-tabBar  " href="${ctx}/operate/SiteManager">服务商管理</a>
+			<a class="btn-tabBar  " href="${ctx}/operate/SiteAddtime/siteAddtimeRecord">添加时长记录</a>
+		</c:otherwise>
+		</c:choose>
+			
+			<sfTags:pagePermission authFlag="SYSTEM_AUTH_USEAGE_STAT_TAB" html='<a class="btn-tabBar current" href="${ctx}/statistic/siteLoginStatistic?types=${types }&areaId=${areaId}">系统使用统计</a>'/>
+		</div>
+		<div class="cl pt-30">
+			<div class=" cl" style="width:90%; margin: 0 auto 20px">
+				<div class=" cl" >
+					<div class="pl-20 f-16 f-r">
+						月份查询：<!-- <select class="select w-100"><option>1</option></select> -->
+						<input id="starttime" type="text" runat="server" readonly="readonly" onfocus="selectMonth()" class="input-text Wdate w-120 va-t" value="${queryMonth }"/> 
+					</div>
+					<!-- <div class="pl-20 f-16 f-l "><span class="lh-20 iconStatic1">漏保购买总数：</span><span class="c-f55025 f-24 lh-24 va-t" id="total1">11</span><span class="lh-20 pl-5">个</span> </div> -->
+				</div>
+				<div id="container"  style="width: 100%; height: 400px; margin: 0 auto 20px"></div>
+		</div>
+	</div>
+</div>
+
+</div>
+</div>
+</div>
+<script type="text/javascript">
+	var suLine, sLine, nLine, eLine;
+	var chartJson = eval('(' + '${loginData}' + ')');
+	suLine = chartJson.suList;
+	sLine = chartJson.sList;
+	nLine = chartJson.nList;
+	eLine = chartJson.eList;
+	//console.log(chartJson);
+	$(document).ready(function() {
+		initCharts();
+	});
+	
+	function selectMonth() {
+		WdatePicker({ dateFmt: 'yyyy-MM', isShowToday: false, isShowClear: false , maxDate:'%y-%M',
+        	onpicked:function(){
+        		var queryMonth = $dp.cal.getDateStr();
+        		location.href='${ctx}/statistic/siteLoginStatistic?queryMonth=' + queryMonth+"&areaId=${areaId}";
+        	}
+        });
+        
+    }
+	
+	function initCharts(){
+		var title = {
+		      text: '服务商系统使用趋势'   
+		   };
+		   var xAxis = {
+				min:0,
+				crosshair: {
+		            width: 1,
+		            color: '#9900ff',
+		            dashStyle: 'shortdot'
+				},
+				tickInterval:1,
+				startOnTick:true,
+				labels: {
+					formatter : function(){
+						return (this.value + 1);
+					}
+				}
+		   };
+		   var yAxis = {
+		      title: {
+		         text: '登录次数(次)'
+		      },
+		      min:0,
+		      crosshair: {
+		            width: 1,
+		            color: '#9900ff',
+		            dashStyle: 'shortdot'
+		        },
+		      minPadding:0,
+		    　　startOnTick:false,
+			    lineColor: '#A6A89B',
+	            lineWidth: 1,
+		      plotLines: [{
+		         value: 0,
+		         width: 1,
+		         color: '#808080'
+		      }]
+		   };   
+
+		   var tooltip = {
+		      valueSuffix: '\xB0C'
+		   };
+
+		   var series =  [
+		      {
+				id:'ser1',
+		         name: '服务商登录',
+		         color:'#c95642',
+		         lineWidth:1,
+	        	 //data:testData()
+	        	 data: suLine,
+	        	 marker:{
+	        		 lineWidth:1,
+	        		 radius:2.8
+	        	 }
+		      },
+		      {
+				id:'ser2',
+		         name: '经理人登录',
+		         color:'#2dd88e',
+		         lineWidth:1,
+	        	 //data:testData()
+	        	 data: sLine,
+	        	 marker:{
+	        		 lineWidth:1,
+	        		 radius:2.8
+	        	 }
+		      },
+		      {
+				id:'ser3',
+		         name: '信息员登录',
+		         color:'#abad27',
+		         lineWidth:1,
+	        	 //data:testData()
+	        	 data: nLine,
+	        	 marker:{
+	        		 lineWidth:1,
+	        		 radius:2.8
+	        	 }
+		      },
+		      {
+				id:'ser4',
+		         name: '工程师登录',
+		         color:'#85a1bc',
+		         lineWidth:1,
+	        	 data: eLine,
+	        	 marker:{
+	        		 lineWidth:1,
+	        		 radius:2.8
+	        	 }
+		      }
+		   ];
+		   
+		   var tooltip = {
+				shared:true
+		   };
+
+		   var json = {};
+		   var credits = {
+			     enabled: false // 禁用版权信息
+		   };
+
+		   var plotOptions = {
+		        line: {
+		            dataLabels: {
+		            	formatter: function(){
+		            		var val = this.point.y;
+		            		if(val > 0){
+		            			return val + '次';
+		            		}else{
+		            			return "0";
+		            		}
+		            	},
+		                enabled: true          // 开启数据标签
+		            }
+		        }
+		    };
+		   json.title = title;
+		   json.xAxis = xAxis;
+		   json.yAxis = yAxis;
+		   json.tooltip = tooltip;
+		   json.credits = credits;
+		   json.series = series;
+		   json.legend = false;
+		   json.plotOptions = plotOptions;
+
+		   $('#container').highcharts(json);
+	}
+	
+
+</script>
+  </body>
+</html>

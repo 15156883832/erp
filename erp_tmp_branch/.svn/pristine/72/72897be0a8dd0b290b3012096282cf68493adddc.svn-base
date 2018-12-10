@@ -1,0 +1,283 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+
+<html>
+<head>
+
+    <meta name="decorator" content="base"/>
+    <!--
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    -->
+    <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+    <script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.fix1.js"></script>
+    <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/easyui.css"/>
+    <script type="text/javascript" src="${ctxPlugin}/lib/select/jquery.easyui.min.js"></script>
+    <style>
+        .sendPresent .dropdown-clear-all{ line-height: 24px;}
+    </style>
+</head>
+<body>
+<div class="sfpagebg">
+    <div class="sfpage bk-gray table-header-settable">
+        <div class="page-orderWait">
+            <div id="tab-system" class="HuiTab">
+                <div class="tabBar cl mb-10">
+                    <a class="btn-tabBar  current" href="${ctx}/goods/giveGift/giftPakege">礼包赠送</a>
+                    <p class="f-r btnWrap">
+                        <a href="javascript:search();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+                        <a href="javascript:jsClearForm();;" class="sfbtn sfbtn-opt"><i class="sficon sficon-reset"></i>重置</a>
+                    </p>
+                </div>
+
+                <div class="tabCon">
+                    <form id="searchForm">
+                        <input type="hidden" name="page" id="pageNo" value="1">
+                        <input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+                        <div class="bk-gray pt-10 pb-5">
+                            <table class="table table-search">
+                                <tr>
+                                    <th style="width: 76px;" class="text-r">赠予网点：</th>
+                                    <td id="reloadSignSpan">
+								<span class="w-140 dropdown-sin-2 queryspan">
+									<select class="select-box w-120"  id="takeSite"  multiple  multiline="true" name="takeSite"  >
+									<c:forEach items="${sitelist}" var="site">
+                                        <option value="${site.columns.id }">${site.columns.name }</option>
+                                    </c:forEach>
+									</select>
+								</span>
+                                    </td>
+                                    <td colspan="4">
+                                        <label style="margin-left: -12px">礼包发送时间：</label>
+                                        <input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'createTimesMax\')}'})"  id="createTimesMin" name="createTimesMin" value="" class="input-text Wdate w-120" style="width:120px">
+                                        至
+                                        <input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'createTimesMin\')}'})" id="createTimesMax" name="createTimesMax"  value="" class="input-text Wdate w-120" style="width:120px">
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="pt-10 pb-5 cl">
+                            <div class="f-r">
+                                <a href="javascript:add();" class="sfbtn sfbtn-opt"><i class="sficon sficon-add"></i>添加</a>
+                                <%--<a href="javascript:deletes();" class="sfbtn sfbtn-opt"><i class="sficon sficon-rubbish"></i>删除</a>--%>
+                            </div>
+
+                        </div>
+                        <div>
+                            <table id="table-waitdispatch" class="table"></table>
+                            <!-- pagination -->
+                            <div class="cl pt-10">
+                                <div class="f-r">
+                                    <div class="pagination"></div>
+                                </div>
+                            </div>
+                            <!-- pagination -->
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div class="popupBox w-420 sendPresent ">
+    <h2 class="popupHead">
+        赠送礼包
+        <a href="javascript:;" class="sficon closePopup"></a>
+    </h2>
+    <div class="popupContainer">
+        <div class="popupMain pt-25 pr-25 pb-15" id="addpopup">
+            <div class="cl mb-10">
+                <label class="w-110">礼包名称：</label>
+                <input type="text" id ="packname" class="input-text w-200 readonly"  name="packname"  value="思方VIP会员"/>
+            </div>
+            <div class="cl mb-10">
+                <label class="w-110">赠予网点：</label>
+                <span class="w-200 dropdown-sin-2 addspan">
+                    <select class="select-box w-120"  id="takeSites"   multiline="true" name="takeSites"   >
+                        <c:forEach items="${sitelist}" var="site">
+                            <option value="${site.columns.id }">${site.columns.name }</option>
+                        </c:forEach>
+                    </select>
+                </span>
+                <%--<span class="w-200">
+                    <select class="select easyui-combobox "  name="takeSites" style="width:100%;height:25px" panelMaxHeight="130px" id="takeSites" >
+                        <option value="" selected="selected">--请选择--</option>
+                        <c:forEach items="${sitelist }" var="site">
+                            <option value="${site.columns.id }">${site.columns.name }</option>
+                        </c:forEach>
+                    </select>
+                </span>--%>
+            </div>
+            <div class="cl mb-10">
+                <label class="w-110 ">奖励个数：</label>
+                <select class="select w-200  addnum" name="addnum" id="addnum">
+                    <option value="1">思方VIP会员1个月有效期</option>
+                    <option value="2">思方VIP会员2个月有效期</option>
+                    <option value="3">思方VIP会员3个月有效期</option>
+                    <option value="4">思方VIP会员4个月有效期</option>
+                    <option value="6">思方VIP会员6个月有效期</option>
+                    <option value="12">思方VIP会员1年有效期</option>
+                    <option value="24">思方VIP会员2年有效期</option>
+                </select>
+            </div>
+            <div class="text-c mt-20">
+                <a href="javascript:;" class="sfbtn sfbtn-opt3 w-70 mr-5" id="btn-publish" onclick="fabu()">保存</a>
+                <a href="javascript:;" class="sfbtn sfbtn-opt w-70" onclick="closeds()">关闭</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+
+    var sfGrid;
+    var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+    var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+
+    $(function(){
+        $.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+        $.tabfold("#moresearch",".moreCondition",1,"click");
+        initSfGrid();
+        $('.dropdown-sin-2').dropdown({
+            input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+        });
+        $(".addspan i[class='del']").attr("data-id","");
+        $(".addspan .dropdown-selected").addClass("placeholder")
+        $(".addspan .dropdown-selected").html("请选择");
+        //$("#_easyui_textbox_input1").attr("readonly","readonly")
+    });
+
+    //初始化jqGrid表格，传递的参数按照说明
+    function initSfGrid(){
+        var url = "${ctx}/goods/giveGift/getGiftPacklist";
+        sfGrid = $("#table-waitdispatch").sfGrid({
+            url:url,
+            sfHeader:defaultHeader,
+            sfSortColumns:sortHeader,
+            shrinkToFit: true,
+            multiselect: false,
+        });
+    }
+
+    function deletes(){
+        var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+        if(idArr.length<1){layer.msg("请选择数据！");}else{
+            var content = "确认要删除"+idArr.length+"条系统公告吗？";
+            $('body').popup({
+                level:3,
+                title:"删除",
+                content:content,
+                fnConfirm :function(){
+                    $.ajax({
+                        type:"POST",
+                        url:"${ctx}/goods/giveGift/delete",
+                        traditional: true,
+                        data:{
+                            "idArr":idArr
+                        },
+                        async:false,
+                        success:function(result){
+                            if(result=="ok"){
+                                layer.msg("删除完成!",{time:2000});
+                                //$.closeDiv($(".editeNotice"));
+                                search();
+                                //window.location.reload(true);
+                            }else{
+                                layer.msg("操作失败!",{time:2000});
+                            }
+                        },
+                        error:function(){
+                            layer.alert("系统繁忙!");
+                            return;
+                        }
+                    });
+                    layer.closeAll('dialog');
+                }
+            });
+
+        }
+    }
+    function add(){//打开添加弹出框
+        //$(".addspan i[class='del']").attr("data-id","");
+        $('.sendPresent').popup();
+    }
+    function fabu(){
+        var packname=$("#packname").val();
+        var takeSites=$(".addspan i[class='del']").attr("data-id");
+        var addnum=$("#addnum").val();
+        if(takeSites==""||takeSites==null){
+            layer.msg("请选择赠送网点");
+            return;
+        }
+        if(addnum==""||addnum==null){
+            layer.msg("请选择奖励个数");
+            return;
+        }
+        $.ajax({
+            type:'POST',
+            url:"${ctx}/goods/giveGift/addGiftpack",
+            traditional: true,
+            data:{
+              name:packname,
+              takeSiteId:takeSites,
+              addnum:addnum
+            },
+            success:function(result){
+                if(result=="ok"){
+                    layer.msg("添加成功");
+                    //$("#takeSites").combobox('setValue','');
+                    $(".addspan i[class='del']").attr("data-id","");
+                    $(".addspan .dropdown-selected").addClass("placeholder")
+                    $(".addspan .dropdown-selected").html("请选择");
+                    $.closeDiv($(".sendPresent"));
+                    search();
+                }else{
+                    layer.msg("添加失败");
+                    return;
+                }
+            },
+            error:function(){
+                layer.msg("系统繁忙请稍后重试")
+                return;
+            }
+        })
+    }
+
+    function closeds(){
+        $(".addspan i[class='del']").attr("data-id","");
+        $(".addspan .dropdown-selected").addClass("placeholder")
+        $(".addspan .dropdown-selected").html("请选择");
+        $.closeDiv($(".sendPresent"));
+    }
+    function jsClearForm() {
+        $("#searchForm :input[type='text']").each(function () {
+            $(this).val("");
+        });
+        $("select").val("");
+/*        $(".queryspan .dropdown-selected").remove();
+        $(".queryspan .dropdown-display").attr("title","");*/
+
+        var html = '<span class="w-140 dropdown-sin-2 queryspan">';
+        html += '<select class="select-box w-120"  id="takeSite"  multiple  multiline="true" name="takeSite"  >';
+        html += '<c:forEach items="${sitelist}" var="site">';
+        html += ' <option value="${site.columns.id }">${site.columns.name }</option>';
+        html += '</c:forEach>';
+        html += '</select>  </span>';
+        $("#reloadSignSpan").html(html);
+
+        $('#reloadSignSpan .dropdown-sin-2').dropdown({
+            input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+        });
+
+    }
+    function search(){
+        $("#table-waitdispatch").sfGridSearch({
+            postData: $("#searchForm").serializeJson()
+        });
+
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+package com.jojowonet.modules.order.utils;
+
+import ivan.common.config.Global;
+import net.sf.json.JSONObject;
+
+import java.io.*;
+import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+public class HttpRequestUtil {
+	
+	public static void main(String[] args) {
+		String requestUrl ="&method=sms.sendSms&mobile=15256947296&sign=捷成服务&messageFormat=json&appKey=00001&content=李先生你好，李继雄(13546789123)，将为你提供上门服务，请保持电话畅通。&templateId=1&siteId=ff808081586cc3d701586ce8bef50003&createBy=ff808081586cc3d701586ce8bef50003&createType=2";
+		String outputStr = "测试";
+		JSONObject json = httpRequest(requestUrl, "POST", outputStr);
+		String code = json.getString("code");
+	}
+
+	/**  
+     * 发起http请求并获取结果  
+     *   
+     * @param requestUrl 请求地址  
+     * @param requestMethod 请求方式（GET、POST）  
+     * @param outputStr 提交的数据  
+     * @return JSONObject(通过JSONObject.get(key)的方式获取json对象的属性值)  
+     */    
+    public static JSONObject httpRequest(String requestUrl, String requestMethod, String outputStr) {    
+    	String url1 =Global.getConfig("sended.sms.interface.url");
+    	requestUrl = url1+requestUrl;
+    	JSONObject jsonObject = null;
+        StringBuffer buffer = new StringBuffer();  
+        InputStream inputStream=null;  
+        try {  
+            URL url = new URL(requestUrl);  
+            HttpURLConnection httpUrlConn = (HttpURLConnection) url.openConnection();    
+            httpUrlConn.setDoOutput(true);    
+            httpUrlConn.setDoInput(true);    
+            httpUrlConn.setUseCaches(false);  
+            // 设置请求方式（GET/POST）    
+            httpUrlConn.setRequestMethod(requestMethod);    
+            if ("GET".equalsIgnoreCase(requestMethod))    
+                httpUrlConn.connect();    
+    
+            // 当有数据需要提交时    
+            if (null != outputStr) {    
+                OutputStream outputStream = httpUrlConn.getOutputStream();    
+                // 注意编码格式，防止中文乱码    
+                outputStream.write(outputStr.getBytes("UTF-8"));    
+                outputStream.close();    
+            }  
+            //将返回的输入流转换成字符串    
+            inputStream = httpUrlConn.getInputStream();    
+            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, "utf-8");    
+            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);    
+    
+            String str = null;    
+            while ((str = bufferedReader.readLine()) != null) {    
+                buffer.append(str);    
+            }    
+            bufferedReader.close();    
+            inputStreamReader.close();    
+            // 释放资源    
+            inputStream.close();    
+            inputStream = null;    
+            httpUrlConn.disconnect();    
+          jsonObject = JSONObject.fromObject(buffer.toString());  
+        } catch (ConnectException ce) {    
+              ce.printStackTrace();  
+        } catch (Exception e) {
+               e.printStackTrace();  
+        }finally{
+            try {  
+                if(inputStream!=null){  
+                    inputStream.close();  
+                }  
+            } catch (IOException e) {  
+                e.printStackTrace();  
+            }  
+        }   
+        return jsonObject;    
+    }
+}

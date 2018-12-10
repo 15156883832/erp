@@ -1,0 +1,212 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+    <title>网点收入统计</title>
+    <meta name="decorator" content="base"/>
+    <script type="text/javascript" src="${ctxPlugin }/lib/Highcharts/4.1.7/js/highcharts.js"></script>
+    <script type="text/javascript" src="${ctxPlugin }/lib/Highcharts/4.1.7/js/modules/exporting.js"></script>
+    <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+    <script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.js"></script>
+    <style type="text/css">
+        .dropdown-clear-all{
+            line-height: 22px
+        }
+        .dropdown-display{font-size: 12px}
+        .dropdown-selected{margin-top: 4px}
+    </style>
+</head>
+<body>
+<div class="sfpagebg bk-gray"><div class="sfpage">
+    <div class="page-orderWait">
+        <div class="tabBar cl mb-10">
+            <sfTags:pagePermission authFlag="STATISTIC_EMPLOYEINDEX_EMPLOYEINDEX_TAB" html='<a class="btn-tabBar " href="${ctx}/statistic/employeIndex">工单统计</a>'></sfTags:pagePermission>
+            <sfTags:pagePermission authFlag="STATISTIC_SITEINCOMMINGSTATISTIC_TAB" html='<a class="btn-tabBar current" style="width:170px;" href="${ctx}/statistic/siteFeeCollection">网点收入盘点统计</a>'></sfTags:pagePermission>
+            <p class="f-r btnWrap">
+                <a href="javascript:dateOrEmpChange();" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+                <a href="javascript:reset();" class="sfbtn sfbtn-opt"><i class="sficon sficon-reset"></i>重置</a>
+            </p>
+        </div>
+        <h3 class="f-20 text-c mb-10 pt-10 cl">
+            网点收入盘点统计表
+            <div class="f-r f-14 pos-r pr-20" id="sheetNote" style="height: 22px">
+               <span class="lh-20 cPointer c-fe0101">报表使用说明</span>
+                <div class="pos-a pd-10 lh-20 w-520 text-l hide bk-gray" id="noteWrap" style="top: 20px;right: 0; background-color: #fff;-webkit-box-shadow: 2px 2px 5px rgba(0,0,0,0.5) ;box-shadow: 2px 2px 5px rgba(0,0,0,0.5);">
+                    <p>1、查询条件“统计日期”用于匹配工单的完工时间、增值商品的销售时间和无现金收款记录的收款时间查询出统计数据；</p>
+                    <p>2、统计“统计日期”范围内的已完工工单及该工单的备件信息；</p>
+                    <p>3、统计“统计日期”范围内销售的增值商品，增值毛利=增值商品收费总额-增值商品入库成本；</p>
+                    <p>4、收费总额=服务收费+延保收费+保外备件收费+增值商品收费；</p>
+                </div>
+            </div>
+        </h3>
+        <div class="" id="tableHead">
+            <table class="table table-bg table-border table-bordered table-sdrk sheetTable" style="table-layout: fixed;">
+                <caption class="text-l">
+                    统计日期：
+                    <span class="">
+                        <input type="text" style="height: 26px;border-color: #ccc;" value="${statisticDateMin}" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'statisticDateMax\')||\'%y-%M-%d\'}',minDate:'#F{$dp.$D(\'statisticDateMin\',{M:-6});}',isShowClear:false})" id="statisticDateMin" name="statisticDateMin" class="input-text Wdate w-140">
+                        &nbsp;至&nbsp;
+                        <input type="text" style="height: 26px;border-color: #ccc;" value="${statisticDateMax}" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'statisticDateMin\')}',maxDate:'%y-%M-%d',isShowClear:false})" id="statisticDateMax" name="statisticDateMax" class="input-text Wdate w-140">
+                    </span>
+                    <span class="w-120 text-r">服务工程师:</span>
+                    <span class="w-140 dropdown-sin-2 ">
+				        <select class="select-box w-120"  id="empIds" style="display:none;height: 22px;" multiple name="empIds"  >
+					    <c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">
+                        <option value="${emp.columns.id}">${emp.columns.name }</option>
+                        </c:forEach>
+				        </select>
+                     </span>
+                    <span class="w-140 f-r">
+                        <a onclick="exports()"class="sfbtn sfbtn-opt2 f-r" target="_blank"><i class="sficon sficon-export"></i>导出</a>
+                     </span>
+                </caption>
+                <thead>
+                <tr>
+                    <th rowspan="3">工程师</th>
+                    <th rowspan="3">完工工单</th>
+                    <th rowspan="3">收费总额（元）</th>
+                    <th colspan="4">工单</th>
+                    <th colspan="3">增值商品</th>
+                    <th colspan="3">无现金收款记录</th>
+                </tr>
+                <tr>
+                    <th rowspan="2">服务收费（元）</th>
+                    <th rowspan="2">延保收费（元）</th>
+                    <th colspan="2">备件信息</th>
+                    <th rowspan="2">增值商品收费（元）</th>
+                    <th rowspan="2">增值毛利（元）</th>
+                    <th rowspan="2">增值提成（元）</th>
+                    <th rowspan="2">记录总数（条）</th>
+                    <th rowspan="2">收款总额（元）</th>
+                    <th rowspan="2">确认到账（元）</th>
+                </tr>
+                <tr>
+                    <th>保内备件使用（个）</th>
+                    <th>保外备件收费（元）</th>
+                </tr>
+                </thead>
+            </table>
+        </div>
+        <div class="" id="tableBody">
+            <table class="table table-bg table-border table-bordered text-c" style="table-layout: fixed;border-width:0 1px">
+                <tbody>
+                <c:forEach items="${list}" var="Statistic">
+                    <tr>
+                        <td>${Statistic.columns.empName}</td>
+                        <td>${Statistic.columns.orderCount}</td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.totalFeeEnd ? '0.00':Statistic.columns.totalFeeEnd}" pattern="#0.00" /></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.serverCost ?'0.00':Statistic.columns.serverCost}" pattern="#0.00" /></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.warrantyCost ? '0.00':Statistic.columns.warrantyCost}" pattern="#0.00" /></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.fitUsedInDate ?'0.00':Statistic.columns.fitUsedInDate}" pattern="#0.00" /></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.fitUsedCollection ?'0.00':Statistic.columns.fitUsedCollection}" pattern="#0.00" /></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.allCollection ?'0.00':Statistic.columns.allCollection}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.profix ?'0.00':Statistic.columns.profix}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.salesCommissions ?'0.00':Statistic.columns.salesCommissions}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.totalCount ?'0':Statistic.columns.totalCount}" pattern="#0"/></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.totalFee ?'0.00':Statistic.columns.totalFee}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty Statistic.columns.sureInPacage ?'0.00':Statistic.columns.sureInPacage}" pattern="#0.00"/></td>
+                    </tr>
+                </c:forEach>
+                </tbody>
+            </table>
+        </div>
+        <div id="tableFoot">
+                <table class="table table-bg table-border table-bordered text-c" style="table-layout: fixed; font-weight: 600">
+                    <tr>
+                        <td>合计</td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.totalOrders ?'0':reTotal.columns.totalOrders}" pattern="#0"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.orderFeeTotal ?'0.00':reTotal.columns.orderFeeTotal}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.serverFeeTotal ?'0.00':reTotal.columns.serverFeeTotal}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.warrentyFeeTotal ?'0.00':reTotal.columns.warrentyFeeTotal}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.inDateTotal ?'0.00':reTotal.columns.inDateTotal}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.outDateTotal ?'0.00':reTotal.columns.outDateTotal}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.goodsFeeTotal ?'0.00':reTotal.columns.goodsFeeTotal}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.goodsProfitTotal ?'0.00':reTotal.columns.goodsProfitTotal}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.goodsGetPacTotal ?'0.00':reTotal.columns.goodsGetPacTotal}" pattern="#0.00"/></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.noMoneys ?'0':reTotal.columns.noMoneys}" pattern="#0" /></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.noMoneyTotal ?'0.00':reTotal.columns.noMoneyTotal}" pattern="#0.00" /></td>
+                        <td><fmt:formatNumber value="${empty reTotal.columns.noMoneySureTotal ?'0.00':reTotal.columns.noMoneySureTotal}" pattern="#0.00" /></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div></div>
+
+<!--_footer 作为公共模版分离出去-->
+<script src="static/h-ui.admin/js/jquery-1.8.3.js" type="text/javascript" charset="utf-8"></script>
+
+<script type="text/javascript" src="lib/layer/2.4/layer.js"></script>
+<script type="text/javascript" src="static/h-ui/js/H-ui.min.js"></script>
+<script type="text/javascript" src="static/h-ui.admin/js/H-ui.admin.js"></script>
+<!--/_footer 作为公共模版分离出去-->
+
+<!--请在下方写此页面业务相关的脚本-->
+<script type="text/javascript" src="lib/My97DatePicker/4.8/WdatePicker.js"></script>
+<script type="text/javascript" src="lib/datatables/1.10.0/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="lib/laypage/1.2/laypage.js"></script>
+<script>
+    var dd;
+    $(function () {
+        sheetHeight();
+        dd = $('.dropdown-sin-2').dropdown({
+            input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+        }).data('dropdown');
+        var ids = '${empIds}';
+        dd.choose(ids.split(","),true);
+
+        $('#sheetNote').hover(function(){
+            $('#noteWrap').show();
+        }, function(){
+            $('#noteWrap').hide();
+        })
+    })
+    window.onresize = function () {
+        sheetHeight();
+    }
+    function sheetHeight() {
+        var maxHeight = $('.sfpagebg').height() - 270 ;
+        var tH = $('#tableBody .table').height();
+        if( tH > maxHeight ){
+            $('#tableHead, #tableFoot').css({'padding-right':'17px'});
+            $('#tableBody').css({
+                'max-height':maxHeight,
+                'overflow':'auto',
+            })
+        }
+    }
+
+    function dateOrEmpChange(){
+        var dateMin=$("input[name='statisticDateMin']").val();
+        var dateMax=$("input[name='statisticDateMax']").val();
+        var empIds=$("#empIds").val();
+        slowlyLoading();
+        window.location.href='${ctx}/statistic/siteFeeCollection?statisticDateMin='+dateMin+"&empIds="+empIds+"&statisticDateMax="+dateMax;
+    }
+
+    function reset(){
+        var date=$("input[name='statisticDate']").val('');
+        dd.reset();
+    }
+
+    function exports(){
+        var now = new Date();
+        var hours = now.getHours();
+        var minutes = now.getMinutes();
+        var nowM = hours * 60 + minutes;
+        var start = 7 * 60 + 30;
+        var end = 11 * 60 + 30;
+        if (nowM >= start && nowM <= end) {
+            layer.msg("温馨提醒：系统使用高峰期7:30-11:30,请在其它时间导入、导出！谢谢！");
+            return false;
+        }
+        var dateMin = $("input[name='statisticDateMin']").val();
+        var dateMax = $("input[name='statisticDateMax']").val();
+        var empIds = $("#empIds").val();
+        location.href="${ctx}/statistic/exportForSiteSales?statisticDateMin="+dateMin+"&empIds="+empIds+"&statisticDateMax="+dateMax;
+    }
+
+</script>
+
+</body>
+</html>

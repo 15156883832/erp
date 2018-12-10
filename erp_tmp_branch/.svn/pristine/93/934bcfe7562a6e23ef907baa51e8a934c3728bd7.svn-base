@@ -1,0 +1,120 @@
+package com.jojowonet.modules.order.web;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.entity.mysql.common.User;
+import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.google.common.collect.Maps;
+import com.jojowonet.modules.order.service.OrderService;
+import com.jojowonet.modules.order.service.PushMessageService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONObject;
+
+
+@Controller
+@RequestMapping(value = "${adminPath}/commonAjax")
+public class AjaxController extends  BaseController{
+	
+	@Autowired
+	private OrderService orderService;
+	
+	@Autowired
+	private PushMessageService pushMessageService;
+	@Autowired
+	private NonServicemanService noService;
+	
+	/***
+	 * 获取信息员的首页工单数据 
+	 */
+	@RequestMapping(value="getMessengerWelcomeData")
+	@ResponseBody
+	public JSONObject getMessengerWelcomeData(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> params = getParams(request);
+		Map<String, Object> result = Maps.newHashMap();
+		String ptype = UserUtils.getUser().getUserType();
+		User user = UserUtils.getUser();
+		List<String> cateList=null;
+		List<String> brandList=null;
+		if(!("2".equals(ptype))){
+			String cate = noService.servicemanCate(user.getId(),siteId);
+			String brand = noService.servicemanBrand(user.getId(),siteId);
+			cateList = StringUtil.tolist(cate);
+			brandList = StringUtil.tolist(brand);
+		}
+		result = orderService.getNormalWelcomeData(siteId, params,cateList,brandList);
+		return JSONObject.fromObject(result);
+	}
+	
+	/***
+	 * 获取配件管理员的首页工单数据 
+	 */
+	@RequestMapping(value="getPeijianWelcomeData")
+	@ResponseBody
+	public JSONObject getPeijianWelcomeData(HttpServletRequest request,HttpServletResponse response,Model model){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> params = getParams(request);
+		String userType = request.getParameter("userType");
+		Map<String, Object> result = Maps.newHashMap();
+		String ptype = UserUtils.getUser().getUserType();
+		User user = UserUtils.getUser();
+		List<String> cateList=null;
+		List<String> brandList=null;
+		if(!("2".equals(ptype))){
+			String cate = noService.servicemanCate(user.getId(),siteId);
+			String brand = noService.servicemanBrand(user.getId(),siteId);
+			cateList = StringUtil.tolist(cate);
+			brandList = StringUtil.tolist(brand);
+		}
+		if(CrmUtils.isPeijianMan(UserUtils.getUser())){
+			result = orderService.getPeijianWelcomeData(siteId, params); 
+		}else{
+			result = orderService.getNormalWelcomeData(siteId, params,cateList,brandList);
+		}
+		return JSONObject.fromObject(result);
+	}
+
+	/***
+	 * 提醒接收
+	 */
+	@RequestMapping(value="notifyOrder")
+	@ResponseBody
+	public JSONObject notifyAccepOrder(HttpServletRequest request, HttpServletResponse response){
+		Map<String, Object> result = Maps.newHashMap();
+		String notifyType = request.getParameter("notifyType");
+		//ids:402882c05d16e2b1015d1717727d000a@20170706164906334,402882c25d17009f015d170203540000@20170706162521115
+		String ids = request.getParameter("ids");
+		String[] idArr = ids.split(",");
+		Map<String, String> idMap = Maps.newHashMap();
+		for(String idNum : idArr){
+			if(StringUtils.isNotBlank(idNum)){
+				String id = idNum.split("@")[0];
+				String num = idNum.split("@")[1];
+				idMap.put(id, num);
+			}
+		}
+		pushMessageService.notifyOrder(idMap, notifyType);
+		return JSONObject.fromObject(result);
+	}
+	
+	@RequestMapping(value="getMessengerCount")
+	@ResponseBody
+	public Object getMessengerCount(HttpServletRequest request,HttpServletResponse response,Model model){
+		return orderService.getMessageCount();
+	}
+}

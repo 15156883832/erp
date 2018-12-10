@@ -1,0 +1,59 @@
+.label-cbox{
+	background-image: url(../images/ygcxlm_icon.png);
+}
+.loginbg{
+	background: url(../images/ygcxlm_bg_login.jpg) no-repeat center ;
+	-webkit-background-size: cover;
+	   -moz-background-size: cover;
+		 -o-background-size: cover;
+			background-size: cover;
+	filter: progid:DXImageTransform.Microsoft.AlphaImageLoader(src='E:/SF_UI_DOC/UI_Doc/家电协会PC/images/ygcxlm_bg_login.jpg',sizingMethod='scale');
+}
+.loginWrap .webName{
+	height: 110px;
+	background-image: url(../images/ygcxlm_sflogo2.png);		
+}
+.loginWrap .webName .partnerName{
+	height: 28px;
+	background-image: url(../images/ygcxlm_partnerName.png);
+	background-position: center center;
+}
+.loginWrap .btn_return{
+	color: #ff6900;
+	background-image: url(../images/ygcxlm_icon.png);
+}
+.loginpage .leftWrap .switchCode{
+	background-image: url(../images/ygcxlm_bg_chiceCode.png);
+}
+.loginpage .input-wrap .input-text2:focus{
+	border: 1px solid #ff6900;
+}
+.loginpage .iconUser{
+	background-image: url(../images/ygcxlm_icon_userPwd.png);
+}
+
+.loginWrap .btn-forgetpwd,
+.loginMain .rightWrap .btn_regLink,
+.btn_browserFf,
+.btn_browserGg{
+	color: #ff6900;
+}
+.loginMain .rightWrap .btn_regLink{
+	background-image: url(../images/ygcxlm_icon.png);
+	background-position: right -60px;
+}
+.loginWrap .btn-login{ background-color: #ff6900; }
+
+.registerpage .registerSeq .iconSeq{
+	background-image: url(../images/ygcxlm_bg_pseq.png);
+}
+
+.registerpage .resetMain .registerFinish:after{ 
+	background-color: #ff6900;
+	
+}
+.registerpage .btn-prevStep,
+.registerpage .btn-getCode:hover{
+	color: #ff6900;
+	border: 1px solid #ff6900;
+}

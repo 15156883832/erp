@@ -1,0 +1,59 @@
+package com.jojowonet.modules.order.service;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.OrderMarkSettingDao;
+import com.jojowonet.modules.order.entity.OrderMarkSetting;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * @author gaols
+ */
+@Service
+@Transactional(readOnly = true)
+public class OrderMarkSettingService extends BaseService {
+
+    @Autowired
+    private OrderMarkSettingDao orderMarkSettingDao;
+
+    @Transactional
+    public void deleteByIds(List<String> ids) {
+        orderMarkSettingDao.deleteByIds(ids);
+    }
+
+    public Page<Record> getOrderMarkList(Page<Record> page, String siteId, Map<String, Object> map) {
+        return orderMarkSettingDao.getOrderMarkList(page, siteId, map);
+    }
+
+    @Transactional
+    public void saveList(String[] names, String[] sorts) {
+        orderMarkSettingDao.saveList(names, sorts);
+    }
+
+    public OrderMarkSetting get(String id) {
+        return orderMarkSettingDao.get(id);
+    }
+
+    public OrderMarkSetting edit(String id, String name, String sort) {
+        if (StringUtil.isBlank(id) || StringUtil.isBlank(name)) {
+            throw new RuntimeException("");
+        }
+
+        OrderMarkSetting setting = orderMarkSettingDao.get(id);
+        setting.setName(name);
+        setting.setSort(StringUtil.isBlank(sort) ? null : Long.valueOf(sort));
+        orderMarkSettingDao.save(setting);
+        return setting;
+    }
+
+    public List<OrderMarkSetting> getOrderMarksBySite(String siteId) {
+        return orderMarkSettingDao.getOrderMarksBySite(siteId);
+    }
+}

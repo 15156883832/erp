@@ -1,0 +1,540 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>旧件信息管理-旧件等级</title>
+<meta name="decorator" content="base"/>
+<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.css"/>
+<script type="text/javascript" src="${ctxPlugin}/lib/webuploader/0.1.5/webuploader.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/lib/Validform/5.3.2/Validform.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/jquery.rotate.min.js"></script>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/imgShow.js"></script>
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/select2.min.css"/>
+	<script type="text/javascript" src="${ctxPlugin}/lib/select/select2.full.min.js"></script>
+	<style type="text/css">
+/* .webuploader-pick{
+	background:#fff;
+	padding:0;
+	color: #0e8ee7;
+} */
+.webuploader-pick{
+	background:none;
+	color:#22a0e6;	
+	padding:0;
+	
+}
+/* .spimg1{ border:none;} */
+.spimg1 .webuploader-pick{
+	width:134px;
+	height:134px;
+}
+.spimg2 .webuploader-pick{
+	width:80px;
+	height:80px;
+}
+
+.webuploader-pick img{
+	width:100%;
+	height:100%;
+	position:absolute;
+	left:0;
+	top:0;
+}
+</style>
+</head>
+<body>
+<!-- 旧件信息 -->
+<div class="popupBox jjxxbox">
+	<h2 class="popupHead">
+		旧件信息
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain">
+			<form id="formResult">
+			<h3 class="modelHead pos-r mb-10">
+				旧件信息
+				<a href="javascript:;"  class="sfbtn sfbtn-opt btn-printcode" id="btn-printcode">打印条码</a>
+			</h3>
+			<div class="cl">
+				<div class="f-l mb-10">
+					<label class="lb1 f-l">旧件条码：</label>
+					<input type="text" class="input-text w-140 f-l " name="oldFittingCode"  value="${oldFitting.code}" />
+					<label class="lb2 f-l">旧件名称：</label>
+					<input type="text" class="input-text w-140 f-l " name="oldFiittingName"  value="${oldFitting.name}" />
+					<input type="hidden" name="id" value="${oldFitting.id}"/>
+					<input type="hidden" name="trueStock" value=""/>
+
+					<label class="lb2 f-l">旧件型号：</label>
+					<input type="text" class="input-text w-140 f-l " name="oldFittingVersion"  value="${oldFitting.version}" />
+				</div>
+				
+				<div class="f-l mb-10">
+					<label class="lb1 f-l">旧件品牌：</label>
+					<input type="text" class="input-text w-140 f-l " name="oldFittingBrand"  value="${oldFitting.brand}" />
+					<label class="lb2 f-l">登记数量：</label>
+					<div class="priceWrap f-l w-140 <c:if test="${whereFrom eq '1'}">readonly</c:if>">
+						<input type="text" name="oldFittingNum" class="input-text <c:if test="${whereFrom eq '1'}">readonly</c:if>" <c:if test="${whereFrom eq '1'}">readonly="readonly"</c:if>  value="${oldFitting.num}" />
+						<span class="unit">件</span>
+					</div>
+					<label class="lb2 f-l">旧件单价：</label>
+					<div class="priceWrap w-140 f-l">
+						<input type="text" class="input-text" name="oldFittingPrice"  name="price" value="${oldFitting.unitPrice}"/>
+						<span class="unit">元</span>
+					</div>
+				</div>
+				<div class="f-l mb-10">
+					<label class="lb1 f-l">服务工程师：</label>
+					<span class="f-l">
+					<select class="select f-l w-140" id="employs" name="employeName">
+						<option value="">请选择</option>
+						<c:forEach items="${fns:getEmloyeList(siteId) }" var="emp">
+							<option value="${emp.columns.id },${emp.columns.name }" <c:if test="${emp.columns.name eq oldFitting.employeName}">selected="selected"</c:if> >${emp.columns.name }</option>
+						</c:forEach>
+					</select>
+					</span>
+					<%--<input type="text" class="input-text w-140 f-l " name=""  value="${oldFitting.employeName}" />--%>
+					<label class="lb2 f-l">是否原配：</label>
+					<span class="f-l">
+						<select class="select w-140" name="yrpz_flag">
+							<option value="">请选择</option>
+							<option value="1" <c:if test="${oldFitting.yrpzFlag==1}">selected="selected"</c:if> >是</option>
+							<option value="2" <c:if test="${oldFitting.yrpzFlag==2}">selected="selected"</c:if> >否</option>
+						</select>
+					</span>
+					<label class="lb2 f-l">旧件状态：</label>
+					<c:if test="${oldFitting.status eq 0}">
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="已登记" />
+					</c:if>
+					<c:if test="${oldFitting.status eq 1}">
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="已入库" />
+					</c:if>
+					<c:if test="${oldFitting.status eq 2}">
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="已删除" />
+					</c:if>
+					<c:if test="${oldFitting.status eq 3}">
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="已返厂" />
+					</c:if>
+					<c:if test="${oldFitting.status eq 4}">
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="已报废" />
+					</c:if>
+					<c:if test="${oldFitting.status ne 0 && oldFitting.status ne 1 && oldFitting.status ne 2 && oldFitting.status ne 3 && oldFitting.status ne 4 }">
+						<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="" />
+					</c:if>
+				</div>
+				<div class="f-l mb-10 mr-20 w-660">
+					<label class="lb1 f-l">图片：</label>
+					<div id="Imgprocess"></div>
+					<div>
+						<c:if test="${not empty imgsArray}">
+							<c:forEach items="${imgsArray}" var="img" varStatus="da">
+								<div class="f-l imgWrap1 yuanImages" id="img${da.index}">
+									<div class="imgWrap">
+										<img src="${commonStaticImgPath}${img}" id="${commonStaticImgPath}${img}"></img>
+									</div>
+									<a class="sficon btn-delimg" onclick="deleteImg('img${da.index}')"></a>
+									<input type="hidden" value="${img}" name="pickerImg" >
+								</div>
+							</c:forEach>
+						</c:if>
+						<c:if test="${empty imgsArray}">
+							<div class="imgWrap jiahao" id="jiahao" >
+								<div id="filePicker-add">
+									<a href="javascript:;" class="btn-upload"></a>
+								</div>
+							</div>
+						</c:if>
+					</div>
+					<c:if test="${imagesSize < 4 && not empty imgsArray}">
+						<div class="f-l mr-10">
+							<div class="imgWrap jiahao" id="jiahao" >
+								<div id="filePicker-add">
+									<a href="javascript:;" class="btn-upload"></a>
+								</div>
+							</div>
+						</div>
+					</c:if>
+					<div class="f-l mr-10 hide" id="jiahao">
+						<div class="imgWrap jiahao"  >
+							<div id="filePicker-add">
+								<a href="javascript:;" class="btn-upload"></a>
+							</div>
+						</div>
+					</div>
+					<input type="hidden" name="img" value="${fitting.img}" id="fittingImage">
+					<%--<a href="javascript:;" class="btn-uploadimg ml-70 f-l w-90 text-c" id="img-picker">${not empty oldFitting.img ? '重新上传' : '上传图片' }</a>--%>
+				</div>
+
+			</div>
+			</form>
+			<h3 class="modelHead pos-r mb-10">
+				工单信息
+				<a href="javascript:reloadOrder('${oldFitting.id}','${oldFitting.orderNumber}');"  class="sfbtn sfbtn-opt btn-printcode " id="">刷新</a>
+			</h3>
+
+			<div class="cl mb-10">
+				<label class="lb1 f-l">工单编号：</label>
+				<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" name="orderNumber" value="${oldFitting.orderNumber}" />
+				<label class="lb2 f-l">用户姓名：</label>
+				<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" name="orderName" value="${oldFitting.customerName}" />
+				<label class="lb2 f-l">联系方式：</label>
+				<input type="text" class="input-text w-140 f-l readonly  text-overflow" name="mobile" readonly="readonly" value="${oldFitting.customerMobile}" />
+			</div>
+			<div class="cl mb-10">
+				<label class="lb1 f-l">家电信息：</label>
+				<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" name="familyInfo" value="${oldFitting.applianceBrand}${oldFitting.applianceCategory}" />
+				<label class="lb2 f-l">保修类型：</label>
+				<c:if test="${oldFitting.warrantyType==1}">
+				<input type="text" class="input-text w-140 f-l readonly warrantyType" readonly="readonly" name="warrantyType" value="保内" />
+				</c:if>
+				<c:if test="${oldFitting.warrantyType==2}">
+				<input type="text" class="input-text w-140 f-l readonly warrantyType" readonly="readonly" name="warrantyType" value="保外" />
+				</c:if>
+				<c:if test="${oldFitting.warrantyType!=3 && oldFitting.warrantyType!=2 && oldFitting.warrantyType!=1}">
+				<input type="text" class="input-text w-140 f-l readonly warrantyType" name="warrantyType" readonly="readonly" value="" />
+				</c:if>
+			</div>
+			<div class="cl mb-10">
+				<%-- <label class="lb1 f-l">完工时间：</label>
+				<input type="text" class="input-text w-140 f-l readonly" readonly="readonly" value="${oldFitting.finishedTime}" /> --%>
+				<label class="lb1 f-l">详细地址：</label>
+				<input type="text" class="input-text w-380 f-l readonly" readonly="readonly" name="address" value="${oldFitting.customerAddress}" />
+			</div>
+			<div class="text-c mt-25">
+				<c:if test="${whereFrom ne '1'}">
+					<a href="javascript:inStock('${oldFitting.id}','1');" class="sfbtn sfbtn-opt3 mr-5">保存并入库</a>
+				</c:if>
+				<a href="javascript:inStock('${oldFitting.id}','2');" class="sfbtn sfbtn-opt3 w-70 mr-5">保存</a>
+				<a href="javascript:closeTC();" class="sfbtn sfbtn-opt w-70 mr-5">关闭</a>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<!-- 旧件条形码 -->
+<div class="popupBox jjcodebox">
+	<h2 class="popupHead">
+		旧件条形码
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain">
+			<div class="codebox">
+				<!-- 条码 -->
+				<img id="barcode" style="display: block;margin:auto"/>
+			</div>
+			<div class="mt-5">
+				<div class="pos-r pl-80">
+					<label class="lb w-80">旧件名称：</label>
+					<p class="lh-26">${oldFitting.name}</p>
+				</div>
+				<div class="pos-r pl-80">
+					<label class="lb w-80">旧件型号：</label>
+					<p class="lh-26">${oldFitting.version}</p>
+				</div>
+			</div>
+			<div class=" cl">
+				<div class="w-220 f-l" >
+					<label class="f-l text-r w-80">旧件品牌：</label>
+					<p class="lh-26 f-l">${oldFitting.brand}</p>
+				</div>
+				<div class="w-220 f-l" >
+					<label class="f-l text-r w-80">是否原配：</label>
+					<p class="lh-26 f-l"><c:if test="${oldFitting.yrpzFlag eq '1'}">是</c:if><c:if test="${oldFitting.yrpzFlag eq '2'}">否</c:if></p>
+				</div>
+				<div class="w-220 f-l" >
+					<label class="f-l text-r w-80">工单编号：</label>
+					<p class="lh-26 f-l">${oldFitting.number}</p>
+				</div>
+				<div class="w-220 f-l" >
+					<label class="f-l text-r w-80">服务工程师：</label>
+					<p class="lh-26 f-l">${oldFitting.employeName}</p>
+				</div>
+				<div class="w-220 f-l" >
+					<label class="f-l text-r w-80">用户姓名：</label>
+					<p class="lh-26 f-l">${oldFitting.customerName}</p>
+				</div>
+				<div class="w-220 f-l" >
+					<label class="f-l text-r w-80">用户电话：</label>
+					<p class="lh-26 f-l">${oldFitting.customerMobile}</p>
+				</div>
+			</div>
+
+			<div class="text-c mt-25">
+				<a href="${ctx}/printFitting/printOldFittingRegister?id=${oldFitting.id}" onclick="closeDiv()"  target="_blank" class="sfbtn sfbtn-opt3 w-70 mr-5">打印</a>
+				<a href="javascript:closeDiv();" class="sfbtn sfbtn-opt w-70 mr-5">取消</a>
+			</div>
+		</div>
+	</div>
+</div>
+	
+<script type="text/javascript">
+    var feedImgsCount = 0;
+    var uploader;
+function closeDiv(){
+	$.closeDiv($(".jjcodebox"));
+}
+var matchCode=/^[0-9a-zA-Z]{1,24}$/;
+
+$("input[name='oldFittingCode']").blur(function(){
+    if(!matchCode.test($(this).val())){
+		layer.msg("该条码格式不符合规范，请重新输入！")
+		$(this).val("");
+		return;
+	}
+});
+function isBlank(val) {
+	if(val==null || val=='' || val == undefined) {
+		return true;
+	}
+	return false;
+}
+	$(function(){
+        if(!isBlank(${imagesSize})){
+            feedImgsCount = parseInt(${imagesSize});
+        }
+
+        $('.jjxxbox').popup();
+		$('#btn-printcode').click(function(){
+			JsBarcode("#barcode", "${oldFitting.code}", {
+				format: "CODE128",
+				width:4,
+				height:40,
+				displayValue: true
+			});
+			$('.jjcodebox').popup({level:2});
+		});
+        $("#employs").select2();
+        $(".selection").css("width","140px");
+
+        createUploader("#filePicker-add","#Imgprocess","file_fake_addimg","file_fake_add","delimgs");
+	});
+
+
+    function createUploader(picker,site, el,id,delimg) {
+        var thumbnailWidth = 130;   //缩略图高度和宽度 （单位是像素），当宽高度是0~1的时候，是按照百分比计算，具体可以看api文档
+        var thumbnailHeight = 130;
+        uploader = WebUploader.create({
+            // 选完文件后，是否自动上传。
+            auto: true,
+            swf: '${ctxPlugin}/lib/webuploader/0.1.5/Uploader.swf',
+            server: '${ctx}/common/uploadFile',
+            duplicate:true,
+            fileSingleSizeLimit:1024*1024*5,
+            pick: picker,
+            accept: {
+                title: 'Images',
+                extensions: 'gif,jpg,jpeg,bmp,png',
+                mimeTypes: 'image/gif,image/jpg,image/jpeg,image/bmp,image/png'
+            },
+            method:'POST'
+        });
+        uploader.on("error",function (type){
+            if (type=="Q_TYPE_DENIED"){
+                layer.msg("请上传JPG、PNG格式文件");
+            }else if(type=="F_EXCEED_SIZE"){
+                layer.msg("文件大小不能超过5M"); }
+        });
+
+        uploader.on('beforeFileQueued', function(file){
+        });
+        uploader.on( 'uploadSuccess', function( file, response ) {
+            $("input[name='markAble']").each(function(index,items){
+                if(items.value==file.id){
+                    $(site).append('<input type="hidden"  name="pickerImg" id="pickerImg'+file.id+'" value="'+response.path+'">');
+                }
+            })
+        });
+        uploader.on( 'uploadError', function( file, reason ) {
+
+        });
+        uploader.on( 'uploadFinished', function() {
+            var images="";
+            var array=$("input[name='pickerImg']");//单引号 的name替换为相应的name
+            for(var i=0;i<array.length;i++) {
+                images += $(array[i]).val() + ",";
+            }
+            $("#fittingImage").val(images);
+            if(uploader){
+                uploader.reset();
+            }
+        });
+
+        uploader.on( 'fileQueued', function( file ) {
+            if(feedImgsCount==3){
+                $("#jiahao").addClass('hide');
+            }
+            if(parseInt(feedImgsCount) > 3 ){
+                layer.msg("最多可上传4张图片！");
+                return false;
+            }
+            uploader.makeThumb( file, function( error, src ) {
+                if (error) {
+                    layer.msg('不能预览');
+                } else {
+                    img(id,src,file,site);
+                }
+            }, thumbnailWidth, thumbnailHeight );
+        });
+
+    }
+
+    function img(id,src,file,site){
+        if(feedImgsCount > 3){
+            $("#jiahao").addClass('hide');
+            layer.msg("最多可上传4张图片！");
+            return false;
+        }
+        feedImgsCount=parseInt(feedImgsCount)+1;
+        var html =' <div class="f-l imgWrap1 mb-10 appendImage" id="file'+file.id+'"><div class="imgWrap"> ';
+        html +='<img src="'+src+'" id=""></div><a class="sficon btn-delimg" onclick="deletePicture(this, \''+file.id+'\')"></a></div>'+
+            '<input name="markAble" id="mark'+file.id+'" hidden="hidden" value="'+file.id+'" />';
+        $(site).append(html);
+        if(feedImgsCount>=4){
+            $("#jiahao").addClass('hide');
+        }
+        $(".appendImage .imgWrap").imgShow();
+    }
+
+    function deleteImg(ff) {
+        $("#" + ff).remove();
+        feedImgsCount = feedImgsCount - 1;
+        if (feedImgsCount == 3) {
+            $("#jiahao").removeClass('hide');
+        }
+        if (uploader) {
+            uploader = null;
+        }
+        createUploader("#filePicker-add", "#Imgprocess", "file_fake_addimg","file_fake_add", "delimgs");
+        getImages();
+    }
+
+    function deletePicture(obj,fileId) {
+        $("#file"+fileId+"").remove();
+        $("#mark"+fileId+"").remove();
+        $(obj).parent('.imgWrap1').remove();
+        $("#pickerImg"+fileId).remove();
+        feedImgsCount = feedImgsCount-1;
+        if(feedImgsCount<=7){
+            $("#jiahao").removeClass('hide');
+        }
+        getImages();
+        return ;
+    }
+
+    function getImages(){
+        var images="";
+        var array=$("input[name='pickerImg']");//单引号 的name替换为相应的name
+        for(var i=0;i<array.length;i++) {
+            images += $(array[i]).val() + ",";
+        }
+        $("#fittingImage").val(images);
+    }
+
+    var adpoting = false;
+function text(id){
+	if(adpoting) {
+	    return;
+    }
+	adpoting = true;
+	
+	$.ajax({
+		type : "POST",
+		url : "${ctx}/fitting/putOldFitting",
+		data :{idArr:id},
+		success : function(data) {	
+			if(data){
+				parent.layer.msg('入库成功!');
+				parent.location.reload(); 
+				$.closeDiv($(".jjxxbox"));
+    		
+			}else{
+				layer.msg('入库失败!');
+			}
+		},
+        complete: function() {
+            adpoting = false;
+        }
+	});   
+}
+	
+function closeTC(){
+    parent.search();
+    $.closeDiv($(".jjxxbox"));
+}
+
+function inStock(id,type){
+    var reg = /(^[1-9]([0-9]+)?(\.[0-9]{1,2})?$)|(^(0){1}$)|(^[0-9]\.[0-9]([0-9])?$)/;//验证价钱的正则表达式
+    var code=$("input[name='oldFittingCode']").val();
+    if(!matchCode.test(code)){
+        layer.msg("该条码格式不符合规范，请重新输！");
+        $(this).val("");
+        return;
+    }
+    var price=$("input[name='oldFittingPrice']").val();
+    if(!isBlank(price)){
+        if(!reg.test(price)){
+            layer.msg("旧件价格格式不正确！");
+            $("input[name='price']").val("");
+            return;
+        }
+    }
+    $("input[name='trueStock']").val(type);
+    $.ajax({
+        type : "POST",
+        url : "${ctx}/fitting/inStock",
+        data :$("#formResult").serializeJson(),
+        success : function(data) {
+            if(data){
+                parent.layer.msg('保存成功!');
+                parent.search();
+                $.closeDiv($(".jjxxbox"));
+            }else{
+                layer.msg('保存失败!');
+                parent.search();
+                $.closeDiv($(".jjxxbox"));
+            }
+        },
+        complete: function() {
+            adpoting = false;
+        }
+    });
+}
+
+    function reloadOrder(id,number){
+        $.ajax({
+            type : "POST",
+            url : "${ctx}/fitting/reloadOrder",
+            data :{
+                id:id,
+                number:number
+            },
+            success : function(data) {
+                if(data!=null){
+                    layer.msg('刷新成功!');
+                    $("input[name='orderName']").val(data.customerName);
+					$("input[name='mobile']").val(data.customerMobile);
+					$("input[name='familyInfo']").val(data.applianceBrand+data.applianceCategory);
+					if(data.warrantyType=="1"){
+                        $("input[name='warrantyType']").val("保内");
+                    }else if(data.warrantyType=="2"){
+                        $("input[name='warrantyType']").val("保外");
+					}else{
+                        $("input[name='warrantyType']").val("");
+					}
+					$("input[name='address']").val(data.customerAddress);
+                }else{
+                    layer.msg('刷新失败!');
+                }
+            }
+        });
+    }
+
+
+$('#spimg1').imgShow();
+</script>
+<script type="text/javascript" src="${ctxPlugin}/lib/JsBarcode.all.min.js"></script>
+</body>
+</html>

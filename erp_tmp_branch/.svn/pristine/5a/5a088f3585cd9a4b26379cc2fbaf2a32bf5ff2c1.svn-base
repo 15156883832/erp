@@ -1,0 +1,1224 @@
+package com.jojowonet.modules.goods.web;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.poi.ss.formula.functions.T;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.finance.service.InvoiceAddressService;
+import com.jojowonet.modules.finance.service.InvoiceMsgService;
+import com.jojowonet.modules.goods.dao.GoodsPlatFormDao;
+import com.jojowonet.modules.goods.dao.GoodsPlatFormDetailDao;
+import com.jojowonet.modules.goods.dao.GoodsPlatFormOrderDao;
+import com.jojowonet.modules.goods.dao.GoodsPlatformTransferOrderDao;
+import com.jojowonet.modules.goods.entity.GoodsPlatformOrder;
+import com.jojowonet.modules.goods.entity.GoodsPlatformTransferOrder;
+import com.jojowonet.modules.goods.service.GoodsPlatformTransferOrderService;
+import com.jojowonet.modules.goods.utils.HttpUtils;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.AreaManagerService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+
+@Controller
+@RequestMapping(value = "${adminPath}/goods/nanDao")
+public class GoodsPlatformTransferOrderController extends BaseController {
+	/*
+	 * @Autowired private SiteselfOrderService siteselfOrderService;
+	 * 
+	 * @Autowired private PlatFormOrderService platFormOrderService;
+	 */
+	@Autowired
+	private GoodsPlatformTransferOrderService goodsPlatformTransferOrderService;
+	@Autowired
+	private GoodsPlatformTransferOrderDao goodsPlatformTransferOrderDao;
+	@Autowired
+	private GoodsPlatFormDao goodsPlatFormDao;
+	@Autowired
+	private GoodsPlatFormDetailDao goodsPlatFormDetailDao;
+	@Autowired
+	private InvoiceMsgService invoiceMsgService;
+	@Autowired
+	private InvoiceAddressService invoiceAddressService;
+	@Autowired
+	private GoodsPlatFormOrderDao goodsPlatFormOrderDao;
+	@Autowired
+	private AreaManagerService areaManagerService;
+
+	@RequestMapping(value = "sysOrder")
+	public String getSysNadaoHeader(HttpServletRequest request, HttpServletResponse response, Model model) {
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(null, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		return "modules/goods/nandaoOrderSys";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "nandaoGrid")
+	public String nandaoGrid(HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = request.getParameterMap();
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = goodsPlatformTransferOrderService.nandaoGrid(pages, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	@RequestMapping(value = "exports")
+	public String exports(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Map<String, Object> map = request.getParameterMap();
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			Page<Record> page = goodsPlatformTransferOrderService.nandaoGrid(pages, map);
+			List<Record> list = page.getList();
+			for (Record rd : list) {
+				if ("0".equals(rd.getStr("status"))) {
+					rd.set("status", "待审核");
+					rd.set("sendgood_time", "");
+				} else if ("1".equals(rd.getStr("status"))) {
+					rd.set("status", "待出库");
+					rd.set("sendgood_time", "");
+				} else if ("2".equals(rd.getStr("status"))) {
+					rd.set("status", "已完成");
+					rd.set("sendgood_time", rd.getDate("sendgood_time"));
+				} else if ("3".equals(rd.getStr("status"))) {
+					rd.set("status", "审核未通过");
+					rd.set("sendgood_time", rd.getDate("no_pass_time"));
+				} else if ("4".equals(rd.getStr("status"))) {
+					rd.set("status", "已取消");
+					rd.set("sendgood_time", rd.getDate("no_pass_time"));
+				} else {
+					rd.set("status", "---");
+					rd.set("sendgood_time", "");
+				}
+
+				/*
+				 * if("3".equals(rd.getStr("review_status"))){
+				 * if("漏电保护插头 10A（升级版）".equals(rd.getStr("good_name"))||"漏电保护插头 16A（升级版）".equals
+				 * (rd.getStr("good_name"))){ rd.set("review_status","可开票"); }else{
+				 * rd.set("review_status","不可开票"); } }else { rd.set("review_status","不可开票"); }
+				 */
+			}
+			jarray.remove(0);
+			jarray.remove(0);
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "detail")
+	public Record getDetailById(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		return goodsPlatformTransferOrderService.getDetailById(id);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "platformDetail")
+	public Record platformDetail(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		return goodsPlatformTransferOrderService.getPlatformDetailById(id);
+	}
+
+	/*
+	 * 公众号订单
+	 */
+	@ResponseBody
+	@RequestMapping(value = "publicNumberformDetail")
+	public Record publicNumberformDetail(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		return goodsPlatformTransferOrderService.getPublicNumberformDetailById(id);
+	}
+
+	/*
+	 * 查看商品物流信息
+	 */
+	@RequestMapping(value = "logsitDetailforPlat")
+	public String logsitDetailforPlat(HttpServletRequest request, Model model) {
+		Map<String, Object> mas = Maps.newHashMap();
+		String id = request.getParameter("id");
+		Record rd = Db.findFirst("SELECT logistics_name,logistics_no FROM crm_goods_platform_customer_order WHERE id=? ", id);
+		Map<String, String> map = HttpUtils.getLogistics(rd.getStr("logistics_no"), rd.getStr("logistics_name"));
+		List<Map.Entry<String, String>> list = HttpUtils.sort(map);
+		model.addAttribute("type", 3);
+		model.addAttribute("list", list);
+		mas.put("logisticsName", rd.getStr("logistics_name"));
+		mas.put("logisticsNo", rd.getStr("logistics_no"));
+		model.addAttribute("orderDetail", mas);
+		return "modules/" + "goods/ContinuePayFoundation";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "outStockConfirm")
+	public String outStockConfirm(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		String logisticsName = request.getParameter("logisticsName");
+		String logisticsNo = request.getParameter("logisticsNo");
+		String goodId = request.getParameter("goodId");
+		String outAmount = request.getParameter("outAmount");
+		String outType = request.getParameter("outType");
+		String remark = request.getParameter("remark");
+		Record re = Db.findFirst("select * from crm_goods_platform where id=? ", goodId);
+		if ("0".equals(outType)) {
+			double resu = re.getBigDecimal("stocks").doubleValue() - Double.valueOf(outAmount);
+			if (resu < 0) {
+				return "405";
+			}
+		}
+		logger.info("出库操作前商品信息：【" + goodsPlatFormDao.get(goodId).getName() + "】【库存数量" + goodsPlatFormDao.get(goodId).getStocks());
+		GoodsPlatformTransferOrder tranOrder = goodsPlatformTransferOrderDao.get(id);
+		String result = "555";
+		if ("1".equals(tranOrder.getStatus())) {
+			result = goodsPlatformTransferOrderService.outStockConfirm(id, logisticsName, logisticsNo, goodId, outAmount, outType, remark);
+		}
+		// 添加出库表当前库存
+		goodsPlatformTransferOrderService.getPlatFormStockAndUpdateDetail(goodId, id, BigDecimal.valueOf(Double.valueOf(outAmount)));
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "outStockConfirmForPlatform")
+	public String outStockConfirmForPLatform(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		String logisticsName = request.getParameter("logisticsName");
+		String logisticsNo = request.getParameter("logisticsNo");
+		String goodId = request.getParameter("goodId");
+		String outAmount = request.getParameter("outAmount");
+		String outType = request.getParameter("outType");
+		String goodType = request.getParameter("goodType");
+		Record re = Db.findFirst("select * from crm_goods_platform where id=? ", goodId);
+		if ("0".equals(outType)) {
+			double resu = re.getBigDecimal("stocks").doubleValue() - Double.valueOf(outAmount);
+			if (resu < 0) {
+				return "405";
+			}
+		}
+		logger.info("出库操作前商品信息：【" + goodsPlatFormDao.get(goodId).getName() + "】【库存数量" + goodsPlatFormDao.get(goodId).getStocks());
+		String result = "555";
+		if (StringUtil.isNotBlank(goodType)) {
+			String status = Db.queryStr("SELECT status FROM crm_goods_platform_customer_order WHERE id= ? ", id);
+			if ("1".equals(status)) {
+				result = goodsPlatformTransferOrderService.outStockConfirmForPlat(id, logisticsName, logisticsNo, goodId, outAmount, outType, goodType);
+			}
+		} else {
+			GoodsPlatformOrder tranOrder = goodsPlatFormOrderDao.get(id);
+			if ("2".equals(tranOrder.getStatus())) {
+				result = goodsPlatformTransferOrderService.outStockConfirmForPlat(id, logisticsName, logisticsNo, goodId, outAmount, outType, goodType);
+			}
+		}
+		// 添加出库表当前库存
+		goodsPlatformTransferOrderService.getPlatFormStockAndUpdateDetail(goodId, id, BigDecimal.valueOf(Double.valueOf(outAmount)));
+		return result;
+	}
+
+	/*
+	 * 公众号商品订单出库
+	 */
+	@ResponseBody
+	@RequestMapping(value = "outStockConfirmPublicNumberform")
+	public String outStockConfirmPublicNumberform(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		String logisticsName = request.getParameter("logisticsName");
+		String logisticsNo = request.getParameter("logisticsNo");
+		String goodId = request.getParameter("goodId");
+		String outAmount = request.getParameter("outAmount");
+		String outType = request.getParameter("outType");
+		Record re = Db.findFirst("select * from crm_goods_platform where id=? ", goodId);
+		if ("0".equals(outType)) {
+			double resu = re.getBigDecimal("stocks").doubleValue() - Double.valueOf(outAmount);
+			if (resu < 0) {
+				return "405";
+			}
+		}
+		String goodType = "1";
+		logger.info("出库操作前商品信息：【" + goodsPlatFormDao.get(goodId).getName() + "】【库存数量" + goodsPlatFormDao.get(goodId).getStocks());
+		String status = Db.queryStr("SELECT status FROM crm_goods_platform_customer_order WHERE id= ? ", id);
+		String result = "555";
+		if ("2".equals(status)) {
+			result = goodsPlatformTransferOrderService.outStockConfirmForPlat(id, logisticsName, logisticsNo, goodId, outAmount, outType, goodType);
+		}
+		// 添加出库表当前库存
+		goodsPlatformTransferOrderService.getPlatFormStockAndUpdateDetail(goodId, id, BigDecimal.valueOf(Double.valueOf(outAmount)));
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "updatelogistics")
+	public String updatelogistics(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		String logisticsName = request.getParameter("logisticsName");
+		String logisticsNo = request.getParameter("logisticsNo");
+		return goodsPlatformTransferOrderService.updatelogistics(id, logisticsName, logisticsNo);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "updatelogisticsForPlat")
+	public String updatelogisticsForPlat(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		String logisticsName = request.getParameter("logisticsName");
+		String logisticsNo = request.getParameter("logisticsNo");
+		return goodsPlatformTransferOrderService.updatelogisticsForPLat(id, logisticsName, logisticsNo);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "pass")
+	public String pass(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		String remark = request.getParameter("remark");
+		return goodsPlatformTransferOrderService.pass(id, remark);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "passForPlatform")
+	public String passForPlatform(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("id");
+		String remark = request.getParameter("remark");
+		return goodsPlatformTransferOrderService.passForPLatform(id, remark);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "updateOrder")
+	public String updateOrder(HttpServletRequest request) {
+		Map<String, Object> maps = Maps.newHashMap();
+		maps.put("orderId", request.getParameter("orderId"));
+		maps.put("payType", request.getParameter("payType"));
+		maps.put("outAmount", request.getParameter("outAmount"));
+		maps.put("outType", request.getParameter("outType"));
+		maps.put("logisticsName", request.getParameter("logisticsName"));
+		maps.put("logisticsNo", request.getParameter("logisticsNo"));
+		maps.put("remark", request.getParameter("remark"));
+		String result = "403";
+		int yunu = 0;// 若修改后库存数量
+		GoodsPlatformTransferOrder gpto = goodsPlatformTransferOrderDao.get(request.getParameter("orderId"));
+		if (!"0".equals(gpto.getStatus()) && !"1".equals(gpto.getStatus())) {
+			BigDecimal amo = goodsPlatFormDetailDao.getByHql("from GoodsPlatformDetail where order_id='" + request.getParameter("orderId") + "' ").getAmount();
+			BigDecimal amoN = BigDecimal.valueOf(Double.valueOf(request.getParameter("outAmount")));
+			BigDecimal moun = amoN.subtract(amo);
+			yunu = (goodsPlatFormDao.get(gpto.getGoodId()).getStocks().subtract(moun)).intValue();
+		}
+		logger.info("修改操作前：【商品库存：" + goodsPlatFormDao.get(gpto.getGoodId()).getStocks() + "】【商品名称：" + goodsPlatFormDao.get(gpto.getGoodId()).getName());
+		if (!"0".equals(gpto.getStatus()) && !"1".equals(gpto.getStatus())) {
+			BigDecimal amo = goodsPlatFormDetailDao.getByHql("from GoodsPlatformDetail where order_id='" + request.getParameter("orderId") + "' ").getAmount();
+			logger.info("上一次出库数量：" + amo);
+		}
+		if ("0".equals(gpto.getStatus()) || "1".equals(gpto.getStatus())) {
+			result = goodsPlatformTransferOrderService.updateOrder(maps);
+		} else {
+			if (yunu < 0) {
+				result = "403";
+				logger.info("库存不足未做修改！！！！！");
+			} else {
+				result = goodsPlatformTransferOrderService.updateOrder(maps);
+			}
+		}
+		// 添加出库表当前库存
+		if (!"0".equals(gpto.getStatus()) && !"1".equals(gpto.getStatus())) {
+			goodsPlatformTransferOrderService.getPlatFormStockAndUpdateDetail(gpto.getGoodId(), request.getParameter("orderId"),
+					BigDecimal.valueOf(Double.valueOf(request.getParameter("outAmount"))));
+		}
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "updateOrderForPlatform")
+	public String updateOrderForPlatform(HttpServletRequest request) {
+		Map<String, Object> maps = Maps.newHashMap();
+		maps.put("orderId", request.getParameter("orderId"));
+		maps.put("payType", request.getParameter("payType"));
+		maps.put("outAmount", request.getParameter("outAmount"));
+		maps.put("outType", request.getParameter("outType"));
+		maps.put("logisticsName", request.getParameter("logisticsName"));
+		maps.put("logisticsNo", request.getParameter("logisticsNo"));
+		maps.put("remark", request.getParameter("remark"));
+		String result = "403";
+		int yunu = 0;// 若修改后库存数量
+		GoodsPlatformOrder gpto = goodsPlatFormOrderDao.get(request.getParameter("orderId"));
+		if (!"0".equals(gpto.getStatus()) && !"1".equals(gpto.getStatus())) {
+			BigDecimal amo = goodsPlatFormDetailDao.getByHql("from GoodsPlatformDetail where order_id='" + request.getParameter("orderId") + "' ").getAmount();
+			BigDecimal amoN = BigDecimal.valueOf(Double.valueOf(request.getParameter("outAmount")));
+			BigDecimal moun = amoN.subtract(amo);
+			yunu = (goodsPlatFormDao.get(gpto.getGoodId()).getStocks().subtract(moun)).intValue();
+		}
+		logger.info("修改操作前：【商品库存：" + goodsPlatFormDao.get(gpto.getGoodId()).getStocks() + "】【商品名称：" + goodsPlatFormDao.get(gpto.getGoodId()).getName());
+		if (!"0".equals(gpto.getStatus()) && !"1".equals(gpto.getStatus())) {
+			BigDecimal amo = goodsPlatFormDetailDao.getByHql("from GoodsPlatformDetail where order_id='" + request.getParameter("orderId") + "' ").getAmount();
+			logger.info("上一次出库数量：" + amo);
+		}
+		if ("0".equals(gpto.getStatus()) || "1".equals(gpto.getStatus())) {
+			result = goodsPlatformTransferOrderService.updateOrderForPlatform(maps);
+		} else {
+			if (yunu < 0) {
+				result = "403";
+				logger.info("库存不足未做修改！！！！！");
+			} else {
+				result = goodsPlatformTransferOrderService.updateOrderForPlatform(maps);
+			}
+		}
+		// 添加出库表当前库存
+		if (!"0".equals(gpto.getStatus()) && !"1".equals(gpto.getStatus())) {
+			goodsPlatformTransferOrderService.getPlatFormStockAndUpdateDetail(gpto.getGoodId(), request.getParameter("orderId"),
+					BigDecimal.valueOf(Double.valueOf(request.getParameter("outAmount"))));
+		}
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "noPass")
+	public String noPass(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("noPassId");
+		String reason = request.getParameter("reason");
+		String remark = request.getParameter("remark");
+		return goodsPlatformTransferOrderService.noPass(id, reason, remark);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "noPassForPlatform")
+	public String noPassForPlatform(HttpServletRequest request, HttpServletResponse response) {
+		String id = request.getParameter("noPassId");
+		String reason = request.getParameter("reason");
+		String remark = request.getParameter("remark");
+		return goodsPlatformTransferOrderService.noPassForPlatform(id, reason, remark);
+	}
+
+	// 获取服务商商品出入库明细表头(商品购买记录)
+	@RequestMapping(value = "list")
+	public String list(HttpServletRequest request, Model model) {
+
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		String userId = UserUtils.getUser().getId();
+		model.addAttribute("headerData", stf);
+		Record invoiceMsg = invoiceMsgService.getInvoiceMsg(siteId, userId);
+		Record invoiceAddress = invoiceAddressService.getInvoiceAddress(siteId, userId);
+		model.addAttribute("invoiceMsg", invoiceMsg);
+		model.addAttribute("invoiceAddress", invoiceAddress);
+		return "modules/" + "goods/especialyGoodsOrderDetail";
+	}
+
+	// 获取服务商购买的平台商品交易记录
+	@RequestMapping(value = "getPlatfromGoodsRecord")
+	public String getSiteFitKeepList(HttpServletRequest request, HttpServletResponse response, Model model) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		String userId = user.getId();
+		Map<String, Object> map = getParams(request);
+		Record invoiceMsg = invoiceMsgService.getInvoiceMsg(siteId, userId);
+		Record invoiceAddress = invoiceAddressService.getInvoiceAddress(siteId, userId);
+		model.addAttribute("invoiceMsg", invoiceMsg);
+		model.addAttribute("invoiceAddress", invoiceAddress);
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = null;
+		page = goodsPlatformTransferOrderService.getPlatformGoodsRecord(pages, siteId, map);
+		model.addAttribute("page", page);
+		model.addAttribute("placeOrderMan", CrmUtils.getAllSiteManInfo(siteId));
+		model.addAttribute("searchValues", map);
+		return "modules/" + "goods/especialyGoodsOrderDetail";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "repeatConmit")
+	public void repeatConmit(HttpServletRequest request, Model model) {
+		String id = request.getParameter("id");
+		String num = request.getParameter("num");
+		String customerName = request.getParameter("customerName");
+		String customerMobile = request.getParameter("customerMobile");
+		String address = request.getParameter("address");
+		// String pingzheng=request.getParameter("pingzheng");
+		GoodsPlatformTransferOrder sf = goodsPlatformTransferOrderDao.get(id);
+		if (request.getParameter("icon") != null && !"".equals(request.getParameter("icon"))) {
+			sf.setPayConfirm(request.getParameter("icon"));
+		}
+		sf.setPurchaseNum(BigDecimal.valueOf(Double.valueOf(num)));
+		sf.setStatus("0");
+		sf.setCustomerName(customerName);
+		sf.setCustomerContact(customerMobile);
+		sf.setCustomerAddress(address);
+		goodsPlatformTransferOrderDao.save(sf);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "cancelOrder")
+	public String cancelOrder(HttpServletRequest request, Model model) {
+		String id = request.getParameter("id");
+		String result = "ok";
+		try {
+			goodsPlatformTransferOrderService.cancelOrder(id);
+		} catch (Exception e) {
+			e.printStackTrace();
+			result = "fail";
+		} finally {
+			return result;
+		}
+	}
+
+	/**
+	 * 平台商品取消订单
+	 */
+	@ResponseBody
+	@RequestMapping(value = "cancelOrderForPlat")
+	public String cancelOrderForPlat(HttpServletRequest request, Model model) {
+		String id = request.getParameter("id");
+		String result = "ok";
+		try {
+			goodsPlatformTransferOrderService.cancelOrderForPlat(id);
+		} catch (Exception e) {
+			e.printStackTrace();
+			result = "fail";
+		} finally {
+			return result;
+		}
+	}
+
+	@RequestMapping(value = "continuePay")
+	public String continuePay(HttpServletRequest request, Model model) {
+		String type = request.getParameter("type");
+		String id = request.getParameter("id");
+		GoodsPlatformTransferOrder nd = goodsPlatformTransferOrderDao.get(id);
+		model.addAttribute("type", type);
+		model.addAttribute("orderDetail", nd);
+		return "modules/" + "goods/continuePay";
+	}
+
+	/*
+	 * 查看漏报商品物流信息
+	 */
+	@RequestMapping(value = "logsitDetail")
+	public String logsitDetail(HttpServletRequest request, Model model) {
+		String id = request.getParameter("id");
+		Map<String, List<Map.Entry<String, String>>> mapss = Maps.newHashMap();
+		GoodsPlatformTransferOrder nd = goodsPlatformTransferOrderDao.get(id);
+		String logistucsNo = nd.getLogisticsNo();
+		String[] logs = logistucsNo.split(",");
+		for (String logNo : logs) {
+			Map<String, String> map = HttpUtils.getLogistics(logNo, nd.getLogisticsName());
+			List<Map.Entry<String, String>> list = HttpUtils.sort(map);
+			mapss.put(logNo, list);
+		}
+		model.addAttribute("type", 3);
+		model.addAttribute("mapss", mapss);
+		model.addAttribute("orderDetail", nd);
+		return "modules/" + "goods/continuePay";
+	}
+
+	// 商品购买记录导出
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value = "export")
+	public String exportFile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String, Object> map = request.getParameterMap();
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			jarray.remove(0);
+			jarray.remove(0);
+			List<Record> list = goodsPlatformTransferOrderService.nandaoGrid(pages, map).getList();
+			Date now = new Date();
+			if (list.size() > 0) {
+				for (Record rd : list) {
+					if (rd.getStr("status") != null) {
+						String status = rd.getStr("status");
+						if (status.equals("0")) {
+							rd.set("status", "待审核 ");
+						} else if (status.equals("1")) {
+							rd.set("status", "待出库");
+						} else if (status.equals("2")) {
+							rd.set("status", "已完成");
+						} else if (status.equals("3")) {
+							rd.set("status", "审核不通过");
+						} else if (status.equals("4")) {
+							rd.set("status", "已取消");
+						} else {
+							rd.set("status", "---");
+						}
+					}
+
+					if (StringUtils.isNotBlank(rd.getStr("had_logistics_price"))) {
+						if ("0".equals(rd.getStr("had_logistics_price"))) {
+							rd.set("had_logistics_price", "免运费");
+						} else if ("1".equals(rd.getStr("had_logistics_price"))) {
+							rd.set("had_logistics_price", "不免运费");
+						} else {
+							rd.set("had_logistics_price", "");
+						}
+					}
+
+					if ("1".equals(rd.getStr("distributionType"))) {
+						rd.set("distributionType", "自动分配");
+					} else if ("2".equals(rd.getStr("distributionType"))) {
+						rd.set("distributionType", "手动分配");
+					} else {
+						rd.set("distributionType", "");
+					}
+
+					if ("0".equals(rd.getStr("payment_type"))) {
+						rd.set("payment_type", "微信");
+					} else if ("1".equals(rd.getStr("payment_type"))) {
+						rd.set("payment_type", "支付宝");
+					} else {
+						rd.set("payment_type", "---");
+					}
+
+					if (rd.getDate("due_time") == null || "".equals(rd.getDate("due_time"))) {
+						rd.set("due_time", "免费版");
+					} else {
+						if (rd.getDate("due_time").getTime() >= now.getTime()) {
+							rd.set("due_time", "收费版");
+						} else {
+							rd.set("due_time", "免费版");
+						}
+					}
+				}
+			}
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+
+	// 商品购买记录导出
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value = "exportForPlat")
+	public String exportForPlat(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			String goodType = request.getParameter("goodType");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String, Object> map = request.getParameterMap();
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			jarray.remove(0);
+			jarray.remove(0);
+			List<Record> list = null;
+			if (StringUtil.isBlank(goodType)) {
+				list = goodsPlatformTransferOrderService.getAllPlatformOrdersForExport(pages, map);
+			} else {
+				list = goodsPlatformTransferOrderService.getPublicNumberOrdersForExport(pages, map);
+			}
+			Date now = new Date();
+			if (list.size() > 0) {
+				for (Record rd : list) {
+					if (rd.getStr("status") != null) {
+						String status = rd.getStr("status");
+						if (status.equals("0")) {
+							rd.set("status", "待审核 ");
+						} else if (status.equals("2")) {
+							rd.set("status", "待出库 ");
+						} else if (status.equals("3")) {
+							rd.set("status", "待出库");
+						} else if (status.equals("4")) {
+							rd.set("status", "已完成");
+						} else if (status.equals("6")) {
+							rd.set("status", "审核不通过");
+						} else if (status.equals("5")) {
+							rd.set("status", "已取消");
+						} else {
+							rd.set("status", "---");
+						}
+					}
+
+					if (StringUtils.isNotBlank(rd.getStr("had_logistics_price"))) {
+						if ("0".equals(rd.getStr("had_logistics_price"))) {
+							rd.set("had_logistics_price", "免运费");
+						} else if ("1".equals(rd.getStr("had_logistics_price"))) {
+							rd.set("had_logistics_price", "不免运费");
+						} else {
+							rd.set("had_logistics_price", "");
+						}
+					}
+					if (StringUtils.isNotBlank(rd.getStr("out_stock_type"))) {
+						if ("0".equals(rd.getStr("out_stock_type"))) {
+							rd.set("out_stock_type", "公司库存");
+						} else if ("1".equals(rd.getStr("out_stock_type"))) {
+							rd.set("out_stock_type", "厂家库存");
+						} else {
+							rd.set("out_stock_type", "");
+						}
+					}
+
+					if ("1".equals(rd.getStr("distributionType"))) {
+						rd.set("distributionType", "自动分配");
+					} else if ("2".equals(rd.getStr("distributionType"))) {
+						rd.set("distributionType", "手动分配");
+					} else {
+						rd.set("distributionType", "");
+					}
+
+					if ("0".equals(rd.getStr("payment_type"))) {
+						rd.set("payment_type", "微信");
+					} else if ("1".equals(rd.getStr("payment_type"))) {
+						rd.set("payment_type", "支付宝");
+					} else {
+						rd.set("payment_type", "---");
+					}
+
+					if (rd.getDate("due_time") == null || "".equals(rd.getDate("due_time"))) {
+						rd.set("due_time", "免费版");
+					} else {
+						if (rd.getDate("due_time").getTime() >= now.getTime()) {
+							rd.set("due_time", "收费版");
+						} else {
+							rd.set("due_time", "免费版");
+						}
+					}
+				}
+			}
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getAllSouthIslands")
+	public List<Record> getAllSouthIslands(HttpServletRequest request) {
+		String id = request.getParameter("id");
+		String de = request.getParameter("de");
+		String[] names = { "BS20180107", "BS20180108" };
+		String sql = null;
+		if ("1".equals(de)) {
+			sql = "select * from crm_goods_platform where brand='南岛' and id != '" + id + "' and sell_flag='1' and good_sign not in (" + StringUtil.joinInSql(names)
+					+ ") and status='0' ";
+		} else if ("2".equals(de)) {
+			sql = "select * from crm_goods_platform where brand='南岛' and id = '" + id + "' and sell_flag='1' and good_sign not in (" + StringUtil.joinInSql(names)
+					+ ") and status='0' ";
+		}
+		List<Record> list = Db.find(sql);
+		for (Record re : list) {
+			if (StringUtils.isNotBlank(re.getStr("icon"))) {
+				re.set("picture", re.getStr("icon").split(",")[0]);
+			}
+		}
+		return list;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getAllSouthIslandsNew")
+	public List<Record> getAllSouthIslandsNew(HttpServletRequest request) {
+		String id = request.getParameter("id");
+		String de = request.getParameter("de");
+		String[] names = { "LB18102201", "LB18102202", "BS20180107", "BS20180108" };
+		String sql = "select * from crm_goods_platform where brand='南岛' and id not in (" + StringUtil.joinInSql(id.split(",")) + ") and sell_flag='1' and good_sign in ("
+				+ StringUtil.joinInSql(names) + ") and status='0' ";
+		List<Record> list = Db.find(sql);
+		for (Record re : list) {
+			if (StringUtils.isNotBlank(re.getStr("icon"))) {
+				re.set("picture", re.getStr("icon").split(",")[0]);
+			}
+		}
+		return list;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getAllSouthIslandsNewSlt")
+	public List<Record> getAllSouthIslandsNewSlt(HttpServletRequest request) {
+		String id = request.getParameter("id");
+		String de = request.getParameter("de");
+		String[] names = { "WT18040301", "WT18040302", "WT18040303" };
+		String sql = "select * from crm_goods_platform where  id not in (" + StringUtil.joinInSql(id.split(",")) + ") and sell_flag='1' and good_sign in ("
+				+ StringUtil.joinInSql(names) + ") and status='0' ";
+		List<Record> list = Db.find(sql);
+		for (Record re : list) {
+			if (StringUtils.isNotBlank(re.getStr("icon"))) {
+				re.set("picture", re.getStr("icon").split(",")[0]);
+			}
+		}
+		return list;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getAllSouthIslandsUpgrade")
+	public List<Record> getAllSouthIslandsUpgrade(HttpServletRequest request) {
+		String id = request.getParameter("id");
+		String[] names = { "LB20180105", "LB20180106" };
+		String[] ids = id.split(",");
+		String sql = "select * from crm_goods_platform where brand='南岛' and id not in (" + StringUtil.joinInSql(ids) + ") and good_sign not in (" + StringUtil.joinInSql(names)
+				+ ") and sell_flag='1' and status='0' ";
+		List<Record> reList = Db.find(sql);
+		for (Record re : reList) {
+			if (StringUtils.isNotEmpty(re.getStr("icon"))) {
+				String[] str = re.getStr("icon").split(",");
+				re.set("icon", str[0]);
+			}
+		}
+		return reList;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getAllDetergent")
+	public List<Record> getAllDetergent(HttpServletRequest request) {
+		String id = request.getParameter("id");
+		String[] ids = id.split(",");
+		String[] goodsSign = { "QJ18040201", "QJ18040202" };
+		String sql = "select * from crm_goods_platform where good_sign in (" + StringUtil.joinInSql(goodsSign) + ") and id not in (" + StringUtil.joinInSql(ids)
+				+ ") and sell_flag='1' and status='0' ";
+		List<Record> reList = Db.find(sql);
+		for (Record re : reList) {
+			if (StringUtils.isNotEmpty(re.getStr("icon"))) {
+				String[] str = re.getStr("icon").split(",");
+				re.set("icon", str[0]);
+			}
+		}
+		return reList;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getAllReFrigerator")
+	public List<Record> getAllReFrigerator(HttpServletRequest request) {
+		String id = request.getParameter("id");
+		String[] ids = id.split(",");
+		String[] goodsSign = { "MD20180716", "MD20180717" };
+		String sql = "select * from crm_goods_platform where good_sign in (" + StringUtil.joinInSql(goodsSign) + ") and id not in (" + StringUtil.joinInSql(ids)
+				+ ") and sell_flag='1' and status='0' ";
+		List<Record> reList = Db.find(sql);
+		for (Record re : reList) {
+			if (StringUtils.isNotEmpty(re.getStr("icon"))) {
+				String[] str = re.getStr("icon").split(",");
+				re.set("icon", str[0]);
+			}
+		}
+		return reList;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "getSouthIslandById")
+	public Record getSouthIslandById(HttpServletRequest request) {
+		String id = request.getParameter("id");
+		String sql = "select * from crm_goods_platform where id = '" + id + "' ";
+		return Db.findFirst(sql);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "checkPriceForFlavorBox")
+	public String checkPriceForFlavorBox(HttpServletRequest request) {
+		String price10A = request.getParameter("price10A");
+		String zong10A = request.getParameter("zong10A");
+		String quantity10 = request.getParameter("quantity10");
+		// 运费
+		String logisticsPrice = request.getParameter("logisticsPrice");
+		String unit10A = request.getParameter("unit10A");
+		if ("箱".equals(unit10A)) {
+			int quan10 = Integer.parseInt(quantity10) * 144;
+			quantity10 = String.valueOf(quan10);
+		}
+		String result = "ok";
+		if (Double.valueOf(quantity10) >= 144) {
+			BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)));
+			if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+				result = "fal";
+			}
+		} else if (Double.valueOf(quantity10) < 144 && Double.valueOf(10) <= Double.valueOf(quantity10)) {
+			BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)))
+					.add(BigDecimal.valueOf(Double.valueOf(logisticsPrice)));
+			if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+				result = "fal";
+			}
+		}
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "checkPrice")
+	public String checkPrice(HttpServletRequest request) {
+		String pid10A = request.getParameter("pid10A");
+		String pid16A = request.getParameter("pid16A");
+		String price10A = request.getParameter("price10A");
+		String price16A = request.getParameter("price16A");
+		String zong10A = request.getParameter("zong10A");
+		String zong16A = request.getParameter("zong16A");
+		String quantity10 = request.getParameter("quantity10");
+		String quantity16 = request.getParameter("quantity16");
+		String logisticsPrice = request.getParameter("logisticsPrice");// 运费
+		String unit16A = request.getParameter("unit16A");
+		String unit10A = request.getParameter("unit10A");
+		if ("箱".equals(unit10A)) {
+			int quan10 = Integer.parseInt(quantity10) * 144;
+			quantity10 = String.valueOf(quan10);
+		}
+		if ("箱".equals(unit16A)) {
+			int quan16 = Integer.parseInt(quantity16) * 144;
+			quantity16 = String.valueOf(quan16);
+		}
+
+		String result = "ok";
+		if (StringUtils.isNotBlank(pid10A) && StringUtils.isBlank(pid16A)) {// 只有一个商品（10A）
+			if (Double.valueOf(quantity10) >= 144) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)));
+				if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+			} else if (Double.valueOf(quantity10) < 144 && Double.valueOf(15) <= Double.valueOf(quantity10)) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)))
+						.add(BigDecimal.valueOf(Double.valueOf(logisticsPrice)));
+				if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+			}
+		} else if (StringUtils.isNotBlank(pid16A) && StringUtils.isBlank(pid10A)) {// 只有一个商品（16A）
+			if (Double.valueOf(quantity16) >= 144) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)));
+				if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+			} else if (Double.valueOf(quantity16) < 144 && Double.valueOf(15) <= Double.valueOf(quantity16)) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)))
+						.add(BigDecimal.valueOf(Double.valueOf(logisticsPrice)));
+				if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+			}
+		} else {
+			if (Double.valueOf(quantity10) + Double.valueOf(quantity16) >= 144) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)));
+				if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+
+				BigDecimal value2 = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)));
+				if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value2) != 0) {
+					result = "fal";
+				}
+			} else if (Double.valueOf(quantity10) + Double.valueOf(quantity16) < 144 && Double.valueOf(15) <= Double.valueOf(quantity10) + Double.valueOf(quantity16)) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)))
+						.add(BigDecimal.valueOf(Double.valueOf(logisticsPrice)));
+				if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+				BigDecimal value2 = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)));
+				if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value2) != 0) {
+					result = "fal";
+				}
+			}
+		}
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "checkPriceNews")
+	public String checkPriceNews(HttpServletRequest request) {
+		String pid10A = request.getParameter("pid10A");
+		String pid16A = request.getParameter("pid16A");
+		String price10A = request.getParameter("price10A");
+		String price16A = request.getParameter("price16A");
+		String zong10A = request.getParameter("zong10A");
+		String zong16A = request.getParameter("zong16A");
+		String quantity10 = request.getParameter("quantity10");
+		String quantity16 = request.getParameter("quantity16");
+		String logisticsPrice = request.getParameter("logisticsPrice");// 运费
+		String unit16A = request.getParameter("unit16A");
+		String unit10A = request.getParameter("unit10A");
+		if ("箱".equals(unit10A)) {
+			int quan10 = Integer.parseInt(quantity10) * 144;
+			quantity10 = String.valueOf(quan10);
+		}
+		if ("箱".equals(unit16A)) {
+			int quan16 = Integer.parseInt(quantity16) * 144;
+			quantity16 = String.valueOf(quan16);
+		}
+
+		String result = "ok";
+		if (StringUtils.isNotBlank(pid10A) && StringUtils.isBlank(pid16A)) {// 只有一个商品（10A）
+			if (Double.valueOf(quantity10) >= 144) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)));
+				if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+			} else if (Double.valueOf(quantity10) < 144 && Double.valueOf(15) <= Double.valueOf(quantity10)) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)))
+						.add(BigDecimal.valueOf(Double.valueOf(logisticsPrice)));
+				if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+			}
+		} else if (StringUtils.isNotBlank(pid16A) && StringUtils.isBlank(pid10A)) {// 只有一个商品（16A）
+			if (Double.valueOf(quantity16) >= 144) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)));
+				if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+			} else if (Double.valueOf(quantity16) < 144 && Double.valueOf(15) <= Double.valueOf(quantity16)) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)))
+						.add(BigDecimal.valueOf(Double.valueOf(logisticsPrice)));
+				if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+			}
+		} else {
+			if (Double.valueOf(quantity10) + Double.valueOf(quantity16) >= 144) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)));
+				if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+
+				BigDecimal value2 = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)));
+				if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value2) != 0) {
+					result = "fal";
+				}
+			} else if (Double.valueOf(quantity10) + Double.valueOf(quantity16) < 144 && Double.valueOf(15) <= Double.valueOf(quantity10) + Double.valueOf(quantity16)) {
+				BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)))
+						.add(BigDecimal.valueOf(Double.valueOf(logisticsPrice)));
+				if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+					result = "fal";
+				}
+				BigDecimal value2 = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)));
+				if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value2) != 0) {
+					result = "fal";
+				}
+			}
+		}
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "checkPriceForRefrigertor")
+	public String checkPriceForRefrigertor(HttpServletRequest request) {
+		String pid10A = request.getParameter("pid10A");
+		String pid16A = request.getParameter("pid16A");
+		String price10A = request.getParameter("price10A");
+		String price16A = request.getParameter("price16A");
+		String zong10A = request.getParameter("zong10A");
+		String zong16A = request.getParameter("zong16A");
+		String quantity10 = request.getParameter("quantity10");
+		String quantity16 = request.getParameter("quantity16");
+
+		String result = "ok";
+		if (StringUtils.isNotBlank(pid10A) && StringUtils.isBlank(pid16A)) {// 只有一个商品（10A）
+			BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)));
+			if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+				result = "fal";
+			}
+		} else if (StringUtils.isNotBlank(pid16A) && StringUtils.isBlank(pid10A)) {// 只有一个商品（16A）
+			BigDecimal value = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)));
+			if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value) != 0) {
+				result = "fal";
+			}
+		} else {
+			BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)));
+			if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+				result = "fal";
+			}
+			BigDecimal value2 = BigDecimal.valueOf(Double.valueOf(price16A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity16)));
+			if (BigDecimal.valueOf(Double.valueOf(zong16A)).compareTo(value2) != 0) {
+				result = "fal";
+			}
+		}
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "checkPriceForPlat")
+	public String checkPriceForPlat(HttpServletRequest request) {
+		String pid10A = request.getParameter("pid10A");
+		String pid16A = request.getParameter("pid16A");
+		String price10A = request.getParameter("price10A");
+		String price16A = request.getParameter("price16A");
+		String zong10A = request.getParameter("zong10A");
+		String zong16A = request.getParameter("zong16A");
+		String quantity10 = request.getParameter("quantity10");
+		String quantity16 = request.getParameter("quantity16");
+		String logisticsPrice = request.getParameter("logisticsPrice");// 运算
+		String unit16A = request.getParameter("unit16A");
+		String unit10A = request.getParameter("unit10A");
+		if ("箱".equals(unit10A)) {
+			int quan10 = Integer.parseInt(quantity10) * 60;
+			quantity10 = String.valueOf(quan10);
+		}
+		if ("箱".equals(unit16A)) {
+			int quan16 = Integer.parseInt(quantity16) * 60;
+			quantity16 = String.valueOf(quan16);
+		}
+
+		String result = "ok";
+		if (StringUtils.isNotBlank(pid10A) && StringUtils.isBlank(pid16A)) {// 只有一个商品（10A）
+			BigDecimal value = BigDecimal.valueOf(Double.valueOf(price10A)).multiply(BigDecimal.valueOf(Double.valueOf(quantity10)))
+					.add(BigDecimal.valueOf(Double.valueOf(logisticsPrice)));
+			if (BigDecimal.valueOf(Double.valueOf(zong10A)).compareTo(value) != 0) {
+				result = "fal";
+			}
+		} else if (StringUtils.isNotBlank(pid16A) && StringUtils.isBlank(pid10A)) {// 只有一个商品（16A）
+			if (Double.valueOf(zong16A) != Double.valueOf(price16A) * Double.valueOf(quantity16) + Double.valueOf(logisticsPrice)) {
+				result = "fal";
+			}
+		} else {
+			if (Double.valueOf(zong10A) != Double.valueOf(price10A) * Double.valueOf(quantity10) + Double.valueOf(logisticsPrice)) {
+				result = "fal";
+			}
+			if (Double.valueOf(zong16A) != Double.valueOf(price16A) * Double.valueOf(quantity16)) {
+				result = "fal";
+			}
+		}
+		return result;
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "doInstocks")
+	public Result<T> doInstocks(HttpServletRequest request) {
+		String goodName = request.getParameter("goodName");
+		String goodNumber = request.getParameter("goodNumber");
+		String num = request.getParameter("num");
+		String orderId = request.getParameter("orderId");
+		return goodsPlatformTransferOrderService.doInstocks(goodName, goodNumber, num, orderId);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "selfGoodByNumber")
+	public Record selfGoodByNumber(HttpServletRequest request) {
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		String goodNumber = request.getParameter("goodNumber");
+		return goodsPlatformTransferOrderService.selfGoodByNumber(goodNumber, siteId);
+	}
+
+	/*
+	 * 区管人员权限南岛订单
+	 */
+	@RequestMapping(value = "areaTubecommodityOrder")
+	public String areaTubecommodityOrder(HttpServletRequest request, HttpServletResponse response, Model model) {
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(null, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		Record rd = areaManagerService.getAreaManagerByUserid(UserUtils.getUser().getId());
+		model.addAttribute("areaId", rd.getStr("id"));
+		return "modules/goods/areanandaoOrderTube";
+	}
+
+	/*
+	 * 区域南岛订单
+	 */
+	@RequestMapping(value = "areacommodityOrder")
+	public String areacommodityOrder(HttpServletRequest request, HttpServletResponse response, Model model) {
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(null, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		List<Record> supplist = areaManagerService.areamanagerList();
+		model.addAttribute("supplist", supplist);
+		return "modules/goods/areanandaoOrderSys";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "areaNadaoGrid")
+	public String areaNadaoGrid(HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = getParams(request);
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = goodsPlatformTransferOrderService.areaBindingnandaoGrid(pages, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	/*
+	 * 区管人员权限平台订单
+	 */
+	@RequestMapping(value = "areaTubeAllOrder")
+	public String areaTubeAllOrder(HttpServletRequest request, HttpServletResponse response, Model model) {
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(null, request.getServletPath());
+		Record rd = areaManagerService.getAreaManagerByUserid(UserUtils.getUser().getId());
+		model.addAttribute("areaId", rd.getStr("id"));
+		model.addAttribute("headerData", stf);
+		return "modules/goods/areaAllOrdertube";
+	}
+
+	/*
+	 * 区域平台订单
+	 */
+	@RequestMapping(value = "areaAllOrder")
+	public String areaAllOrder(HttpServletRequest request, HttpServletResponse response, Model model) {
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(null, request.getServletPath());
+		model.addAttribute("headerData", stf);
+		List<Record> supplist = areaManagerService.areamanagerList();
+		model.addAttribute("supplist", supplist);
+		return "modules/goods/areaAllOrderSys";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "areaAllBindingGrid")
+	public String areaAllBindingGrid(HttpServletRequest request, HttpServletResponse response) {
+		Map<String, Object> map = getParams(request);
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = goodsPlatformTransferOrderService.areaAllBindingGrid(pages, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	@RequestMapping(value = "areaexports")
+	public String areaexports(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			String type = request.getParameter("type");
+			Map<String, Object> map = getParams(request);
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			String title = stf.getExcelTitle();
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			Page<Record> page = null;
+			if ("1".equals(type)) {
+				// 区域南岛订单
+				page = goodsPlatformTransferOrderService.areaBindingnandaoGrid(pages, map);
+			} else {
+				page = goodsPlatformTransferOrderService.areaAllBindingGrid(pages, map);
+			}
+			List<Record> list = page.getList();
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+}

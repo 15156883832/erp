@@ -1,0 +1,427 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="decorator" content="base"/>
+<title>全部工单</title>
+</head>
+<body>
+<div class="sfpagebg">
+<div class="sfpage bk-gray table-header-settable">
+<div class="page-orderWait">
+	<div id="tab-system" class="HuiTab">
+		<div class="tabBar cl mb-10">
+			<a class="btn-tabBar current" href="${ctx }/order/getWwgList">全部工单<sup>10</sup></a>
+			<a class="btn-tabBar"  href="${ctx }/order/getWwgList/zbpg">暂不派工<sup>10</sup></a>
+			<a class="btn-tabBar" href="${ctx }/order/getWwgList/jjgd">拒接工单<sup>10</sup></a>
+			<a class="btn-tabBar" href="${ctx }/order/getWwgList/jryy">今日预约<sup>10</sup></a>
+			<p class="f-r btnWrap">
+				<a href="javascript:search();;" class="sfbtn sfbtn-opt"><i class="sficon sficon-search"></i>查询</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt moresearch" id="moresearch" ><i class="sficon sficon-moresearch"></i>更多查询</a>
+				<a href="javascript:;" class="sfbtn sfbtn-opt resetSearchBtn"><i class="sficon sficon-reset"></i>重置</a>
+			</p>
+		</div>
+		<div class="tabCon">
+			<form id="searchForm">
+			<div class="bk-gray pt-10 pb-5">
+				<table class="table table-search">
+					<tr>
+						<th style="width: 76px;" class="text-r">工单编号：</th>
+						<td>
+							<input type="text" class="input-text" name= "number"/>
+						</td>
+						<th style="width: 76px;" class="text-r">用户姓名：</th>
+						<td>
+							<input type="text" class="input-text" name = "customerName"/>
+						</td>
+						<th style="width: 76px;" class="text-r">联系方式：</th>
+						<td>
+							<input type="text" class="input-text" name = "customerMobile"/>
+						</td>
+						<th style="width: 76px;" class="text-r">用户地址：</th>
+						<td>
+							<input type="text" class="input-text" name = "customerAddress"/>
+						</td>
+						<th style="width: 76px;" class="text-r">家电品类：</th>
+						<td>
+							<input type="text" class="input-text" name = "applianceCategory"/>
+						</td>
+					</tr>
+					<tr>
+						<th style="width: 76px;" class="text-r">服务类型：</th>
+						<td>
+							<span class="select-box">
+								<select class="select" name="serveType">
+									<option>请选择</option>
+									<option value="1">维修</option>
+									<option value="2">安装</option>
+									<option value="3">咨询</option>
+									<option value="4">移机</option>
+									<option value="5">拉修</option>
+									<option value="6">其他</option>
+								</select>
+							</span>
+						</td>
+						<th style="width: 76px;" class="text-r">工单来源：</th>
+						<td>
+							<select class="select" name="orderSource" style="width: 140px;">
+								<option>请选择</option>
+								<option value="1">自接</option>
+								<option value="2">厂家</option>
+								<option value="3"></option>
+							</select>
+						</td>
+						<th style="width: 76px;" class="text-r">信息来源：</th>
+						<td>
+							<span class="select-box">
+								<select class="select" name="infoSource">
+									<option>请选择</option>
+									<option value="1">用户</option>
+									<option value="2">厂家派单</option>
+									<option value="3">经销商1</option>
+									<option value="4">经销商2</option>
+									<option value="5">经销商3</option>
+								</select>
+							</span>
+						</td>
+						<th style="width: 76px;" class="text-r">保修类型：</th>
+						<td>
+							<span class="select-box">
+								<select class="select" name="guaranteeType">
+									<option>请选择</option>
+									<option value="1">保内</option>
+									<option value="2"><span style="left:20px;padding-left: 50px;">&nbsp;&nbsp;&nbsp;&nbsp;</span>保外</option>
+								</select>
+							</span>
+						</td>
+						<th style="width: 76px;" class="text-r">家电品牌：</th>
+						<td>
+							<input type="text" class="input-text" />
+						</td>
+					</tr>
+					<tr class="moreCondition" style="display: none;">
+						<th style="width: 76px;" class="text-r">服务方式：</th>
+							<td>
+								<input type="text" class="input-text" id="serviceMode" name = "serviceMode"/>
+							</td>
+						<th style="width: 76px;" class="text-r">预约时间：</th>
+						<td>
+							<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'bookdatemax\')||\'%y-%M-%d\'}'})" id="bookdatemax" name="bookdatemax" value="请选择日期" class="input-text Wdate radius">
+						</td>
+						<th style="width: 76px;" class="text-r">重要程度：</th>
+						<td>
+							<span class="select-box">
+								<select class="select" name="importance">
+									<option>请选择</option>
+									<option value="1">紧急</option>
+									<option value="2">一般</option>
+								</select>
+							</span>
+						</td>
+						<th style="width: 76px;" class="text-r">登记人：</th>
+						<td>
+							<span class="select-box">
+								<select class="select" name="booker">
+									<option>请选择</option>
+									<option value="1">张三</option>
+									<option value="2">李四</option>
+									<option value="3">赵武</option>
+								</select>
+							</span>
+						</td>
+						<th style="width: 76px;" class="text-r">报修时间：</th>
+						<td colspan="3">
+							<input type="text" onfocus="WdatePicker({maxDate:'#F{$dp.$D(\'repairTimeMax\')||\'%y-%M-%d\'}'})" id="repairTimeMin" name="repairTimeMin"  value="" class="input-text Wdate w-120" style="width:120px">
+								至
+								<input type="text" onfocus="WdatePicker({minDate:'#F{$dp.$D(\'repairTimeMin\')}',maxDate:'%y-%M-%d'})" id="repairTimeMax" name="repairTimeMax"  value="" class="input-text Wdate w-120" style="width:120px">
+						</td>
+					</tr>
+				</table>
+			</div>
+			</form>
+			<div class="pt-10 pb-5 cl">
+				<div class="f-l">
+					<a href="javascript:;" class="sfbtn sfbtn-opt" onclick="addNew();"><i class="sficon sficon-add"></i>新建工单</a>
+					<a href="javascript:directDis();" class="sfbtn sfbtn-opt"><i class="sficon sficon-dispatch"></i>派工</a>
+					<a href="javascript:;" class="sfbtn sfbtn-opt"><i class="sficon sficon-notdispatch"></i>暂不派工</a>
+					<a href="javascript:;" class="sfbtn sfbtn-opt"><i class="sficon sficon-invalid"></i>无效工单</a>
+				</div>
+				<div class="f-r">
+					<a href="javascript:;" class="sfbtn sfbtn-opt2 reloadPageBtn"><i class="sficon sficon-reload"></i>刷新页面</a>
+					<a href="javascript:;" class="sfbtn sfbtn-opt2"><i class="sficon sficon-import"></i>导入</a>
+					<a href="javascript:;" class="sfbtn sfbtn-opt2"><i class="sficon sficon-export"></i>导出</a>
+					<a href="javascript:;" class="sfbtn sfbtn-opt2" id="setHeadersBtn"><i class="sficon sficon-setting"></i>表头设置</a>
+				</div>
+								
+			</div>
+			<div>
+				<table id="table-waitdispatch" class="table"></table>
+				<!-- pagination -->
+					<div class="cl pt-10">
+						<div class="f-r">
+							<div class="pagination"></div>
+						</div>
+					</div>
+					<!-- pagination -->
+			</div>
+		</div>
+	</div>
+</div>
+</div>
+</div>
+<!-- 表头设置 -->
+<div class="">
+	<div>
+		<h2></h2>
+	</div>
+</div>
+</div></div>
+
+<!-- 我要派工 -->
+<div class="popupBox dispatch activeDispatch " >
+	<h2 class="popupHead">
+		我要派工
+		<a href="javascript:;" class="sficon closePopup"></a>
+	</h2>
+	<div class="popupContainer">
+		<div class="popupMain cl" >
+			<div class="f-l serversWrap">
+				<div class="searchbox">
+					<input type="text" placeholder="请输入工程师姓名" class="input-text" />
+					<a href="javascript:;" class="btn-search"><i class="Hui-iconfont Hui-iconfont-search2 f-16"></i></a>
+				</div>
+				<div class="mt-10 serverlistWrap">
+					<div class="tableWrap">
+						<table class="table table-border table-bg table-serverlist">
+							<thead>
+								<th class="w-90" style="border-left: none;">工程师姓名</th>
+								<th class="w-100">未完成工单</th>
+								<th class="w-100">今日已完成</th>
+								<th class="w-90">距离</th>
+								<th class="w-80">选择</th>
+							</thead>
+							
+						<tbody id="zhijiepaidan">
+						
+							</tbody>
+						</table>
+					</div>
+					<div class="serversName">
+						<div class="txtwrap1 pos-r">
+							<label class="lb lb1"><em class="c-fe0101">派工至</em>：</label>
+							<p class="lh-30" id="nameWrap"></p>
+							<input type="button" class="w-70 sfbtn sfbtn-opt3" value="确认派工" onclick="dispa()"/>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="f-r mapWrap" id="dispatch_map_container">
+				
+			</div>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript" src="http://webapi.amap.com/maps?v=1.3&key=727b25e7366ab5015225754e8ee00fef"></script>
+<script type="text/javascript">
+AMap.service('AMap.Geocoder', function () {//回调函数
+    //实例化Geocoder
+    geocoder = new AMap.Geocoder();
+});
+var dispatchMap,dispatchMarker,employeMarker;
+	var marker;
+	var mark;
+	var a = true;
+	var num = /^[A-Za-z0-9]{1,18}$/ ;
+	
+var id = '${headerData.id}';						//服务商表格的ID
+var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+var defaultId = '${headerData.defaultId}';			//系统表格的ID
+
+$(function(){
+ 	$.Huitab("#tab-system .tabBar span","#tab-system .tabCon","current","click","0");
+	$.tabfold("#moresearch",".moreCondition",1,"click");
+	$('#setHeadersBtn').click(function(){
+		$('.addHeaders').tableHeaderSetting({
+			id:id,
+			defaultId: defaultId,
+			sfHeader: defaultHeader,
+			sfSortColumns: sortHeader,
+			tableHeaderSaveUrl:'${ctx}/operate/site/saveTableHeader'
+		}).popup();
+	});
+	
+	initSfGrid();
+});
+
+
+function directDis(){
+	var idArr=$('#table-waitdispatch').jqGrid('getGridParam','selarrrow');
+	for(var i = 0 ; i < idArr.length; i++){
+		var rowData = $('#table-waitdispatch').jqGrid('getRowData', idArr[i]);
+	}
+	//return ;
+	$('.activeDispatch').popup(); //显示我要派工弹出框和判断高度
+	$.selectCheck2("serverSelected");
+	initDispatchMap();
+	employe();
+}
+
+function initDispatchMap() {
+	   var markers = [{
+	        icon: 'http://webapi.amap.com/theme/v1.3/markers/n/mark_b1.png',
+	        position: [117.2484, 31.843865]
+	    }, {
+	        icon: 'http://webapi.amap.com/theme/v1.3/markers/n/mark_b2.png',
+	        position: [117.231643, 31.832282]
+	    }, {
+	        icon: 'http://webapi.amap.com/theme/v1.3/markers/n/mark_b3.png',
+	        position: [117.237249,31.815086]
+	    }];
+	if (!dispatchMap) {
+		dispatchMap = new AMap.Map('dispatch_map_container', {
+			zoom: 12
+		});
+		
+	    markers.forEach(function(marker) {
+	        new AMap.Marker({
+	            map: dispatchMap,
+	            icon: marker.icon,
+	            position: [marker.position[0], marker.position[1]],
+	            offset: new AMap.Pixel(-12, -36)
+	        });
+	    });
+		employeMarker = new AMap.Marker({});
+
+	}
+	employeMarker.setMap(null);
+} 
+
+function employe() {
+	var lnglat = $("#lnglat").val();
+	$.ajax({
+		type : "POST",
+		url : "${ctx}/operate/employe/dispatchList",
+		data : {
+			lnglat :lnglat
+		},
+		success : function(data) {
+			var content = $("#zhijiepaidan");
+			content.empty();
+			var sites = data;
+			var appendHtml = '';
+			for (var i = 0; i < sites.length; i++) {
+				var item = sites[i].columns;
+				appendHtml +='<tr>'
+				+'<td style="border-left: none;">'+item.name+'</td>'
+				+'<td>'+item.wwg+'</td>'
+				+'<td>'+item.jrywg+'</td>'
+				+'<td>'+item.distance_formatted+'</td>'
+				+'<td><label class="label-cbox3" for="'+item.id+'"><input type="checkbox" name="serverSelected" id="'+item.id+'"></label></td>'
+				+'</tr>';
+			}
+			if(isBlank(appendHtml)){
+				 layer.msg("无维修"+category+"的工程师");
+			}
+			content.html(appendHtml);
+			
+			$("#zhijiepaidan tr").each(function(index) {
+				$(this).data("emp", sites[index].columns);
+			});
+			$("#zhijiepaidan tr").on('click', function() {
+				var flag = $(this).hasClass('checked');
+				if (flag) {
+					$(this).removeClass('checked');
+				} else {
+					$(this).attr("class","checked");
+					$.trim($(this).children('td').eq(0).html())
+				} 
+				$("#nameWrap").empty();
+				var name="";
+				var id = "";
+				$("#zhijiepaidan tr").each(function(index) {
+					var flag = $(this).hasClass('checked');
+					if (flag) {
+						if(isBlank(name)){
+							name = $.trim($(this).children('td').eq(0).html());
+						}else{
+							name = name+" "+ $.trim($(this).children('td').eq(0).html());
+						}
+						if(isBlank(id)){
+                 			id= $.trim($(this).children('td').eq(4).children('label').attr('for'));
+						}else{
+							id= id+","+$(this).children('td').eq(4).children('label').attr('for');
+						}
+					} 
+				});
+				$("#nameWrap").append("<span>"+name+"</span>");
+				$("#employeId").val(id);
+		 
+			});
+		}
+	});
+}
+
+function isBlank(val) {
+	if(val==null || val=='' || val == undefined) {
+		return true;
+	}
+	return false;
+}
+
+function initSfGrid(){
+	$("#table-waitdispatch").sfGrid({
+		url : '${ctx}/order/getDpgList',
+		sfHeader: defaultHeader,
+		sfSortColumns: sortHeader
+	});
+}
+
+function fmtOrdertype(row){
+	if(row == 2){
+		return "<span>美的</span>";
+	}else if(row == 3){
+		return "<span>惠而浦</span>";
+	}else if(row == 4){
+		return "<span>海信</span>";
+	}
+	return "<span>自接</span>";
+}
+
+function fmtOrderNo(rowData){
+	return '<a href="javascript:showDetail(\''+rowData.id+'\');" class="c-0383dc">'+rowData.number+'</a>';
+}
+
+function showDetail(id){
+}
+
+function fmtStatus(row){
+	 if(row == 2){
+		return "<span>维修中</span>";
+	}else if(row == 7){
+		return "<span>暂不派工</span>";
+	}
+	return "<span>待派工</span>";
+}
+function search(){
+    $("#table-waitdispatch").sfGridSearch({
+        postData: $("#searchForm").serializeJson()
+    });
+}
+function addNew(){
+	layer.open({
+		type : 2,
+		content:'${ctx}/order/form',
+		title:false,
+		area: ['100%','100%'],
+		closeBtn:0,
+		shade:0,
+		anim:-1 
+	});
+}
+</script>
+	
+</body>
+</html>

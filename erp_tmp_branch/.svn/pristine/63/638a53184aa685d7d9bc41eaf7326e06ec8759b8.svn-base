@@ -1,0 +1,368 @@
+package com.jojowonet.modules.sys.util;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.gson.Gson;
+import org.apache.commons.lang3.StringUtils;
+
+public class SFPushUtil2 {
+	private static final String URL_PUSH = "http://www.sifangerp.com/push-admin/push";
+	
+	public static final String EMP_PACKAGENAME = "com.sferp.employe";
+	public static final String SITE_PACKAGENAME = "com.sferp.site";
+
+	public static void main(String[] args) {
+//		 notification();
+//		tts();
+		 String title = "短信通知";
+		 String content = "张三您好，捷城家用电器（13211111111）诚邀您回复数字对本次服务进行评!";
+		 String registrationIds = "ecc70a6b400";
+		 int messageType = 1;
+		 String nextActionParam = "";
+		 String sound = "order_tip";
+		 String packageName = EMP_PACKAGENAME;
+		 sendMsg(messageType, registrationIds, title, content, nextActionParam, sound, packageName);
+	}
+	
+
+	/**
+	 * 给工程师推送服务标准化提醒
+	 * @param title  通知消息的标题
+	 * @param content  通知消息的简要描述
+	 * @param registrationIds 对应sf_regis_id字段，多个以逗号隔开
+	 * @param id  工程师id
+	 * @return
+	 * @throws Exception
+	 */
+	public static boolean sendEmpFWBZ(String title,String content,String registrationIds,
+			String id,String appName,String sound) {
+		try {
+			Gson gson = new Gson();
+			Map<String, String> android = new HashMap<String, String>();
+			android.put("p", id);
+			android.put("title", "服务标准");
+			android.put("intent", "intent:#Intent;component=com.sferp.employe/.ui.shop.WebViewActivity;end");
+			String aparamStr = gson.toJson(android);
+			Map<String, String> ios = new HashMap<String, String>();
+			ios.put("vc", "web_fwjdnr");
+			ios.put("p", id);
+			String iparamStr = gson.toJson(ios);
+			Map<String,String> param = new HashMap<String,String>();
+			param.put("android", aparamStr);
+			param.put("ios", iparamStr);
+			String nextActionParam = gson.toJson(param);
+			int messageType = 1;
+			return sendMsg(messageType, registrationIds, title, content, nextActionParam, sound, appName);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	/**
+	 * 给APP 发送通知消息
+	 * @param title  通知标题
+	 * @param content 通知内容
+	 * @param registrationIds 对应sf_regis_id字段，多个以逗号隔开
+	 * @param appType 0 思傅帮 1经理人 
+	 * @param sound 默认为空，暂时只有新工单提醒需要传order_tip
+	 * @return
+	 */
+	public static boolean sendNoticeMsg(String title,String content,String registrationIds,String appName,String sound){
+		int messageType = 1;
+		return sendMsg(messageType, registrationIds, title, content, "", sound, appName);
+	}
+	
+	/**
+	 * 
+	 * @param messageType  设置消息类型 1通知消息 2透传消息  				不可为空
+	 * @param registrationIds 对应sf_regis_id字段  		 				不可为空
+	 * @param title 通知消息标题		  									如果是通知时不可为空，如果是透传可为空
+	 * @param content 通知消息内容 如果是透传消息则存放消息内容  			不可为空
+	 * @param nextActionParam 通知消息点击通知栏动作						可为空
+	 * @param sound  通知的铃声音效，待接单提醒的sound值为order_tip		可为空
+	 * @param packageName  APP包名										不可为空
+	 * @return
+	 */
+	public static boolean sendMsg(int messageType,String registrationIds,String title,String content,
+			String nextActionParam , String sound ,String packageName){
+		Map<String, String> params = new HashMap<>();
+		// 设置要推送的应用
+		if(EMP_PACKAGENAME.equals(packageName)){
+			params.put("appId", "c516397d67d111e8");
+		}
+		else if(SITE_PACKAGENAME.equals(packageName)){
+			params.put("appId", "c5166e3b67d111e8");
+		}
+		else {
+			return false;
+		}
+		
+		//设置消息类型 1 - 通知消息 2 - 透传消息
+		switch (messageType) {
+		case 2:
+			params.put("messageType", String.valueOf(messageType));
+			// 设置推送的内容
+			params.put("payload", content);
+			break;
+		case 1:
+			params.put("messageType", String.valueOf(messageType));
+			// 通知消息的标题
+			params.put("title", title);
+			// 通知消息的描述
+			params.put("description", content);
+			break;
+		default:
+			return false;
+		}
+		
+		/* 通知消息点击通知栏动作
+		 * nextActionType：0对通知不进行操作 1需要对通知自定义操作
+		 * 2 打开app
+		 * 3 打开网页
+		 * 4 打开自定义页面
+		 * */
+		if(StringUtils.isBlank(nextActionParam)){
+			params.put("nextActionType", "0");
+//			params.put("nextActionParam", "");
+		}
+		else {
+			params.put("nextActionType", "1");
+			params.put("nextActionParam", nextActionParam);
+		}
+		
+		// 通知消息的提醒方式
+		params.put("alertType", "1");
+		if(StringUtils.isNotBlank(sound)){
+			params.put("alertParam", sound);
+		}
+		
+		/** 通知消息的目标类型
+		 * 1 发送给一个设备 且使用registrationId标识这个设备
+		 * 4 发送给多个设备 且使用registrationId标识这个设备
+		 * 7 发送给应用下的所有设备
+		 **/
+		registrationIds = removeSurplusComma(registrationIds);
+		if(StringUtils.isBlank(registrationIds)){
+			return false;
+		}
+		else if(registrationIds.contains(",")){
+			params.put("targetType", "4");
+		}
+		else {
+			params.put("targetType", "1");
+		}
+		params.put("targetValue", registrationIds);
+		Gson gson = new Gson();
+		String jsonString = gson.toJson(params);
+		System.out.println("jsonString:"+jsonString);
+		String result;
+		try {
+			result = doPost(jsonString);
+			System.out.println(result);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+		Msg msg = gson.fromJson(result, Msg.class);
+		if(msg != null &&
+				"0".equals(msg.code)){
+			return true;
+		}
+		return false;
+	}
+
+	public static void tts() {
+		Map<String, String> params = new HashMap<>();
+		// 设置要推送的应用
+		params.put("appId", "a30c38ef62ed11e8");
+		// 设置推送的内容
+		params.put("payload", "1123232");
+		params.put("messageType", "2");
+		/** 通知消息的目标类型
+		 * 1 发送给一个设备 且使用registrationId标识这个设备
+		 * 4 发送给多个设备 且使用registrationId标识这个设备
+		 * 7 发送给应用下的所有设备
+		 **/
+		params.put("targetType", "1");
+		params.put("targetValue", "ecc70a6b400");
+		
+		/* 通知消息点击通知栏动作
+		 * nextActionType：0对通知不进行操作 1需要对通知自定义操作
+		 * 2 打开app
+		 * 3 打开网页
+		 * 4 打开自定义页面
+		 * */
+ 		params.put("nextActionType", "0");
+		params.put("nextActionParam", "");
+		Gson gson = new Gson();
+		String jsonString = gson.toJson(params);
+		System.out.println("jsonString:"+jsonString);
+		String result;
+		try {
+			result = doPost(jsonString);
+			System.out.println(result);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static void notification() {
+		Map<String, String> params = new HashMap<>();
+		// 设置要推送的应用
+		params.put("appId", "a30c38ef62ed11e8");
+		// 设置消息类型 1 - 通知消息 2 - 透传消息
+		params.put("messageType", "1");
+		// 通知消息的标题
+		params.put("title", "请输入你要发送的消息标题");
+		// 通知消息的描述
+		params.put("description", "请输入你要发送的消息的描述");
+		// 通知消息的目标类型
+		// 1 发送给一个设备 且使用registrationId标识这个设备
+		// 4 发送给多个设备 且使用registrationId标识这个设备
+		// 7 发送给应用下的所有设备
+		params.put("targetType", "1");
+		params.put("targetValue", "ecc70a6b400");
+		
+		// 通知消息的提醒方式
+		params.put("alertType", "1");
+		params.put("alertParam", "order_tip");
+
+		Gson gson = new Gson();
+		String jsonString = gson.toJson(params);
+		String result;
+		try {
+			result = doPost(jsonString);
+			System.out.println(result);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private static String doPost(String param) throws Exception {
+		
+		URL localURL = new URL(URL_PUSH);
+		URLConnection connection = localURL.openConnection();
+		HttpURLConnection httpURLConnection = (HttpURLConnection) connection;
+		
+		httpURLConnection.setDoOutput(true);
+		httpURLConnection.setRequestMethod("POST");
+		httpURLConnection.setRequestProperty("Accept-Charset", "utf-8");
+		httpURLConnection.setRequestProperty("Content-Type",
+				"application/json;charset=utf-8");
+		httpURLConnection.setRequestProperty("Content-Length",
+				String.valueOf(param.length()));
+		
+		OutputStream outputStream = null;
+		OutputStreamWriter outputStreamWriter = null;
+		InputStream inputStream = null;
+		InputStreamReader inputStreamReader = null;
+		BufferedReader reader = null;
+		String resultBuffer = "";
+		
+		try {
+			outputStream = httpURLConnection.getOutputStream();
+			outputStreamWriter = new OutputStreamWriter(outputStream);
+			
+			outputStreamWriter.write(param.toString());
+			outputStreamWriter.flush();
+			
+			if (httpURLConnection.getResponseCode() >= 300) {
+				throw new Exception(
+						"HTTP Request is not success, Response code is "
+								+ httpURLConnection.getResponseCode());
+			}
+			
+			inputStream = httpURLConnection.getInputStream();
+			resultBuffer = convertStreamToString(inputStream);
+			if(resultBuffer != null)
+				System.out.println(resultBuffer.toString());
+		} finally {
+			
+			if (outputStreamWriter != null) {
+				outputStreamWriter.close();
+			}
+			
+			if (outputStream != null) {
+				outputStream.close();
+			}
+			
+			if (reader != null) {
+				reader.close();
+			}
+			
+			if (inputStreamReader != null) {
+				inputStreamReader.close();
+			}
+			
+			if (inputStream != null) {
+				inputStream.close();
+			}
+			
+		}
+		return resultBuffer;
+	}
+
+	/**
+	 * 转换返回值类型为UTF-8格式.
+	 * 
+	 * @param is
+	 * @return
+	 */
+	public static String convertStreamToString(InputStream is) {
+		StringBuilder sb1 = new StringBuilder();
+		byte[] bytes = new byte[4096];
+		int size = 0;
+
+		try {
+			while ((size = is.read(bytes)) > 0) {
+				String str = new String(bytes, 0, size, "UTF-8");
+				sb1.append(str);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				is.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return sb1.toString();
+	}
+	
+	/**
+	 * 去除多余的逗号，当字符串第一个/最后一个字符为逗号时需要去除掉，如果多个逗号连在一起则只保留一个
+	 * @param str
+	 * @return
+	 */
+	private static String removeSurplusComma(String str){
+		if(str == null){
+			return str;
+		}
+		String[] strs = str.split(",");
+		String result = strs[0];
+		for (int i = 1; i < strs.length; i++) {
+			if(StringUtils.isNotBlank(strs[i])){
+				result = result + "," + strs[i];
+			}
+		}
+		return result;
+	}
+	
+	public class Msg {
+		public String code;
+		public String remark;
+		public String content;
+	}
+}

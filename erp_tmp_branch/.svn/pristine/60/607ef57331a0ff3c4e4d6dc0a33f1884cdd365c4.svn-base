@@ -1,0 +1,468 @@
+package com.jojowonet.modules.sys.util;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.UUID;
+
+import javax.servlet.http.HttpServletRequest;
+
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.utils.UserUtils;
+import org.apache.log4j.Logger;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+
+import ivan.common.config.Global;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+
+public class SMSUtils {
+
+	private static Logger logger = Logger.getLogger(SMSUtils.class);
+	
+	public static final String splitor = "#@@#";
+	public static final String itemSplitor = "#@#";
+	public static final String sfSmsNo = Global.getConfig("sms.user_reply_extno");
+	
+	private static String name = Global.getConfig("sms.username");// 用户名
+	private static String password_md5 = Global.getConfig("sms.password");// 密码
+	/*private static String name = "13966792733";// 用户名
+	private static String password_md5 = "46961CD60F4FC09EE8ADA00BB722";*/
+	
+	
+	public static String sendMsg(String mobile,String content,String sign,String extnoStr) {
+		statBeforeSend(mobile, content, sign);
+		// 电话号码字符串，中间用英文逗号间隔
+		StringBuffer mobileString = new StringBuffer(mobile);
+		// 内容字符串
+		StringBuffer contextString = new StringBuffer(content);//"【思方科技】您正在进行手机验证，验证码为："+ code + "，5分钟内有效。"
+		// 追加发送时间，可为空，为空为及时发送
+		String stime = "";
+		// 扩展码，必须为数字 可为空
+		StringBuffer extno = new StringBuffer(extnoStr);
+		try {
+			String result = doPost(mobileString, contextString, "pt", stime,
+					null, extno,sign);
+			System.out.println(result);
+			return result;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "";
+	}
+
+	private static void statBeforeSend(String mobile, String content, String sign) {
+//		User user = UserUtils.getUser();
+//		if (user != null) {
+//			String siteId = CrmUtils.getCurrentSiteId(user);
+//		}
+	}
+
+	/**
+	 * 添加短信模板方法
+	 * 
+	 * @param content
+	 *            短信模板内容
+	 * @return
+	 */
+	public static boolean addTemplet(String content) {
+		// 电话号码字符串，中间用英文逗号间隔
+		StringBuffer mobileString = new StringBuffer();
+		// 内容字符串
+		StringBuffer contextString = new StringBuffer(content);
+		// 追加发送时间，可为空，为空为及时发送
+		String stime = "";
+		// 扩展码，必须为数字 可为空
+		StringBuffer extno = new StringBuffer();
+		try {
+			String result = doPost(mobileString, contextString,
+					"operate_templet", stime, null, extno,"");
+			String[] spr = (result == null) ? null : result.split(",");
+			System.out.println(result);
+			if (spr != null && "0".equals(spr[0])) {
+				return true;
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+
+    /**
+     * 保存添加短信模板方法
+     *
+     * @param content
+     *            短信模板内容
+     * @return
+     */
+    public static Map<String,Object> saveTemplet(String content) {
+        // 电话号码字符串，中间用英文逗号间隔
+        StringBuffer mobileString = new StringBuffer();
+        // 内容字符串
+        StringBuffer contextString = new StringBuffer(content);
+        // 追加发送时间，可为空，为空为及时发送
+        String stime = "";
+        // 扩展码，必须为数字 可为空
+        StringBuffer extno = new StringBuffer();
+        Map<String,Object> map = new HashMap <>();
+        try {
+            String result = doPost(mobileString, contextString,
+                    "operate_templet", stime, null, extno,"");
+            String[] spr = (result == null) ? null : result.split(",");
+            System.out.println(result);
+            if (spr != null && "0".equals(spr[0])) {
+                map.put("tid",spr[1]);
+                map.put("result",true);
+            } else {
+                map.put("result",false);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return map;
+    }
+
+	/**
+	 * 保存修改短信模板方法
+	 *
+	 * @param content
+	 *            短信模板内容
+	 * @return
+	 */
+	public static Map<String,Object> updateTemplet(String content,String tid) {
+		// 电话号码字符串，中间用英文逗号间隔
+		StringBuffer mobileString = new StringBuffer();
+		// 内容字符串
+		StringBuffer contextString = new StringBuffer(content);
+		// 追加发送时间，可为空，为空为及时发送
+		String stime = "";
+		// 扩展码，必须为数字 可为空
+		StringBuffer extno = new StringBuffer();
+		Map<String,Object> map = new HashMap <>();
+		try {
+			String result = doPost(mobileString, contextString,
+					"operate_templet", stime, tid, extno,"");
+			String[] spr = (result == null) ? null : result.split(",");
+			System.out.println(result);
+			if (spr != null && "0".equals(spr[0])) {
+				map.put("tid",spr[1]);
+				map.put("result",true);
+			} else {
+				map.put("result",false);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return map;
+	}
+	
+	/**
+	 * 查询短信模板状态
+	 *            短信模板内容
+	 * @return
+	 */
+	public static boolean checkTemplet(String templetId) {
+		// 电话号码字符串，中间用英文逗号间隔
+		StringBuffer mobileString = new StringBuffer();
+		// 内容字符串
+		StringBuffer contextString = new StringBuffer();
+		// 扩展码，必须为数字 可为空
+		StringBuffer extno = new StringBuffer();
+		try {
+			String result = doPost(mobileString, contextString, "templet_status", null,
+					templetId, extno,"思方科技");
+			String[] spr = (result == null) ? null : result.split(",");
+			System.out.println(result);
+			if (spr != null && "0".equals(spr[0])) {
+				return true;
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+
+	/**
+	 * 查询并保存短信模板状态
+	 *
+	 */
+	public static Map<String,Object> savecheckTemplet(String templetId) {
+		// 电话号码字符串，中间用英文逗号间隔
+		StringBuffer mobileString = new StringBuffer();
+		// 内容字符串
+		StringBuffer contextString = new StringBuffer();
+		// 扩展码，必须为数字 可为空
+		StringBuffer extno = new StringBuffer();
+		Map<String,Object> map = new HashMap <>();
+		try {
+			String result = doPost(mobileString, contextString, "templet_status", null,
+					templetId, extno,"思方科技");
+			String[] spr = (result == null) ? null : result.split(",");
+			System.out.println(result);
+			if (spr != null && "0".equals(spr[0])) {
+				map.put("result",true);
+				map.put("status",spr[1]);
+				if(spr.length>2){
+					if(StringUtil.isNotBlank(spr[2])){
+						map.put("faildreason",spr[2]);
+					}
+				}
+				return map;
+			} else {
+				map.put("result",false);
+				return map;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return map;
+	}
+
+
+	/**
+	 * 发送短信
+	 *
+	 * @param mobileString
+	 *            电话号码字符串，中间用英文逗号间隔
+	 * @param contextString
+	 *            内容字符串
+	 * @param sign
+	 *            签名
+	 * @param stime
+	 *            追加发送时间，可为空，为空为及时发送
+	 * @param extno
+	 *            扩展码，必须为数字 可为空
+	 * @return
+	 * @throws Exception
+	 */
+	private static String doPost(StringBuffer mobileString,
+			StringBuffer contextString, String type, String stime, String tid,
+			StringBuffer extno,String sign) throws Exception {// 2016/12/15 14:18:53
+		StringBuffer param = new StringBuffer();
+		param.append("name=" + name);
+		param.append("&pwd=" + password_md5);
+		param.append("&mobile=").append(mobileString);
+		param.append("&content=").append(
+				URLEncoder.encode(contextString.toString(), "UTF-8"));
+		param.append("&stime=" + stime);
+		param.append("&sign=").append(URLEncoder.encode(sign, "UTF-8"));
+		param.append("&type=" + type);
+		param.append("&tid=" + tid);
+		param.append("&extno=").append(extno);
+
+		URL localURL = new URL("http://210.5.152.195:1861/asmx/smsservice.aspx?");//http://web.wasun.cn/asmx/smsservice.aspx?
+		URLConnection connection = localURL.openConnection();
+		HttpURLConnection httpURLConnection = (HttpURLConnection) connection;
+
+		httpURLConnection.setDoOutput(true);
+		httpURLConnection.setRequestMethod("POST");
+		httpURLConnection.setRequestProperty("Accept-Charset", "utf-8");
+		httpURLConnection.setRequestProperty("Content-Type",
+				"application/x-www-form-urlencoded");
+		httpURLConnection.setRequestProperty("Content-Length",
+				String.valueOf(param.length()));
+
+		OutputStream outputStream = null;
+		OutputStreamWriter outputStreamWriter = null;
+		InputStream inputStream = null;
+		InputStreamReader inputStreamReader = null;
+		BufferedReader reader = null;
+		String resultBuffer = "";
+
+		try {
+			outputStream = httpURLConnection.getOutputStream();
+			outputStreamWriter = new OutputStreamWriter(outputStream);
+
+			outputStreamWriter.write(param.toString());
+			outputStreamWriter.flush();
+
+			if (httpURLConnection.getResponseCode() >= 300) {
+				throw new Exception(
+						"HTTP Request is not success, Response code is "
+								+ httpURLConnection.getResponseCode());
+			}
+			inputStream = httpURLConnection.getInputStream();
+			resultBuffer = convertStreamToString(inputStream);
+		} finally {
+			if (outputStreamWriter != null) {
+				outputStreamWriter.close();
+			}
+			if (outputStream != null) {
+				outputStream.close();
+			}
+			if (reader != null) {
+				reader.close();
+			}
+			if (inputStreamReader != null) {
+				inputStreamReader.close();
+			}
+			if (inputStream != null) {
+				inputStream.close();
+			}
+		}
+		return resultBuffer;
+	}
+	
+	/**
+	 * 转换返回值类型为UTF-8格式.
+	 * 
+	 * @param is
+	 * @return
+	 */
+	private static String convertStreamToString(InputStream is) {
+		StringBuilder sb1 = new StringBuilder();
+		byte[] bytes = new byte[4096];
+		int size = 0;
+
+		try {
+			while ((size = is.read(bytes)) > 0) {
+				String str = new String(bytes, 0, size, "UTF-8");
+				sb1.append(str);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				is.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return sb1.toString();
+	}
+	
+	public static String SMSStatusNotify(HttpServletRequest request){
+		String name = request.getParameter("name");
+		String pwd = request.getParameter("pwd");
+		String sendid = request.getParameter("sendid");
+		String time = request.getParameter("time");
+		String mobile = request.getParameter("mobile");
+		String state = request.getParameter("state");
+		logger.info(" ----- SNS notify at:" + new Date() + " ------- ");
+		logger.info(" SNS notify status: info[name:"+name+", pwd:"+pwd+", sendid"+sendid+", time:"+time+", mobile"+mobile+", state:"+state+"] ");;
+		
+		if("DELIVRD".equalsIgnoreCase(state)){
+			//成功
+			updateSMS(sendid, mobile, time, "2");
+		}else{
+			//失败
+			updateSMS(sendid, mobile, time, "3");
+		}
+		
+		return state;
+	}
+	
+	private static void updateSMS(String sendid, String mobile, String time, String status){
+		String[] mobiles = mobile.indexOf(",") != -1 ? mobile.split(",") : null;
+		if(mobiles == null){
+			//单个mobile处理
+			String date = DateUtils.formatDate(DateUtils.parseDate(time), "yyyy-MM-dd HH:mm:ss");
+			Db.update("update crm_sended_sms set status = '"+status+"', receive_time = '"+date+"' where sendid = ? and mobile = ?"
+				, sendid, mobile);
+		}else{
+			StringBuilder insb = new StringBuilder();
+			String date = DateUtils.formatDate(DateUtils.parseDate(time), "yyyy-MM-dd HH:mm:ss");
+			for(int i = 0; i < mobiles.length; i++){
+				insb.append("'"+mobiles[i]+"'").append( i != mobiles.length -1 ? "," : "" );
+			}
+			Db.update("update crm_sended_sms set status = '"+status+"', receive_time = '"+date+"' where sendid = ? and mobile in ("+insb.toString()+") ",  sendid);
+		}
+	}
+	
+	public static Map<String, String> getContent(String cnt){
+		String[] strArr = cnt.split(splitor);
+		Map<String, String> map = Maps.newHashMap();
+		if(strArr != null && strArr.length > 0){
+			for(int i = 0; i < strArr.length; i++){
+				String item = strArr[i];
+				String[] itemArr  = item.split(itemSplitor);
+				String mobile = itemArr[0];
+				String content = itemArr[1];
+				String time = itemArr[2];
+				String extNo = itemArr[3].trim().replaceAll(sfSmsNo, "");
+				String prefix = map.get(mobile);
+				if(StringUtils.isBlank(prefix)){
+					prefix = time + itemSplitor + extNo + itemSplitor + content;
+				}else{
+					prefix += content;
+				}
+				map.put(mobile, prefix);
+			}
+		}
+		return map;
+	}
+	
+	public static void HandleReceiptStatus(String args){
+		logger.info(" receiptStatus: at "+new Date()+" ["+ args+"]");
+		Map<String, String> map = getContent(args);
+		
+		for(Entry<String, String> ent : map.entrySet()){
+			String mobileStr = ent.getKey();
+			String valStr = ent.getValue();
+			String timeStr = valStr.split(itemSplitor)[0];
+			String extNoStr = valStr.split(itemSplitor)[1];
+			String contentStr = valStr.split(itemSplitor)[2];
+			
+			if(StringUtils.isNumeric(contentStr)){
+				Record smsRds = Db.findFirst(" select a.* from crm_sended_sms a where a.extno = ? and a.mobile = ? order by a.create_time desc limit 1", extNoStr, mobileStr);
+				if(smsRds != null){
+					//插入信息回访表
+					StringBuilder insb = new StringBuilder("");
+					insb.append(" insert into crm_received_sms (id, mobile, content, order_id, site_id, create_time, send_time, status, extno) values (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+					Db.update(insb.toString(), UUID.randomUUID().toString().replaceAll("-", ""), mobileStr, contentStr, smsRds.getStr("order_id"), smsRds.getStr("site_id"),
+							new Date(), DateUtils.parseDate(timeStr), "0", extNoStr);
+				}else{
+					logger.info(" no size ! ");
+				}
+			}
+		}
+	}
+
+	public static void main(String[] args) throws Exception {
+		// System.out.println(sendCode("7965", "13955174824"));
+		String content = "张三您好，捷城家用电器（13211111111）诚邀您回复数字对本次服务进行评：1.满意；2.一般；3.不满意；4.尚未联系；5.正在处理中，还未处理好。感谢您的支持！";
+		String tcontent = "@您好，您的预约时间已改至@，@，具体上门时间，@，会与您联系，监督电话：@。【@服务】";
+		System.out.println(addTemplet(tcontent));// operate_templet id=2641
+//		System.out.println(checkTemplet("5889"));// operate_templet id=2641
+//		System.out.println(sendMsg("15856988250", content,"小小服务","5"));
+		// String code = "2956";
+		// // 电话号码字符串，中间用英文逗号间隔
+		// StringBuffer mobileString = new StringBuffer("13955174824");
+		// // 内容字符串
+		// StringBuffer contextString = new StringBuffer("【思方科技】您正在进行手机验证，验证码为："
+		// + code + "，5分钟内有效。");
+		// // 签名
+		// String sign = "";
+		// // 追加发送时间，可为空，为空为及时发送
+		// String stime = "";
+		// // 扩展码，必须为数字 可为空
+		// StringBuffer extno = new StringBuffer("1942");
+		//
+		// System.out.println(doPost(mobileString, contextString, stime,
+		// extno));
+
+	}
+	
+}

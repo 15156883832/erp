@@ -1,0 +1,23 @@
+package com.jojowonet.modules.order.web;
+
+import ivan.common.web.BaseController;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+/**
+ * Created by Administrator on 2018/1/19.
+ * 跳转到系统设置页面
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/order/Sysset")
+public class SysSetController extends BaseController {
+
+    @RequestMapping(value="tosysset")
+    public String toSysset(HttpServletRequest request, HttpServletResponse response, Model model){
+        return "modules/" + "order/sysSet";
+    }
+}

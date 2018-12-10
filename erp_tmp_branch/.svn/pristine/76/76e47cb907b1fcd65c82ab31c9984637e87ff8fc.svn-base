@@ -1,0 +1,377 @@
+package com.jojowonet.modules.goods.service;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+import org.hibernate.SQLQuery;
+import org.hibernate.Session;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.dao.GoodsPlatFormDao;
+import com.jojowonet.modules.goods.dao.GoodsPlatFormDetailDao;
+import com.jojowonet.modules.goods.dao.PlatFormOrderDao;
+import com.jojowonet.modules.goods.entity.GoodsPlatform;
+import com.jojowonet.modules.goods.entity.GoodsPlatformOrder;
+import com.jojowonet.modules.goods.utils.OrderInfo;
+import com.jojowonet.modules.goods.utils.OrderPoto;
+import com.jojowonet.modules.goods.utils.PayTypeUtils;
+import com.jojowonet.modules.goods.utils.SmsOrderInfo;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.operate.service.NonServicemanService;
+import com.jojowonet.modules.order.dao.SupplierDao;
+import com.jojowonet.modules.order.entity.Supplier;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.unipay.utils.TradeNoUtils;
+
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+/**
+ * 平台商品service
+ * 
+ * @author cdq
+ *
+ */
+@Component
+@Transactional(readOnly = true)
+public class GoodsPlatFormService extends BaseService {
+	@Autowired
+	private GoodsPlatFormDao goodsPlatFormDao;
+	@Autowired
+	private PlatFormOrderDao platFormOrderDao;
+	@Autowired
+	private GoodsPlatFormDetailDao goodsPlatFormDetailDao;
+	@Autowired
+	private SiteDao siteDao;
+	@Autowired
+	private NonServicemanService nonServicemanService;
+	@Autowired
+	private SupplierDao supplierDao;
+
+	// 平台商品库存信息
+	public Page<Record> getAllSiteInfo(Page<Record> page, String siteId, Map<String, Object> map) {
+		if ("y".equals(map.get("isSupplier"))) {
+			String supplierId = String.valueOf(map.get("supplierId"));
+			long count = goodsPlatFormDao.getSupplierPlatformGoodsCount(supplierId, map);
+			if (count > 0) {
+				List<Record> list = goodsPlatFormDao.getSupplierPlatformGoods(page, supplierId, map);
+				page.setList(list);
+			}
+			page.setCount(count);
+		} else {
+			List<Record> list = goodsPlatFormDao.getAllSiteInfo(page, siteId, map);
+			long count = goodsPlatFormDao.getCount(siteId, map);
+			page.setList(list);
+			page.setCount(count);
+		}
+		return page;
+	}
+
+	// 商品上架
+	public void doSJ(String id) {
+		String sql = "update crm_goods_platform set sell_flag='1' where id='" + id + "'";
+		Db.update(sql);
+	}
+
+	// 商品下架
+	public void doXJ(String id) {
+		String sql = "update crm_goods_platform set sell_flag='2' where id='" + id + "'";
+		Db.update(sql);
+	}
+
+	// 平台商品删除
+	public void doSC(String id) {
+		String sql = "update crm_goods_platform set status='1' where id='" + id + "'";
+		Db.update(sql);
+	}
+
+	// 根据编号判断是否已有库存
+	public long getByNumberCount(String number) {
+		String sql = "select count(*) from crm_goods_platform where number='" + number + "' ";
+		return Db.queryLong(sql);
+	}
+
+	// 商品新增及编辑
+	public Boolean addPlatGoods(GoodsPlatform gpf, Map<String, Object> map) {
+		// 新增平台产品
+		if (StringUtils.isNotEmpty((CharSequence) map.get("gsitePrice"))) {
+			gpf.setSitePrice(BigDecimal.valueOf(Double.valueOf(map.get("gsitePrice").toString())));
+		}
+		if (StringUtils.isNotEmpty((CharSequence) map.get("gplatformPrice"))) {
+			gpf.setPlatformPrice(BigDecimal.valueOf(Double.valueOf(map.get("gplatformPrice").toString())));
+		}
+		BigDecimal d = BigDecimal.valueOf(Double.valueOf(map.get("gsitePrice").toString())).subtract(BigDecimal.valueOf(Double.valueOf(map.get("gplatformPrice").toString())));
+		gpf.setProfit(d); // 利润
+		// 库存数量
+		// 销售数量
+		gpf.setType("2"); // 商品类型（平台商品）
+		gpf.setStatus("0"); // 状态
+
+		if (StringUtils.isNotEmpty(gpf.getId())) {
+			GoodsPlatform newGoods = goodsPlatFormDao.get(gpf.getId());
+			newGoods.setName(gpf.getName());
+			newGoods.setBrand(gpf.getBrand());
+			newGoods.setModel(gpf.getModel());
+			newGoods.setCategory(gpf.getCategory());
+			newGoods.setUnit(gpf.getUnit());
+			newGoods.setSitePrice(gpf.getSitePrice());
+			newGoods.setPlatformPrice(gpf.getPlatformPrice());
+			newGoods.setDistributionType(gpf.getDistributionType());
+			newGoods.setSortNum(gpf.getSortNum());
+			newGoods.setDescription(gpf.getDescription());
+			newGoods.setHtml(gpf.getHtml());
+			newGoods.setIcon(gpf.getIcon());
+			newGoods.setNoVipPrice(gpf.getNoVipPrice());
+			newGoods.setRepairTerm(gpf.getRepairTerm());
+			newGoods.setJdSellerLink(gpf.getJdSellerLink());
+			newGoods.setTmallSellerLink(gpf.getTmallSellerLink());
+			newGoods.setAdvicePrice(gpf.getAdvicePrice());
+			goodsPlatFormDao.save(newGoods);
+		} else {
+			goodsPlatFormDao.save(gpf);
+		}
+		return true;
+	}
+
+	// 编辑弹窗
+	public Record showPTBJ(String id) {
+		String sql = "select * from crm_goods_platform where id='" + id + "' and status='0' ";
+
+		Record re = Db.findFirst(sql);
+		if (re != null) {
+			String gSign = re.getStr("good_sign");
+			if ("LB20180106".equals(gSign) || "LB20180105".equals(gSign) || "BS20180108".equals(gSign) || "BS20180107".equals(gSign) || "CZ20180117".equals(gSign)
+					|| "LB18102202".equals(gSign) || "LB18102201".equals(gSign)) {
+				re.set("allowEdit", "ok");
+			} else {
+				re.set("allowEdit", "no");
+			}
+		}
+		return re;
+	}
+
+	// 样机商品订单
+	public Map<String, String> prototypeOrder(OrderPoto order, Record ptbj, User user) {
+		Map<String, String> par = Maps.newHashMap();
+		String goodId = ptbj.getStr("id");
+		String siteId = CrmUtils.getCurrentSiteId(user);// 服务商id
+		Site site = siteDao.get(siteId);
+		par.put("number", TradeNoUtils.genOrderNo("T"));
+		par.put("prototypeId", goodId);
+		par.put("purchaserName", site.getName());
+		par.put("purchaserMobile", site.getMobile());
+		par.put("purchaserTelephone", site.getTelephone());
+		par.put("purchaserAddress", site.getProvince() + site.getCity() + site.getArea() + site.getAddress());
+		par.put("siteId", siteId);
+		par.put("icon", order.getIcon());
+		par.put("tradeNo", order.getOutTradeNo());
+		par.put("paymentType", PayTypeUtils.convert(order.getPayType()));
+		par.put("purchaseAmount", String.valueOf(order.getTotalFee()));
+		return par;
+	}
+
+	public GoodsPlatformOrder createTpOrder(OrderInfo order, Record ptbj, User user, BigDecimal totalAmount) {
+		String goodId = ptbj.getStr("id");
+		GoodsPlatform tp = goodsPlatFormDao.get(goodId);
+		GoodsPlatformOrder platformOrder = new GoodsPlatformOrder();
+		platformOrder.setNumber(TradeNoUtils.genOrderNo("T"));
+		// platformOrder.setConfirmTime();
+		// platformOrder.setSendgoodTime();
+		// platformOrder.setFinishTime();
+		// platformOrder.setSiteselfOrderId(); -- 对弹屏设备无意义
+		platformOrder.setSupplierId(Supplier.SUPPLIER_SIFANG);
+		platformOrder.setGoodId(tp.getId());
+		platformOrder.setPayStatus("0");
+		platformOrder.setGoodNumber(tp.getNumber());
+		platformOrder.setGoodName(tp.getName());
+		platformOrder.setGoodIcon(tp.getIcon());
+		platformOrder.setGoodBrand(tp.getBrand());
+		platformOrder.setGoodModel(tp.getModel());
+		platformOrder.setGoodCategory(tp.getCategory());
+		platformOrder.setCustomerName(order.getCustomerName());
+		platformOrder.setCustomerContact(order.getCustomerMobile());
+		platformOrder.setCustomerAddress(order.getCustomerAddress());
+		platformOrder.setPurchaseNum(BigDecimal.valueOf(order.getQuantity()));
+		platformOrder.setGoodAmount(totalAmount);
+		platformOrder.setPlacingOrderBy(user.getId());
+		platformOrder.setPlacingOrderTime(new Date());
+		platformOrder.setPayer(user.getId());
+		platformOrder.setStatus("0");
+		platformOrder.setPaymentType(PayTypeUtils.convert(order.getPayType()));
+		platformOrder.setTradeNo(order.getOutTradeNo());
+		// platformOrder.setPaymentTime();
+		// platformOrder.setLogisticsName();
+		// platformOrder.setLogisticsNo();
+		platformOrder.setSiteId(CrmUtils.getCurrentSiteId(user));
+		platformOrder.setCreator(CrmUtils.getUserXM());
+		platFormOrderDao.save(platformOrder);
+		return platformOrder;
+	}
+
+	public GoodsPlatformOrder createCodeOrder(OrderInfo order, Record ptbj, User user, BigDecimal price) {
+		String goodId = ptbj.getStr("id");
+		GoodsPlatform tp = goodsPlatFormDao.get(goodId);
+		GoodsPlatformOrder platformOrder = new GoodsPlatformOrder();
+		platformOrder.setNumber(TradeNoUtils.genOrderNo("C"));
+		platformOrder.setSupplierId(Supplier.SUPPLIER_SIFANG);
+		platformOrder.setGoodId(tp.getId());
+		platformOrder.setPayStatus("0");
+		platformOrder.setGoodNumber(tp.getNumber());
+		platformOrder.setGoodName(tp.getName());
+		platformOrder.setGoodIcon(tp.getIcon());
+		platformOrder.setGoodBrand(tp.getBrand());
+		platformOrder.setGoodModel(tp.getModel());
+		platformOrder.setGoodCategory(tp.getCategory());
+		platformOrder.setCustomerName(order.getCustomerName());
+		platformOrder.setCustomerContact(order.getCustomerMobile());
+		platformOrder.setCustomerAddress(order.getCustomerAddress());
+		platformOrder.setPurchaseNum(BigDecimal.valueOf(order.getQuantity()));
+		platformOrder.setGoodAmount(price);
+		platformOrder.setPlacingOrderBy(user.getId());
+		platformOrder.setPlacingOrderTime(new Date());
+		platformOrder.setPayer(user.getId());
+		platformOrder.setStatus("0");
+		platformOrder.setPaymentType(PayTypeUtils.convert(order.getPayType()));
+		platformOrder.setTradeNo(order.getOutTradeNo());
+		platformOrder.setSiteId(CrmUtils.getCurrentSiteId(user));
+		platformOrder.setCreator(CrmUtils.getUserXM());
+		platFormOrderDao.save(platformOrder);
+		return platformOrder;
+	}
+
+	public GoodsPlatformOrder createCOPOrder(OrderInfo order, Record ptbj, User user) {
+		String goodId = ptbj.getStr("id");
+		GoodsPlatform cop = goodsPlatFormDao.get(goodId);
+		GoodsPlatformOrder platformOrder = new GoodsPlatformOrder();
+		platformOrder.setNumber(TradeNoUtils.genOrderNo("C"));
+		// platformOrder.setConfirmTime();
+		// platformOrder.setSendgoodTime();
+		// platformOrder.setFinishTime();
+		// platformOrder.setSiteselfOrderId(); -- 对弹屏设备无意义
+		String distributionType = cop.getDistributionType();
+		boolean isAutoDistributionType = GoodsPlatform.DIS_TYPE_AUTO.equals(distributionType);
+		platformOrder.setSupplierId(isAutoDistributionType ? supplierDao.getPlatformProductSupplierId(goodId) : ""); // 自动分配，则到关联表中找，否则为空。
+		platformOrder.setGoodId(cop.getId());
+		platformOrder.setPayStatus("0");
+		platformOrder.setGoodNumber(cop.getNumber());
+		platformOrder.setGoodName(cop.getName());
+		platformOrder.setGoodIcon(cop.getIcon());
+		platformOrder.setGoodBrand(cop.getBrand());
+		platformOrder.setGoodModel(cop.getModel());
+		platformOrder.setGoodCategory(cop.getCategory());
+		platformOrder.setCustomerName(order.getCustomerName());
+		platformOrder.setCustomerContact(order.getCustomerMobile());
+		platformOrder.setCustomerAddress(order.getCustomerAddress());
+		platformOrder.setPurchaseNum(BigDecimal.valueOf(order.getQuantity()));
+		platformOrder.setGoodAmount(BigDecimal.valueOf(order.getQuantity()).multiply(cop.getSitePrice()));
+		platformOrder.setPlacingOrderBy(user.getId());
+		platformOrder.setPlacingOrderTime(new Date());
+		platformOrder.setPayer(user.getId());
+		platformOrder.setStatus("0");
+		platformOrder.setPaymentType(PayTypeUtils.convert(order.getPayType()));
+		platformOrder.setTradeNo(order.getOutTradeNo());
+		// platformOrder.setPaymentTime();
+		// platformOrder.setLogisticsName();
+		// platformOrder.setLogisticsNo();
+		platformOrder.setSiteId(CrmUtils.getCurrentSiteId(user));
+		platformOrder.setCreator(CrmUtils.getUserXM());
+		platFormOrderDao.save(platformOrder);
+		return platformOrder;
+	}
+
+	public GoodsPlatformOrder createSmsOrder(SmsOrderInfo order, Record ptbj, User user) {
+		String siteName;
+		String siteMobile;
+		String siteAddress;
+		Record site = null;
+		if (User.USER_TYPE_SIT.equals(user.getUserType())) {
+			site = siteDao.getByUserId(user.getId());
+		} else if (User.USER_TYPE_XXY.equals(user.getUserType())) {
+			site = nonServicemanService.getSite(user.getId());
+		}
+		if (site == null) {
+			throw new IllegalStateException("site not found");
+		}
+		siteName = site.getStr("name");
+		siteMobile = site.getStr("mobile");
+		siteAddress = site.getStr("address");
+
+		String goodId = ptbj.getStr("id");
+		GoodsPlatform sms = goodsPlatFormDao.get(goodId);
+		GoodsPlatformOrder platformOrder = new GoodsPlatformOrder();
+		platformOrder.setNumber(TradeNoUtils.genOrderNo("S"));
+		platformOrder.setSupplierId(Supplier.SUPPLIER_SIFANG);
+		// platformOrder.setConfirmTime();
+		// platformOrder.setSendgoodTime();
+		// platformOrder.setFinishTime();
+		// platformOrder.setSiteselfOrderId(); -- 对短信无意义
+		platformOrder.setGoodId(sms.getId());
+		platformOrder.setPayStatus("0");
+		platformOrder.setGoodNumber(sms.getNumber());
+		platformOrder.setGoodName(sms.getName());
+		platformOrder.setGoodIcon(sms.getIcon());
+		platformOrder.setGoodBrand(sms.getBrand());
+		platformOrder.setGoodModel(sms.getModel());
+		platformOrder.setGoodCategory(sms.getCategory());
+		platformOrder.setCustomerName(siteName);
+		platformOrder.setCustomerContact(siteMobile);
+		platformOrder.setCustomerAddress(siteAddress);
+		platformOrder.setPurchaseNum(BigDecimal.valueOf(order.getMsgCount()));
+		platformOrder.setGoodAmount(BigDecimal.valueOf(order.getTotalFee()).divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP));
+		platformOrder.setPlacingOrderBy(user.getId());
+		platformOrder.setPlacingOrderTime(new Date());
+		platformOrder.setPayer(user.getId());
+		platformOrder.setStatus("0");
+		platformOrder.setPaymentType(PayTypeUtils.convert(order.getPayType()));
+		platformOrder.setTradeNo(order.getOutTradeNo());
+		// platformOrder.setPaymentTime();
+		// platformOrder.setLogisticsName();
+		// platformOrder.setLogisticsNo();
+		platformOrder.setSiteId(CrmUtils.getCurrentSiteId(user));
+		platformOrder.setCreator(CrmUtils.getUserXM());
+		platFormOrderDao.save(platformOrder);
+		return platformOrder;
+	}
+
+	public GoodsPlatform gerPlatformGood(String id) {
+		return goodsPlatFormDao.get(id);
+	}
+
+	/**
+	 * 平台产品入库
+	 */
+	@Transactional(rollbackFor = Exception.class)
+	public Result<Void> doRuku(Map<String, Object> map) {
+		String id = (String) map.get("id");
+		String num = (String) map.get("num");
+		if (StringUtils.isBlank(id)) {
+			throw new RuntimeException("no such platform good: " + id);
+		}
+
+		Pattern pattern = Pattern.compile("^\\d+$");
+		if (StringUtils.isBlank(num) || !pattern.matcher(num).matches()) {
+			throw new RuntimeException("invalid stock num found");
+		}
+
+		GoodsPlatform goodsPlatform = goodsPlatFormDao.get(id);
+		Session session = goodsPlatFormDao.getSession();
+		SQLQuery sqlQuery = session.createSQLQuery("UPDATE `crm_goods_platform` set `stocks`=`stocks`+" + num + " where `id`=:id");
+		sqlQuery.setParameter("id", id);
+		sqlQuery.executeUpdate();
+		goodsPlatFormDetailDao.createGoodsPlatFormDetail(goodsPlatform, BigDecimal.valueOf(Long.valueOf(num)), "1", UserUtils.getUser());
+		return Result.ok();
+	}
+}

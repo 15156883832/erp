@@ -1,0 +1,174 @@
+//工单状态
+function fmtOrderStatus(rowData){ // 为毛这个方法如此另类，感觉不能复用。
+	if("0"==rowData.status){
+		return "<span>待接收</span>";
+	}else if("1"==rowData.status){
+		return "<span>待派工</span>";
+	}else if("2"==rowData.status){
+		return "<span>服务中</span>";
+	}else if("3"==rowData.status){
+		return "<span>待回访</span>";
+	}else if("4"==rowData.status){
+		return "<span>待结算</span>";
+	}else if("5"==rowData.status){
+		return "<span>已完工</span>";
+	}else if("6"==rowData.status){
+		return "<span>取消工单</span>";
+	}else if("7"==rowData.status){
+		return "<span>暂不派工</span>";
+	}
+	return "<span>无效工单</span>";
+}
+
+function fmtOrderStatusTxt(rowData) {
+	if("0"==rowData.status){
+		return "待接收";
+	}else if("1"==rowData.status){
+		return "待派工";
+	}else if("2"==rowData.status){
+		return "服务中";
+	}else if("3"==rowData.status){
+		return "待回访";
+	}else if("4"==rowData.status){
+		return "待结算";
+	}else if("5"==rowData.status){
+		return "已完成";
+	}else if("6"==rowData.status){
+		return "取消工单";
+	}else if("7"==rowData.status){
+		return "暂不派工";
+	}
+	return "无效工单";
+}
+//工单来源
+function fmtOrderType(rowData){
+	if("1"==rowData.order_type){
+		return "ERP系统录入";
+	}else if("2"==rowData.order_type){
+		return "美的厂家系统";
+	}else if("3"==rowData.order_type){
+		return "惠而浦厂家系统";
+	}else if("4"==rowData.order_type){
+		return "海信厂家系统";
+	}else if("5"==rowData.order_type){
+		return "海尔厂家系统";
+	}
+	return "";
+}
+//信息等级
+function fmtOrderLevel(rowData){
+	if("1"==rowData.level){
+		return "紧急";
+	}else if("2"==rowData.level){
+		return "一般";
+	}
+	return "";
+}
+
+
+//保修类型
+function fmtOrderWarrantyType(rowData){
+	if("1"==rowData.warranty_type){
+		return "保内";
+	}else if("2"==rowData.warranty_type){
+		return "保外";
+	}else if("3"==rowData.warranty_type){
+		return "保外转保内";
+	}
+	return "";
+}
+//服务方式
+function fmtServiceMode(rowData){
+	if("1"==rowData.service_mode){
+		return "上门";
+	}else if("2"==rowData.service_mode){
+		return "拉修";
+	}
+	return "";
+}
+
+//交回卡单
+function fmtReturnCard(rowData){
+	if("0"==rowData.return_card){
+		return "否";
+	}else if("1"==rowData.return_card){
+		return "是";
+	}
+	return "";
+}
+
+//是否交款(交单情况)
+function fmtWhetherCollection(rowData){
+	if("0"==rowData.whetherCollection){
+		return "否";
+	}else if("1"==rowData.whetherCollection){
+		return "是";
+	}
+	return "";
+}
+
+//保修家电
+function fmtOrderAppliance(rowData){
+	if(rowData.appliance_brand!=null&&rowData.appliance_category!=null){
+		return rowData.appliance_brand+rowData.appliance_category;
+	}else if(rowData.appliance_brand==null){
+		return rowData.appliance_category;
+	}else{
+		return rowData.appliance_brand;
+	}
+}
+
+//旧件状态
+function fmtOldStatus(rowData){
+	if("0"==rowData.old_status){
+		return "已登记";
+	}else if("1"==rowData.old_status){
+		return "已入库";
+	} else if("2"==rowData.old_status){
+		return "已删除";
+	}else if("3"==rowData.old_status){
+        return "已返厂";
+	}else if("4"==rowData.old_status){
+        return "已报废";
+    }
+	return "";
+}
+
+//核销类型
+function fmtVerificationType(rowData){
+	if("1"==rowData.type){
+		if("0"==rowData.collection_flag){//0未收款
+            return "工单使用";
+		}else if("1"==rowData.collection_flag){//1已收款
+            return "工单零售";
+        }else{
+            return "工单使用";
+		}
+	}else if("2"==rowData.type){
+		return "备件归还";
+	} else if("3"==rowData.type){
+		return "工程师零售";
+	} else if("4"==rowData.type){
+		return "网点零售";
+	}
+	return "";
+}
+//工单中核销类型转换
+function fmtVerificationTypeForOrder(rowData){
+	if("1"==rowData.columns.type){
+		if("0"==rowData.columns.collection_flag){//0未收款
+            return "工单使用";
+		}else if("1"==rowData.columns.collection_flag){//1已收款
+            return "工单零售";
+        }else{
+            return "工单使用";
+		}
+	}else if("2"==rowData.columns.type){
+		return "备件归还";
+	} else if("3"==rowData.columns.type){
+		return "工程师零售";
+	} else if("4"==rowData.columns.type){
+		return "网点零售";
+	}
+	return "";
+}

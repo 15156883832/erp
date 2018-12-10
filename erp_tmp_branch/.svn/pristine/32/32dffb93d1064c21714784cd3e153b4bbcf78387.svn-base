@@ -1,0 +1,135 @@
+package com.jojowonet.modules.goods.entity;
+
+import java.io.Serializable;
+import java.util.Date;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import ivan.common.persistence.BaseDao;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+
+import com.jojowonet.modules.fitting.entity.EmpFittingKeep;
+/**
+ * 工程师库存Entity
+ * @author dongqing
+ *
+ */
+@Entity
+@Table(name = "crm_goods_employe_own")
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class GoodsEmployeOwn implements Serializable{
+ 
+	private static final long serialVersionUID = 1L;
+
+	private String id;
+	private String goodId;
+	private String goodNumber;
+	private String employeId;
+	private double stocks;
+	private double refunds;
+	private double receives;
+	private double sales;
+	private double zgStocks;
+	private double zgTotal;
+	private double zgSales;
+	private double zgRefunds;
+	private String siteId;
+	private Date createTime;
+	
+	@Id
+	@GeneratedValue(generator = "idGenerator")
+	@GenericGenerator(name ="idGenerator" , strategy ="uuid")
+	public String getId() {
+		return id;
+	}
+	public void setId(String id) {
+		this.id = id;
+	}
+	
+	public double getZgStocks() {
+		return zgStocks;
+	}
+	public void setZgStocks(double zgStocks) {
+		this.zgStocks = zgStocks;
+	}
+	public double getZgTotal() {
+		return zgTotal;
+	}
+	public void setZgTotal(double zgTotal) {
+		this.zgTotal = zgTotal;
+	}
+	public double getZgSales() {
+		return zgSales;
+	}
+	public void setZgSales(double zgSales) {
+		this.zgSales = zgSales;
+	}
+	public String getGoodId() {
+		return goodId;
+	}
+	public void setGoodId(String goodId) {
+		this.goodId = goodId;
+	}
+	public String getGoodNumber() {
+		return goodNumber;
+	}
+	public void setGoodNumber(String goodNumber) {
+		this.goodNumber = goodNumber;
+	}
+	public String getEmployeId() {
+		return employeId;
+	}
+	public void setEmployeId(String employeId) {
+		this.employeId = employeId;
+	}
+	public double getStocks() {
+		return stocks;
+	}
+	public void setStocks(double stocks) {
+		this.stocks = stocks;
+	}
+	public double getReceives() {
+		return receives;
+	}
+	public void setReceives(double receives) {
+		this.receives = receives;
+	}
+	public double getSales() {
+		return sales;
+	}
+	public void setSales(double sales) {
+		this.sales = sales;
+	}
+	public String getSiteId() {
+		return siteId;
+	}
+	public void setSiteId(String siteId) {
+		this.siteId = siteId;
+	}
+	public double getZgRefunds() {
+		return zgRefunds;
+	}
+	public void setZgRefunds(double zgRefunds) {
+		this.zgRefunds = zgRefunds;
+	}
+	public double getRefunds() {
+		return refunds;
+	}
+	public void setRefunds(double refunds) {
+		this.refunds = refunds;
+	}
+	public Date getCreateTime() {
+		return createTime;
+	}
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+	
+	
+}

@@ -1,0 +1,283 @@
+/**
+ */
+package com.jojowonet.modules.order.web;
+
+
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.config.SfCacheKey;
+import com.jojowonet.modules.sys.config.SfCacheService;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONObject;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.dao.CategoryDao;
+import com.jojowonet.modules.order.entity.Category;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.CategoryService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+
+/**
+ * 品类Controller
+ * @author Ivan
+ * @version 2016-08-01
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/order/category")
+public class CategoryController extends BaseController {
+
+	@Autowired
+	private CategoryService categoryService;
+	@Autowired
+	private CategoryDao categoryDao;
+	@Autowired
+	SfCacheService sfCacheService;
+
+	/*
+	 * 获取服务品类列表的表头header
+	 * */
+	@RequestMapping(value ="headerList")
+	public String getHeaderList(Category category,HttpServletRequest request,HttpServletResponse response,Model model){
+	     String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+	     SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		 model.addAttribute("headerData", stf);
+		 return "modules/order/serviceCategory";
+	}
+	
+	/*
+	 * 获取服务品类总的列表
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "siteCategoryGrid")
+	public  String getSiteCategoryList(HttpServletRequest request,HttpServletResponse response){
+	    String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Page<Record> pages = new Page<Record>(request,response);
+		Page<Record> page = categoryService.getSeviceCategoryList(pages,siteId);
+		return renderJson(new JqGridPage<>(page));
+	}
+	
+	
+	@RequestMapping(value = "queryNum")
+	public void getQueryNum(@RequestParam(value="rname") String rname,HttpServletRequest request,HttpServletResponse response){
+	    String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Boolean flag = categoryService.getQueryNum(rname,siteId);
+		Map<String, Boolean> map =  Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	@RequestMapping(value="addsyscate")
+	public String addsyscate(HttpServletRequest request, HttpServletResponse response, Model model,String max){
+		 String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		List<Record> syscateList=categoryDao.getsysCateList();
+		List<Record> cateList=categoryDao.getCategoryList(siteId);
+		List<String> categorylist=new ArrayList<String>();
+		for (Record record : cateList) {
+			categorylist.add(record.getStr("name"));
+		}
+		model.addAttribute("syscateList", syscateList);
+		model.addAttribute("max",max);
+		model.addAttribute("categorylist", categorylist);
+		return "modules/order/serviceCategoryForm";
+		
+	}
+	
+	/*
+	 * 批量删除网点服务品类 
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "deleteMore")
+	public String deleteMore(String gg, RedirectAttributes redirectAttributes,HttpServletRequest request,HttpServletResponse response,Model model){
+		String name = request.getParameter("name");
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String turn = categoryService.delete(gg,name,siteId);
+		addMessage(redirectAttributes, "删除成功");
+		if (StringUtil.isNotBlank(siteId)) {
+			sfCacheService.hdel(SfCacheKey.siteCateMap, siteId);
+			sfCacheService.hdelDelay(SfCacheKey.siteCateMap, 2, siteId);
+		}
+		return turn;
+	}
+	
+	
+	/*
+	 * 查询系统默认的网点服务品类 
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "defaultCategory")
+	public String[] defaultCategory() {
+		return CategoryDao.getListCategory8();
+	}
+    
+	/*
+	 * 修改的时候显示的网点查询数据 
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "byCategoryId")
+	public Category getByCategoryId(Integer rowId,HttpServletRequest request,HttpServletResponse response,Model model) {
+		Category category = CategoryDao.getListCategory4(rowId);
+		model.addAttribute("namee", category.getName());
+		return category;
+	}
+	
+	/*
+	 * 网点修改的时候点击保存的方法   
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "saveEdit")
+	public Boolean saveEdit(Integer rowId,String namee,String sortt,HttpServletRequest request,HttpServletResponse response,Model model) {
+		   String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Record rd=categoryService.selectcatebyid(namee, siteId,rowId);
+		if(rd!=null){
+			return false;
+		}else{
+			Boolean edit = categoryService.saveEdit(rowId, namee, sortt);
+			if (StringUtil.isNotBlank(siteId)) {
+				sfCacheService.hdel(SfCacheKey.siteCateMap, siteId);
+				sfCacheService.hdelDelay(SfCacheKey.siteCateMap, 2, siteId);
+			}
+			return edit;
+		}
+		
+	}
+	
+	/*
+	 * 网点批量添加的的时候点击保存的方法    
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "addMore")
+	public String addSave(String[] sorts,String[] names,HttpServletRequest request,HttpServletResponse response,Model model) {
+		String userId =  UserUtils.getUser().getId();
+	    String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String result=categoryService.addSave(userId,siteId, sorts, names);
+		if (StringUtil.isNotBlank(siteId)) {
+			sfCacheService.hdel(SfCacheKey.siteCateMap, siteId);
+			sfCacheService.hdelDelay(SfCacheKey.siteCateMap, 2, siteId);
+		}
+		return result;
+	}
+	
+	/*
+	 * 获取服务品牌的列表             
+	 * */
+	@RequestMapping(value = "siteBrandRelList")
+    public String siteBrandRelList(HttpServletRequest request, HttpServletResponse response, Model model) {
+       String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+       List<Map<String, Object>>  list = categoryService.getCategoryBrandRelList(siteId);
+       model.addAttribute("categoryList", list);
+	   return  "modules/order/siteBrandRelList";
+	}
+
+	/*
+	 * 删除服务品类对应的品牌             
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "delSiteBrandRelList")
+    public Boolean delSiteBrandRelList(Integer cid,Integer bid, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return categoryService.delSiteBrandRelList(siteId,cid,bid);
+	}
+	
+	/*
+	 * 点击加号给品类添加加服务品牌是弹出框中的品牌选项列表    
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "queryBrandname")
+    public List<Record> queryBrandname(Integer cid,String queryname, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return categoryService.queryBrandname(cid,queryname, siteId);
+	}
+	
+	/*
+	 * 点击保存选择的网点服务品牌    
+	 * */
+	@ResponseBody
+	@RequestMapping(value = "saveBrand")
+    public Boolean saveBrand(Integer cid, HttpServletRequest request, HttpServletResponse response, Model model) {
+		
+		String []IdVals = request.getParameterValues("IdVals");
+		
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return categoryService.saveBrand(siteId,cid,IdVals);
+	}
+	
+	
+	/*
+	 * 获取系统维护好的品类对应的品牌     
+	 */
+	@ResponseBody
+	@RequestMapping(value = "queryBycid")
+    public Integer[] queryBycid(Integer cid, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return categoryService.queryBycid(siteId,cid);
+	}
+	
+
+	@ResponseBody
+	@RequestMapping(value="querycateByname")
+	public String querycateByname(String[] catelist){
+		String result="";
+		if(catelist!=null){
+			for(int i=0;i<catelist.length;i++){
+				String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+				result=categoryService.querycatebyname(catelist[i],siteId);
+				if(result!=""){
+					break;
+				}
+			}
+		}
+
+		return result;
+	}
+	@RequestMapping("addMoresys")
+	public void addMoresys(String[] catelist, HttpServletRequest request, HttpServletResponse response, Model model,String max){
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Integer sortsmax=0;
+		 if(!max.equals("undefined") && StringUtils.isNotBlank(max)){
+			 sortsmax=Integer.valueOf(max);
+		 }
+		
+		String userId=UserUtils.getUser().getId();
+		if(catelist!=null){
+			for(int i=0;i<catelist.length;i++){
+				Category cate=new Category();
+				cate.setName(catelist[i]);
+				cate.setCreateBy(userId);
+				cate.setSiteId(siteId);
+				cate.setCreateTime(new Date());
+				cate.setSort(sortsmax+1);
+				categoryService.save(cate);
+				sortsmax++;
+			}
+		}
+
+		
+	}
+	
+}

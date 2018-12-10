@@ -1,0 +1,186 @@
+package com.jojowonet.modules.order.web;
+
+import cn.jiguang.common.utils.StringUtils;
+import com.google.gson.JsonObject;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.SmsSignSetService;
+import com.jojowonet.modules.order.service.SmsTempletService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.order.utils.Result;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.util.SMSUtils;
+import com.jojowonet.modules.sys.util.SfSmsUtils;
+import com.jojowonet.modules.sys.util.TrimMap;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.UserUtils;
+import ivan.common.web.BaseController;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.*;
+
+/**
+ * Created by Administrator on 2018/1/15.
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/order/smstempletSet")
+public class SmsTempletController  extends BaseController{
+    @Autowired
+    private SmsTempletService smsTempletService;
+
+    @Autowired
+    private SmsSignSetService smsSignSetService;
+
+    @RequestMapping(value="headlist")
+    public String headList(HttpServletRequest request, HttpServletResponse response, Model model){
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Record site=smsSignSetService.getSiteSmsSign(siteId);
+        Record re = smsSignSetService.getSignInfo(siteId);
+        model.addAttribute("signInfo", re);
+        model.addAttribute("site", site);
+
+        SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+        model.addAttribute("headerData", stf);
+        model.addAttribute("siteSign",smsSignSetService.getSiteSmsSign(siteId));
+        //return "modules/" + "order/smstemplist";
+        return "modules/" + "order/smsSign";
+    }
+    @RequestMapping(value = "getsmslist")
+    @ResponseBody
+    public String smstempletList(HttpServletRequest request, HttpServletResponse response, Model model){
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Map<String,Object> map = new TrimMap(getParams(request));
+        Page<Record> page = new Page<>(request, response);
+        page = smsTempletService.smstempletList(page,map,siteId);
+        model.addAttribute("page", page);
+        JqGridPage<Record> jqp = new JqGridPage<>(page);
+        return renderJson(jqp);
+    }
+
+    @RequestMapping(value = "saveSms")
+    @ResponseBody
+    public Result save(String name, String content, String id, String number){
+		Result ret = new Result();
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String userId = UserUtils.getUser().getId();
+        String userType = UserUtils.getUser().getUserType();
+        List<Record> namelist = smsTempletService.getnamelist(name,id,siteId);
+        if(namelist.size()>0){
+			ret.setCode("201");
+            return ret;
+        }
+        if(StringUtils.isEmpty(name)){
+			ret.setCode("203");
+			ret.setMsg("模板名称不能为空");
+            return ret;
+        }
+        if(StringUtils.isEmpty(content)){
+            ret.setCode("203");
+            ret.setMsg("模板内容不能为空");
+            return ret;
+        }
+		String contentforsms = changeEspecialy(content);
+
+		Record sameRecord = Db.findFirst("select * from crm_site_sms_template a where a.content=? and a.reviewsms_status='1' and a.site_id<>?", content, siteId);
+		if (sameRecord != null) {//该模板已存在
+			if (StringUtils.isEmpty(id) || StringUtils.isEmpty(number)) {
+				smsTempletService.save(sameRecord.getStr("number"), name, content, userId, userType, siteId, "1");
+				ret.setCode("ok1");
+				return ret;
+			}
+		}
+
+        String tempId = "";
+		if (StringUtils.isEmpty(id) || StringUtils.isEmpty(number)) {
+			ret = SfSmsUtils.addTemplet(name, contentforsms, "思方平台");
+			if (ret!=null && "0".equals(ret.getCode())) {
+				tempId = ret.getData().toString();
+			} else {
+				return ret;
+			}
+			logger.info("新增模板 id:" + tempId);
+		} else {
+			String temId = smsTempletService.getByid(id).getStr("number");
+			ret = SfSmsUtils.modTemplet(name, contentforsms, temId, "思方平台");
+			if (ret != null && "203".equals(ret.getCode())) {
+				return ret;
+			}
+			logger.info("修改模板 id：" + temId);
+			tempId = "0";
+		}
+
+        if (StringUtils.isEmpty(tempId) && !"0".equals(tempId)) {
+			ret.setCode("205");
+			return ret;
+        }
+
+        if (StringUtils.isEmpty(id) || StringUtils.isEmpty(number)) {//新增
+            smsTempletService.save(tempId, name, content, userId, userType, siteId, "0");
+			ret.setCode("ok1");
+        } else {//修改
+            smsTempletService.update(name, content, siteId, "0", id, number);
+			ret.setCode("ok2");
+        }
+        return ret;
+    }
+
+	public String changeEspecialy(String content) {
+		int sque = 1;
+		String contentforsms = content;
+		if (content.contains("@1")) {
+			contentforsms = contentforsms.replace("@1", "{" + sque + "}");
+			sque++;
+		}
+		if (content.contains("@2")) {
+			contentforsms = contentforsms.replace("@2", "{" + sque + "}");
+			sque++;
+		}
+		if (content.contains("@3")) {
+			contentforsms = contentforsms.replace("@3", "{" + sque + "}");
+			sque++;
+		}
+		if (content.contains("@4")) {
+			contentforsms = contentforsms.replace("@4", "{" + sque + "}");
+			sque++;
+		}
+		if (content.contains("@5")) {
+			contentforsms = contentforsms.replace("@5", "{" + sque + "}");
+			sque++;
+		}
+		if (content.contains("@6")) {
+			contentforsms = contentforsms.replace("@6", "{" + sque + "}");
+			sque++;
+		}
+		if (content.contains("@7")) {
+			contentforsms = contentforsms.replace("@7", "{" + sque + "}");
+			sque++;
+		}
+		if (content.contains("@8")) {
+			contentforsms = contentforsms.replace("@8", "{" + sque + "}");
+			sque++;
+		}
+		return contentforsms;
+	}
+
+    @RequestMapping(value = "delete")
+    @ResponseBody
+    public String deleteSms(String id){
+        String userId = UserUtils.getUser().getId();
+        return smsTempletService.deleteSms(userId,id);
+    }
+
+    @RequestMapping(value = "getByid")
+    @ResponseBody
+    public Record getByid(String id){
+      return smsTempletService.getByid(id);
+    }
+}

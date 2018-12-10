@@ -1,0 +1,468 @@
+package com.jojowonet.modules.fitting.service.excel;
+
+
+import ivan.common.utils.IdGen;
+
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fmss.utils.DataUtils;
+import com.jojowonet.modules.fmss.utils.DbBatchBean;
+import com.jojowonet.modules.fmss.utils.DbBatchItem;
+import com.jojowonet.modules.order.dao.UnitDao;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.SqlKit;
+import com.jojowonet.modules.order.utils.excelExt.handler.ExcelAbstractHandler;
+
+public class FittingImportExcelHandler extends ExcelAbstractHandler{
+
+	public String insertFittingSql = getFittngSql();
+	public String insertFittingKeepSql = getFittngKeepSql();
+	public String updateFittingSql = getUpdateFittingSql();
+	
+	
+	public Map<String, FittingExcelBean> fittingCodeMap = Maps.newHashMap();
+	
+	/**
+	 * 如果返回false，则表示终止继续遍历Excel,截至到当前的行数
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public Boolean handler(Map<String, Object> rowData, int rowIndex) {
+		
+		//该List中包含了明细表记录
+		List<FittingExcelBean> fittings = (List<FittingExcelBean>) getHandlerResult();
+		if(fittings == null || fittings.size() == 0){
+			fittings = Lists.newArrayList(); 
+			setHandlerResult(fittings);
+		}
+		
+		String fittingCode = formatFittingCode(rowData.get("2"));//备件的条码
+		boolean isValid = checkRowData(rowData);//检查Excel的必输选项是否为空!!
+		
+		if(isValid && !fittingCodeMap.containsKey(fittingCode)){//验证成功，可以插入数据库
+			FittingExcelBean feb = new FittingExcelBean();
+			increaseSuccessCount(1);
+			wrapSqlParams(rowData, feb);
+			fittingCodeMap.put(fittingCode, feb);
+		}else{//验证失败，需要放入失败消息中
+			if(StringUtils.isNotBlank(fittingCode) && !"null".equalsIgnoreCase(fittingCode)){
+				increaseErrorCount(1);
+				appendErrorDetail(fittingCode);
+			}
+		}
+		return true;
+	}
+	
+	/**
+	 * 根据具体业务验证excel数据的正确有效性
+	 * @param rowData:excel的每一行数据
+	 * @return 
+	 * 			true:表示可以插入数据库的，
+	 * 			false:表示校验失败的，需要错误提示的
+	 */
+	public boolean checkRowData(Map<String, Object> rowData){
+		if((rowData.get("1") == null || StringUtils.isBlank(rowData.get("1").toString()))
+				|| (rowData.get("2") == null || StringUtils.isBlank(rowData.get("2").toString()))
+				|| (rowData.get("3") == null || StringUtils.isBlank(rowData.get("3").toString()))
+				|| (rowData.get("5") == null || StringUtils.isBlank(rowData.get("5").toString()))
+				|| (rowData.get("6") == null || StringUtils.isBlank(rowData.get("6").toString()))
+				|| (rowData.get("7") == null || StringUtils.isBlank(rowData.get("7").toString()))
+				|| (rowData.get("9") == null || StringUtils.isBlank(rowData.get("9").toString()))
+				|| (rowData.get("11") == null || StringUtils.isBlank(rowData.get("11").toString()))
+				|| (rowData.get("12") == null || StringUtils.isBlank(rowData.get("12").toString()))
+				|| (rowData.get("13") == null || StringUtils.isBlank(rowData.get("13").toString()))
+				){
+			return false;
+		}
+		return true;
+	}
+	/**
+	 * 根据具体业务验证excel数据的正确有效性
+	 * @param rowData:excel的每一行数据
+	 * @return 
+	 * 			true:表示可以插入数据库的，
+	 * 			false:表示校验失败的，需要错误提示的
+	 */
+	public boolean checkFittingData(Map<String, Object> rowData){
+		if((rowData.get("1") == null || StringUtils.isBlank(rowData.get("1").toString()))
+				&& (rowData.get("2") == null || StringUtils.isBlank(rowData.get("2").toString()))
+				&& (rowData.get("3") == null || StringUtils.isBlank(rowData.get("3").toString()))
+				&& (rowData.get("5") == null || StringUtils.isBlank(rowData.get("5").toString()))
+				&& (rowData.get("6") == null || StringUtils.isBlank(rowData.get("6").toString()))
+				&& (rowData.get("7") == null || StringUtils.isBlank(rowData.get("7").toString()))
+				&& (rowData.get("9") == null || StringUtils.isBlank(rowData.get("9").toString()))
+				&& (rowData.get("11") == null || StringUtils.isBlank(rowData.get("11").toString()))
+				&& (rowData.get("12") == null || StringUtils.isBlank(rowData.get("12").toString()))
+				&& (rowData.get("13") == null || StringUtils.isBlank(rowData.get("13").toString()))
+				){
+			return false;
+		}
+		return true;
+	}
+	
+	/**
+	 * 如果返回false，则表示终止继续遍历Excel,截至到当前的行数
+	 */
+	@SuppressWarnings("unchecked")
+	//验证Excel模板
+	@Override
+	public Boolean checkExcel(Map<String, Object> rowData, int rowIndex) {
+		
+		Map<String,Object> result = (Map<String, Object>) this.getHandlerResult();
+		if(result == null){
+			result = Maps.newHashMap();
+			this.setHandlerResult(result);
+		}
+		
+		Map<String, String> existsFittingMap = (Map<String, String>) result.get("existsFittingMap");
+		if(existsFittingMap == null){
+			existsFittingMap = Maps.newHashMap();
+			result.put("existsFittingMap", existsFittingMap);
+		}
+		
+		if(rowIndex == (getStartRow() -1)){//如果是title列，则直接检查是否同一个Excel模板,包括顺序和列名匹配
+			//{1=备件名称, 10=工程师价格, 11=零售价格, 12=入库数量, 13=备件来源, 14=库位, 15=返还旧件, 2=备件条码, 
+			//3=备件型号, 4=备件品牌, 5=适用品类, 6=备件类型, 7=计量单位, 8=预警数量, 9=入库价格}
+			StringBuilder sb = new StringBuilder("");
+			sb.append("备件名称").append(",").append("备件条码").append(",").append("备件型号").append(",");
+			sb.append("备件品牌").append(",").append("适用品类").append(",");
+			sb.append("备件类型").append(",").append("计量单位").append(",");
+			sb.append("预警数量").append(",").append("入库价格").append(",");
+			sb.append("工程师价格").append(",").append("零售价格").append(",");
+			sb.append("入库数量").append(",").append("备件来源").append(",");
+			sb.append("库位").append(",").append("返还旧件").append(",");
+			String[] titles = sb.toString().split(",");
+			boolean ret = true;
+			for(int i = 0; i < titles.length; i++){
+				String tt = String.valueOf(rowData.get(String.valueOf(i + 1)));
+				if(!titles[i].equals(tt.trim())){
+					result.put("TemplateError", "TemplateError");
+					ret = false;
+					break;
+				}
+			}
+			return ret;
+		}else if(checkFittingData(rowData) && rowIndex > (getStartRow() -1)){
+			String fittingCode = formatFittingCode(rowData.get("2"));
+			 String rowIndexOld = existsFittingMap.get(fittingCode); 
+			   if(StringUtils.isBlank(rowIndexOld)){
+					//第一次肯定是有效的
+					existsFittingMap.put(fittingCode, String.valueOf(rowIndex+1));
+				}else{
+					//生成错误提醒
+					existsFittingMap.put(fittingCode, rowIndexOld + "," + (rowIndex+1));
+				}
+			   
+			   //校验配件条码格式
+			   if(fittingCode != null && !(String.valueOf(fittingCode)).matches("^[0-9a-zA-Z]{1,25}$")){
+					appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件条码"+fittingCode+"格式错误,最多不超过25位！</p>");
+				}
+			   //校验必填项
+
+			   if(rowData.get("1") == null || StringUtils.isBlank(rowData.get("1").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件名称为空"+"</p>");
+					return true;
+			   }else if(rowData.get("1").toString().length()>500){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件名称长度超出范围"+"</p>");
+					return true;
+			   }else if(rowData.get("2") == null || StringUtils.isBlank(rowData.get("2").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件条码为空"+"</p>");
+					return true;
+			   }else if(rowData.get("3") == null || StringUtils.isBlank(rowData.get("3").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件型号为空"+"</p>");
+					return true;
+			   }else if(rowData.get("3").toString().length()>500){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件型号长度超出范围"+"</p>");
+					return true;
+			   }else if(rowData.get("4") != null &&String.valueOf(rowData.get("4")).length()>20){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件品牌长度超出范围"+"</p>");
+					return true;
+			   }else if(rowData.get("5") == null || StringUtils.isBlank(rowData.get("5").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：适用品类为空"+"</p>");
+					return true;
+			   }else if(rowData.get("5").toString().length()>10){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件品类长度超出范围"+"</p>");
+					return true;
+			   }else if(rowData.get("6") == null || StringUtils.isBlank(rowData.get("6").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件类型为空"+"</p>");
+					return true;
+			   }else if(rowData.get("7") == null || StringUtils.isBlank(rowData.get("7").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：计量单位为空"+"</p>");
+					return true;
+			   }else if(rowData.get("8") != null && StringUtils.isNotBlank(rowData.get("8").toString())&&!rowData.get("8").toString().matches("^\\d+(\\.\\d+)?$")){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：预警数量格式不正确！"+"</p>");
+					   return true;
+			   }else if(rowData.get("9") == null || StringUtils.isBlank(rowData.get("9").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：入库价格为空"+"</p>");
+					return true;
+			   }else if(!rowData.get("9").toString().matches("^\\d+(\\.\\d+)?$")){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：入库价格格式不正确！"+"</p>");
+				   return true;
+			   }else if(rowData.get("11") == null || StringUtils.isBlank(rowData.get("11").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：零售价格为空"+"</p>");
+					return true;
+			   }else if(!rowData.get("11").toString().matches("^\\d+(\\.\\d+)?$")){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：零售价格格式不正确！"+"</p>");
+				   return true;
+			   }else if(rowData.get("12") == null || StringUtils.isBlank(rowData.get("12").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：入库数量为空"+"</p>");
+					return true;
+			   }else if(!rowData.get("12").toString().matches("^\\d+(\\.\\d+)?$")){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：入库数量格式不正确！"+"</p>");
+				   return true;
+			   }else if(rowData.get("13") == null || StringUtils.isBlank(rowData.get("13").toString())){
+				   appendErrorDetail("<p>第"+(rowIndex+1)+"行数据：备件来源为空"+"</p>");
+					return true;
+			   } 
+			
+			if(rowIndex > getMaxRows()){
+				result.put("overLimit", "overLimit");	
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * 生成批量插入的SQL语句
+	 * @return
+	 */
+	public String getFittngSql(){
+		StringBuilder sf = new StringBuilder();
+		sf.append("INSERT INTO crm_site_fitting (NAME, CODE, VERSION, brand, suit_category, TYPE, unit, alert_num, site_price, ");
+		sf.append(" employe_price, customer_price, total, supplier, location, refund_old_flag, ");
+		sf.append(" unit_type, STATUS, site_id, create_time, create_by, warning, suit_brand, id) ");//最后一行是非Excel表格外的参数
+		sf.append("VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+		return sf.toString();
+	}
+	/**
+	 * 生成明细批量插入的SQL语句
+	 * @return
+	 */
+	public String getFittngKeepSql(){
+		StringBuilder sf = new StringBuilder();
+		sf.append(" INSERT INTO crm_site_fitting_keep (id, number, TYPE, fitting_id, ");
+		sf.append("	fitting_code, fitting_name, amount, price, employe_price, customer_price, "); 
+		sf.append(" create_time,applicant,confirmor, site_id, create_by) ");
+		sf.append("	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+		return sf.toString();
+	}
+	/**
+	 * 生成明细批量修改的SQL语句
+	 * @return
+	 */
+	public String getUpdateFittingSql(){
+		StringBuffer sf = new StringBuffer();
+		sf.append("UPDATE crm_site_fitting SET NAME = ? , CODE =?, VERSION = ? , ");
+		sf.append("brand = ? ,suit_category = ?, TYPE=? ,unit = ? , alert_num = ?,site_price = ? , ");
+		sf.append("employe_price = ?, customer_price =? ,warning=warning+? ,supplier = ? ,location =? , ");
+		sf.append("refund_old_flag =? , unit_type = ? ,  ");
+		sf.append("total = total+? WHERE id = ?  ");
+		return sf.toString();
+	}
+	
+
+	/**
+	 * 根据业务封装可执行的SQL语句对应的参数数组
+	 * @param rowData
+	 * @return
+	 */
+	public FittingExcelBean wrapSqlParams(Map<String, Object> rowData, FittingExcelBean feb){
+		Object[] fittingParams = new Object[23];
+		Object[] fittingKeepParams = new Object[15];
+		
+		for(int i = 1; i <= rowData.size(); i++){
+			String idx = i + "";
+			Object val = rowData.get(idx);
+			if(i == 2){//编号
+			   val = formatFittingCode(val);
+			}
+			
+			if(i == 8){//预警数量
+				if(val != null && StringUtils.isNotEmpty(val.toString())){
+					val = DataUtils.doubleIfNull(Double.valueOf(val.toString()), 0d);
+				}else{
+					val =0;
+				}
+			}
+			if(i == 9){//入库价格
+				val = DataUtils.doubleIfNull(Double.valueOf(val.toString()), 0d);
+			}else if(i == 10){//服务工程师价格
+				if(val != null && StringUtils.isNotEmpty(val.toString())){
+					val = DataUtils.doubleIfNull(Double.valueOf(val.toString()), 0d);
+				}else{
+					val =0;
+				}
+			}else if(i == 11){//客户价格
+				val = DataUtils.doubleIfNull(Double.valueOf(val.toString()), 0d);
+			}else if(i==15){
+				if("需要".equals(val)){
+					val="1";
+				}else{
+					val = "0";
+				}
+			}else if(i==6){
+				if("耗材".equals(val)){
+					val="2";
+				}else {
+					val = "1";
+				}
+			}
+			fittingParams[i-1] = val;
+		}
+		Map<String, String> paramMap = (Map<String, String>) getParams();
+		String uti = rowData.get("7").toString().trim();
+		
+		//Record rd = UnitDao.getFitUnitType(uti);
+		if(paramMap.containsKey(uti)){
+		fittingParams[15] = paramMap.get(uti);//unit_type
+		}else{
+		fittingParams[15] = "";//unit_type
+		}
+		
+		fittingParams[16] = "1";//status
+		fittingParams[17] = paramMap.get("siteId");//site_id
+		fittingParams[18] = paramMap.get("createTime");//create_time
+		fittingParams[19] = paramMap.get("createBy");//create_by
+		fittingParams[20] = fittingParams[11];//warning
+		fittingParams[21] =  rowData.get("4");//suit_brand
+		fittingParams[22] = IdGen.uuid();//id
+		feb.setSqlParams(fittingParams);
+		
+		FittingExcelDetailBean fedb = new FittingExcelDetailBean();
+		//keep表的参数
+		fittingKeepParams[0] = IdGen.uuid();//id
+		fittingKeepParams[1] = CrmUtils.no();//number
+		fittingKeepParams[2] = "0";//type
+		fittingKeepParams[3] = fittingParams[22];//fitting_id
+		fittingKeepParams[4] = rowData.get("2");//fitting_code
+		fittingKeepParams[5] = rowData.get("1");//fitting_name
+		fittingKeepParams[6] = rowData.get("12");//amount
+		fittingKeepParams[7] = rowData.get("9");//price
+		Object empPrice = rowData.get("10");
+		if(empPrice == null || StringUtils.isBlank(String.valueOf(empPrice))) {
+			fittingKeepParams[8] = 0.00;
+		} else {
+			fittingKeepParams[8] = empPrice;
+		}
+//		if(StringUtils.isNotEmpty((String) rowData.get("10"))){
+//			fittingKeepParams[8] = rowData.get("10");//employe_price
+//		}else{
+//			fittingKeepParams[8] = 0.00;//employe_price
+//		}
+		fittingKeepParams[9] = rowData.get("11");//customer_price
+		fittingKeepParams[10] = paramMap.get("createTime");//create_time
+		fittingKeepParams[11] = paramMap.get("siteName");//applicant
+		fittingKeepParams[12] = paramMap.get("siteName");//confirmor
+		
+		fittingKeepParams[13] = paramMap.get("siteId");//site_id
+		fittingKeepParams[14] = paramMap.get("createBy");//create_by
+
+		//..继续补充完参数
+		fedb.setSqlParams(fittingKeepParams);
+		feb.setFittingExcelDetailBean(fedb);
+		return feb;
+	}
+	
+	//处理更新的参数集
+	public Object[] generateFittingKeepParams(FittingExcelBean fib){
+		Object[] params = new Object[18];
+		Object[] fittingParams = fib.getSqlParams();
+		params[0] = fittingParams[0];
+		params[1] = fittingParams[1];
+		params[2] = fittingParams[2];
+		params[3] = fittingParams[3];
+		params[4] = fittingParams[4];
+		params[5] = fittingParams[5];
+		params[6] = fittingParams[6];
+		params[7] = fittingParams[7];
+		params[8] = fittingParams[8];
+		params[9] = fittingParams[9];
+		params[10] = fittingParams[10];
+		params[11] = fittingParams[11];
+		params[12] = fittingParams[12];
+		params[13] = fittingParams[13];
+		params[14] = fittingParams[14];
+		params[15] = fittingParams[15];
+		params[16] = fittingParams[11];
+		//params[17] = fittingParams[0];
+		return params;
+	}
+	
+	public DbBatchBean fittingFilterInDb(){
+	//	Map<String, Object> retMap = Maps.newHashMap();
+		DbBatchBean dbb = new DbBatchBean();
+		DbBatchItem insertFittingDBI = new DbBatchItem();
+		DbBatchItem insertFittingKeepDBI = new DbBatchItem();
+		DbBatchItem updateFittingDBI = new DbBatchItem();
+		Map<String, String> paramMap = (Map<String, String>) getParams();
+		List<Object[]> ifitting = Lists.newArrayList();
+		List<Object[]> ifittingKeep = Lists.newArrayList();
+		List<Object[]> updateFitting = Lists.newArrayList();
+		
+		if(fittingCodeMap != null && fittingCodeMap.size() > 0){
+			StringBuilder sb = new StringBuilder("SELECT id,code FROM crm_site_fitting a WHERE a.status='1' AND a.code IN ("+SqlKit.joinInSql(fittingCodeMap.keySet())+") AND a.site_id='"+paramMap.get("siteId")+"' ");
+			List<Record> rds = Db.find(sb.toString());
+			Map<String, String> existMap = Maps.newHashMap();
+			for(Record rd : rds){
+				String code = rd.getStr("code");
+				String id = rd.getStr("id");
+				if(fittingCodeMap.containsKey(code)){
+					existMap.put(code, id);
+				}
+			}
+			for(Entry<String, FittingExcelBean> ent : fittingCodeMap.entrySet()){
+				if(existMap.containsKey(ent.getKey())){//已经存在于数据库中了，则更新操作
+					String fittingId = existMap.get(ent.getKey());
+					//ent.getValue().getSqlParams()[17] = existMap.get(ent.getKey());
+					Object[] updateParams = generateFittingKeepParams(ent.getValue());
+					updateParams[17]=fittingId;
+					updateFitting.add(updateParams);
+					Object[] oldFittingKeep = ent.getValue().getFittingExcelDetailBean().getSqlParams();
+					oldFittingKeep[3] = fittingId;
+					ifittingKeep.add(oldFittingKeep);
+				}else{//如果没有存在于数据库中，那么就可以直接放入可插入的list中
+					ifitting.add(ent.getValue().getSqlParams());
+					ifittingKeep.add(ent.getValue().getFittingExcelDetailBean().getSqlParams());
+				}
+			}
+			if(ifitting != null && ifitting.size() > 0){
+				insertFittingDBI.setSql(insertFittingSql);
+				insertFittingDBI.setParams(ifitting);
+				dbb.appendDBI(insertFittingDBI);
+			}
+			if(ifittingKeep != null && ifittingKeep.size() > 0){
+				insertFittingKeepDBI.setSql(insertFittingKeepSql);
+				insertFittingKeepDBI.setParams(ifittingKeep);
+				dbb.appendDBI(insertFittingKeepDBI);
+			}
+			if(updateFitting != null && updateFitting.size() > 0){
+				updateFittingDBI.setSql(updateFittingSql);
+				updateFittingDBI.setParams(updateFitting);
+				dbb.appendDBI(updateFittingDBI);
+			}
+		}
+		return dbb;
+	}
+	
+	private String formatFittingCode(Object code) {
+		Object codeVal = code;
+		if (codeVal instanceof Double) {
+			codeVal = new DecimalFormat("#").format((Double) codeVal);
+		} else {
+			codeVal = code;
+		}
+		return String.valueOf(codeVal);
+	}
+}

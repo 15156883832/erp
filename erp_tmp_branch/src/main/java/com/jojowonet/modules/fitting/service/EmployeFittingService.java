@@ -1,0 +1,321 @@
+/**
+ */
+package com.jojowonet.modules.fitting.service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import com.jojowonet.modules.order.dao.OrderDao;
+import com.jojowonet.modules.order.utils.TableSplitMapper;
+import org.apache.log4j.Logger;
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fitting.dao.EmployeFittingDao;
+import com.jojowonet.modules.fitting.entity.EmpFittingKeep;
+import com.jojowonet.modules.fitting.entity.EmployeFitting;
+import com.jojowonet.modules.fitting.entity.Fitting;
+import com.jojowonet.modules.fitting.entity.FittingUsedRecord;
+import com.jojowonet.modules.operate.entity.Employe;
+import com.jojowonet.modules.operate.service.EmployeService;
+import com.jojowonet.modules.order.service.OrderFittingService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+/**
+ * 工程师备件库存Service
+ * 
+ * @author Ivan
+ * @version 2017-05-23
+ */
+@Component
+@Transactional(readOnly = true)
+public class EmployeFittingService extends BaseService {
+
+	@Autowired
+	private EmployeFittingDao employeFittingDao;
+
+	@Autowired
+	private FittingService fiService;
+
+	@Autowired
+	public EmpFittingKeepService empFittingKeepService;
+
+	@Autowired
+	public EmployeService empService;
+
+	@Autowired
+	public FittingUsedRecordService furService;
+	@Autowired
+	private OrderFittingService orderFittingService;
+	@Autowired
+	TableSplitMapper tableSplitMapper;
+	@Autowired
+	OrderDao orderDao;
+	
+	private static Logger logger = Logger.getLogger(EmployeFittingService.class);
+
+	public EmployeFitting get(String id) {
+		return employeFittingDao.get(id);
+	}
+
+	public Page<EmployeFitting> find(Page<EmployeFitting> page, EmployeFitting employeFitting) {
+		DetachedCriteria dc = employeFittingDao.createDetachedCriteria();
+		if (StringUtils.isNotEmpty(employeFitting.getId())) {
+			dc.add(Restrictions.like("name", "%" + employeFitting.getId() + "%"));
+		}
+		dc.add(Restrictions.eq("delFlag", "0"));
+		dc.addOrder(Order.desc("id"));
+		return employeFittingDao.find(page, dc);
+	}
+
+	@Transactional(readOnly = false)
+	public void save(EmployeFitting employeFitting) {
+		employeFittingDao.save(employeFitting);
+	}
+
+	@Transactional(readOnly = false)
+	public void delete(String id) {
+		employeFittingDao.deleteById(id);
+	}
+
+	// 待返还（确认入库）【根据备件id进行修改】
+	/*
+	 * @Transactional(readOnly = false) public int doDFH(String fittingId,double
+	 * num) { int re=0; try { employeFittingDao.doDFH(fittingId,num); re=1; } catch
+	 * (Exception e) { re=0; e.printStackTrace(); } return re; }
+	 */
+
+	// 调拨弹窗的信息展示
+	@Transactional(readOnly = false)
+	public Record tiaoBo(String id, String siteId) {
+		return employeFittingDao.tiaoBo(id, siteId);
+	}
+
+	// 调拨页面信息展示
+	public List<Record> tiaoBoGetData(String ids, String siteId) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(
+				"select sf.customer_price,sf.employe_price,sf.site_price,ef.id,ef.fitting_id,e.id as employe_id,e.name as diaoPeople,ef.suit_brand,sf.brand,ef.suit_category,sf.code,sf.name as fittingName,sf.version,sf.type,ef.warning,sf.unit  from crm_employe_fitting ef");
+		sb.append(" left join crm_site_fitting sf on ef.fitting_id=sf.id");
+		sb.append(" left join crm_employe e on e.id=ef.employe_id");
+		sb.append(" where ef.id in (" + StringUtil.joinInSql(ids.split(",")) + ") and ef.site_id='" + siteId + "' and ef.warning > 0");
+		return Db.find(sb.toString());
+	}
+
+	// 调拨页面信息展示
+	public Record showRetail(String id, String siteId) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(
+				"select ef.id as empFitId,ef.fitting_id,sf.code,sf.name as fittingName,sf.version,sf.type,ef.warning,sf.unit,sf.site_price,sf.customer_price  from crm_employe_fitting ef");
+		sb.append(" left join crm_site_fitting sf on ef.fitting_id=sf.id");
+		sb.append(" where ef.id='" + id + "' and ef.site_id='" + siteId + "'");
+		Record re = Db.findFirst(sb.toString());
+		return re;
+	}
+
+	public Record showFittingType(String[] fittingId) {
+
+		return employeFittingDao.showFittingType(fittingId);
+	}
+
+	public Record showFittingTypeSecondSite(String[] fittingId, String siteId) {
+
+		return employeFittingDao.showFittingTypeSecondSite(fittingId, siteId);
+	}
+
+	public void BjEmpFit(String code, String empId, String num) {
+		employeFittingDao.BjEmpFit(code, empId, num);
+	}
+
+	public List<Record> getEmployeFittings(String orderId) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String dispatchTable = "crm_order_dispatch";
+		String relTable = "crm_order_dispatch_employe_rel";
+		if (orderDao.get(orderId) == null) {
+			dispatchTable = tableSplitMapper.mapOrderDispatch(siteId);
+			relTable = tableSplitMapper.mapOrderDispatchEmployeRel(siteId);
+		}
+		if (dispatchTable == null) {
+			throw new RuntimeException("map required,site_id=" +  siteId);
+		}
+
+		String sql = "select id from " + dispatchTable + " where order_id=? and status in('1','2','4','5') ";
+		Record re = Db.findFirst(sql, orderId);
+		String dispatchId = re.getStr("id");
+
+		String empRelSql = "select emp_id from " + relTable + " where site_id=? and dispatch_id=? and order_id=? ";
+		List<Record> empRels = Db.find(empRelSql, siteId, dispatchId, orderId);
+		if (empRels.size() <= 0) {
+			return new ArrayList<>();
+		}
+		List<String> empIds = new ArrayList<>();
+		for (Record r : empRels) {
+			empIds.add(r.getStr("emp_id"));
+		}
+
+		StringBuilder sb = new StringBuilder();
+		sb.append(" SELECT c.name as fittingName,c.code,a.*,b.name as employName FROM crm_employe_fitting a ");
+		sb.append("  LEFT JOIN crm_employe b ON a.employe_id=b.id ");
+		sb.append("  LEFT JOIN crm_site_fitting c ON a.fitting_id=c.id ");
+		sb.append("  where a.employe_id in (").append(CrmUtils.joinInSql(empIds)).append(") and a.status='1' and a.site_id='").append(siteId).append("' and a.warning>0 ");
+		return Db.find(sb.toString());
+	}
+
+	public List<Record> getEmployeFittingsSecondSite(String orderId, String siteId) {
+		// String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		String sql = "select id from crm_order_dispatch where order_id=? and status in('1','2','4','5') ";
+		Record re = Db.findFirst(sql, orderId);
+		String dispatchId = re.getStr("id");
+
+		String sqlEmpl = "select emp_id from crm_order_dispatch_employe_rel where site_id=? and dispatch_id=? and order_id=? ";
+		List<Record> reEmpls = Db.find(sqlEmpl, siteId, dispatchId, orderId);
+
+		StringBuffer sb = new StringBuffer();
+		sb.append(" SELECT c.name as fittingName,c.code,a.*,b.name as employName FROM crm_employe_fitting a ");
+		sb.append("  LEFT JOIN crm_employe b ON a.employe_id=b.id ");
+		sb.append("  LEFT JOIN crm_site_fitting c ON a.fitting_id=c.id ");
+		sb.append("  where a.employe_id in ( ");
+		for (int i = 0; i < reEmpls.size(); i++) {
+			Record rd = reEmpls.get(i);
+			if (i != reEmpls.size() - 1) {
+				sb.append(" '" + rd.getStr("emp_id") + "', ");
+			} else if (i == reEmpls.size() - 1) {
+				sb.append(" '" + rd.getStr("emp_id") + "' ");
+			}
+		}
+		sb.append(" ) and a.status='1' and a.site_id='" + siteId + "' and a.warning>0 ");
+		return Db.find(sb.toString());
+
+	}
+
+	@Transactional(rollbackFor = Exception.class)
+	public void empUseFit(HttpServletRequest request) {
+		String siteId = request.getParameter("siteId");
+		if (StringUtils.isBlank(siteId)) {
+			siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		}
+		String fitIdBindEmpId = request.getParameter("fitIdBindEmpId");
+		String[] fitEmpId = fitIdBindEmpId.split(",");
+
+		EmpFittingKeep efk = new EmpFittingKeep();
+		String empId = fitEmpId[1];
+		String num = request.getParameter("num");// 数量
+		String orderId = request.getParameter("orderId");
+		String orderNumber = request.getParameter("orderNumber");
+		String customerName = request.getParameter("customerName");
+		String customerMobile = request.getParameter("customerMobile");
+		String customerAddress = request.getParameter("customerAddress");
+		String warrantyType1 = request.getParameter("warrantyType");
+		String applianceCategory = request.getParameter("applianceCategory");
+		String applianceBrand = request.getParameter("applianceBrand");
+		Record orderOr400Rd = orderFittingService.getOrderOr400Rd(orderId, siteId);
+
+		String fittingId = fitEmpId[0];
+		Employe e = empService.get(fitEmpId[1]);
+		String empName = e.getName();
+		Fitting fi = fiService.getId(fittingId);
+		String code = request.getParameter("code");// 备件条码
+		logger.error("EmployeFittingService BjEmpFit emp found,code ="+code+"empId=" + empId +",num:"+num+ ";time"+ DateUtils.getDate());
+		this.BjEmpFit(code, empId, num);// 修改工程师库存
+
+		// 配件 服务工程师使用记录
+		FittingUsedRecord fur = new FittingUsedRecord();
+		fur.setFittingId(fittingId);
+		fur.setFittingCode(fi.getCode());
+		fur.setFittingName(fi.getName());
+		fur.setFittingVersion(fi.getVersion());
+		fur.setBrand(fi.getSuitBrand());
+		fur.setCategory(fi.getSuitCategory());
+		fur.setSiteId(siteId);
+		fur.setOrderId(orderId);
+		fur.setOrderNumber(orderNumber);
+		fur.setCustomerMobile(customerMobile);
+		fur.setCustomerAddress(customerAddress);
+		fur.setCustomerName(customerName);
+		fur.setApplianceBrand(applianceBrand);
+		fur.setApplianceCategory(applianceCategory);
+		fur.setWarrantyType(warrantyType1);
+
+		fur.setUsedNum(new BigDecimal(num));
+		fur.setStatus("1");// 待核销的配件使用
+		fur.setEmployeId(empId);
+		fur.setUserName(empName);
+		fur.setCreateBy(empService.getUserId(empId));
+		fur.setUsedTime(new Date());
+		fur.setOldFittingFlag(fi.getRefundOldFlag());
+		fur.setType("1");// 服务反馈时 工单使用
+		String price = request.getParameter("price");// money
+		fur.setCollectionFlag("0");// 0未收款 1已收款，默认0
+		fur.setCreator(CrmUtils.getUserXM());
+		if (StringUtils.isNotBlank(price)) {
+			fur.setCollectionFlag("1");// 0未收款 1已收款，默认0
+			BigDecimal bg = new BigDecimal(price);
+			fur.setCollectionMoney(bg);
+		}
+
+		furService.doSave(fur, null, null);
+
+		efk.setNumber(CrmUtils.no());
+		efk.setType("1");
+		efk.setFittingId(fittingId);
+		efk.setFittingCode(fi.getCode());
+		efk.setFittingName(fi.getName());
+		efk.setOrderId(orderId);
+		efk.setOrderNumber(orderNumber);
+		efk.setAmount(Double.parseDouble(num));
+		if (fi.getSitePrice() != null) {
+			efk.setPrice(fi.getSitePrice());
+		}
+		efk.setCreateTime(new Date());
+		efk.setSiteId(siteId);
+		efk.setEmployeName(empName);
+		efk.setCreateBy(empName);
+		efk.setEmployeId(empId);
+		efk.setCustomerMobile(orderOr400Rd.getStr("customer_mobile"));
+		efk.setCustomerName(orderOr400Rd.getStr("customer_name"));
+		String warrantyType = orderOr400Rd.getStr("warranty_type");
+		if ("保内".equals(warrantyType)) {
+			efk.setWarrantyType("1");
+		} else if ("保外".equals(warrantyType)) {
+			efk.setWarrantyType("2");
+		} else if ("1".equals(warrantyType) || "2".equals(warrantyType)) {
+			efk.setWarrantyType(warrantyType);
+		}
+		efk.setOrderNumber(orderOr400Rd.getStr("number"));
+		if (fi.getEmployePrice() != null) {
+			efk.setEmployePrice(fi.getEmployePrice());
+		}
+		if (fi.getCustomerPrice() != null) {
+			efk.setCustomerPrice(fi.getCustomerPrice());
+		}
+		// 工程师出入库明细增加
+		empFittingKeepService.tjEmpKeep(efk);
+	}
+	
+	public Object getEmployeFittingWarning(String fittingId,String siteId) {
+		String sql =" SELECT warning FROM crm_employe_fitting WHERE fitting_id=? AND site_id=? AND STATUS='1' AND warning >0 ";
+		Record rd = Db.findFirst(sql,fittingId,siteId);
+		if(rd == null) {
+			return true;
+		}
+		return rd.getBigDecimal("warning");
+	}
+
+}

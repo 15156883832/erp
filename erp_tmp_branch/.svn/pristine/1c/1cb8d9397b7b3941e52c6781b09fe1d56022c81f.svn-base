@@ -1,0 +1,55 @@
+package com.jojowonet.modules.order.utils.caches;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.utils.SimpleCache;
+import com.jojowonet.modules.order.utils.StringUtil;
+import org.apache.log4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class DistrictCache extends SimpleCache<List<Record>> {
+
+    private static final DistrictCache districtCache = new DistrictCache();
+
+    private final List<String> cityNames = new ArrayList<>();
+    private static Logger logger = Logger.getLogger(DistrictCache.class);
+
+    private DistrictCache() {
+        List<Record> pros = Db.find("select CityName from s_city");
+        for (Record r : pros) {
+            cityNames.add(r.getStr("CityName"));
+        }
+    }
+
+    public static DistrictCache getInstance() {
+        return districtCache;
+    }
+
+    @Override
+    protected List<Record> getCacheableObject(String key) {
+        logger.info("get districts for city: " + key);
+        StringBuffer sf = new StringBuffer();
+        sf.append("SELECT * FROM s_district d  ");
+        sf.append(" LEFT JOIN s_city c ON c.CityID = d.CityId ");
+        sf.append("  WHERE c.CityName =? ");
+        return Db.find(sf.toString(), key);
+    }
+
+    @Override
+    public List<Record> get(final String key) {
+        if (StringUtil.isBlank(key)) {
+            return new ArrayList<>();
+        }
+        if (!cityNames.contains(key)) {
+            logger.info(String.format("attempt to get districts for [%s] declined for city name invalid", key));
+            return new ArrayList<>();
+        }
+        return super.get(key);
+    }
+
+    protected int cacheSize() {
+        return 1000;
+    }
+}

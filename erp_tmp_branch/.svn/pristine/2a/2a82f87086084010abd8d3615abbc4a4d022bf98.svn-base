@@ -1,0 +1,865 @@
+package com.jojowonet.modules.statistics.web;
+
+import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.google.common.collect.Maps;
+import com.google.gson.Gson;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.goods.utils.GoodsCategoryUtil;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.ExcelUtilsEx;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.statistics.form.EmployIndexExport;
+import com.jojowonet.modules.statistics.form.GoodsIndexExport;
+import com.jojowonet.modules.statistics.form.OldStockIndexExport;
+import com.jojowonet.modules.statistics.form.StockIndexExport;
+import com.jojowonet.modules.statistics.service.OrderStatService;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportExcel;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+
+@Controller
+@RequestMapping(value = "${adminPath}/statistic/")
+public class OrderStatController extends BaseController {
+
+    @Autowired
+    private OrderStatService orderStatService;
+
+    @RequestMapping(value = "siteRankList")
+    public String siteRankList(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Map<String, Object> params = getParams(request);
+        return "modules/statistic/siteRankList";
+    }
+
+    @RequestMapping(value = "siteLoginStatistic")
+    public String siteLoginStatistic(HttpServletRequest request, Model model) {
+        Map<String, Object> queryMap = getParams(request);
+        Object queryMonth = queryMap.get("queryMonth");
+        if (queryMonth == null) {
+            queryMonth = DateUtils.formatDate(new Date(), "yyyy-MM");
+            queryMap.put("queryMonth", queryMonth);
+        }
+        model.addAttribute("queryMonth", queryMonth);
+        Map<String, Object> retMap = Maps.newHashMap();
+        retMap = orderStatService.getSiteLoginStatistic(queryMap);
+        model.addAttribute("loginData", new Gson().toJson(retMap));
+        return "modules/statistic/siteLoginIndex";
+    }
+
+    /**
+     * VIP统计页面
+     *
+     * @param request
+     * @param response
+     * @param model
+     * @return
+     */
+    @RequestMapping(value = "vipStatisticIndex")
+    public String vipStatisticIndex(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Calendar cl = Calendar.getInstance();
+        int month = cl.get(Calendar.MONTH);
+        int year = cl.get(Calendar.YEAR);
+        String start = "";
+        String end = "";
+        if (month < 10) {
+            start = year + "-" + "0" + month + "01 00:00:00";
+        } else {
+            start = year + "-" + month + "01 00:00:00";
+        }
+        cl.add(Calendar.MONTH, 25);
+        end = DateUtils.formatDate(cl.getTime(), "yyyy-MM-dd") + " 23:59:59";
+
+        Map<String, Object> params = getParams(request);
+        params.put("start", start);
+        params.put("end", end);
+
+        String mapJson = orderStatService.getVipMapJsonData(params);//地图数据
+        model.addAttribute("mapJson", mapJson);
+        String queryMonth = DateUtils.formatDate(new Date(), "yyyy-MM");
+        params.put("queryMonth", queryMonth);
+        String chartJson = orderStatService.getVipChartData(params);//图报表数据
+        model.addAttribute("chartJson", chartJson);
+        model.addAttribute("queryMonth", queryMonth);
+        return "modules/statistic/vipStatisticIndex";
+    }
+
+    /**
+     * 漏保统计页面
+     *
+     * @param request
+     * @param response
+     * @param model
+     * @return
+     */
+    @RequestMapping(value = "siteLoubaoList")
+    public String siteLoubaoList(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Map<String, Object> params = getParams(request);
+        String mapJson = orderStatService.getMapJsonData(params);
+        model.addAttribute("mapJson", mapJson);
+        String queryMonth = DateUtils.formatDate(new Date(), "yyyy-MM");
+        params.put("queryMonth", queryMonth);
+        String chartJson = orderStatService.getSiteLoubaoMonthData(params);
+        model.addAttribute("chartJson", chartJson);
+        model.addAttribute("queryMonth", queryMonth);
+        return "modules/statistic/siteLoubaoList";
+    }
+
+    @RequestMapping(value = "siteLoubaoMonthData")
+    @ResponseBody
+    public String siteLoubaoMonthData(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Map<String, Object> params = getParams(request);
+        String queryMonth = request.getParameter("queryMonth");
+        if (StringUtils.isBlank(queryMonth)) {
+            queryMonth = DateUtils.formatDate(new Date(), "yyyy-MM");
+        }
+        params.put("queryMonth", queryMonth);
+        String json = orderStatService.getSiteLoubaoMonthData(params);
+        return json;
+    }
+
+    @RequestMapping(value = "siteRankData")
+    @ResponseBody
+    public String siteRankData(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Page<Record> page = new Page<>(request, response);
+        Map<String, Object> params = getParams(request);
+        page = orderStatService.getSiteRankList(page, params);
+        JqGridPage<Record> jqp = new JqGridPage<>(page);
+        return renderJson(jqp);
+    }
+
+    @RequestMapping(value = "orderIndex")
+    public String orderIndex(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        System.out.println(siteId);
+        String year = "";
+        String year1 = request.getParameter("year");
+        if (StringUtils.isNotBlank(year1)) {
+            year = year1;
+        } else {
+            year = "2018";
+        }
+        Map<String, Object> orderMap = orderStatService.getAllOrderStat(siteId, year);
+        model.addAttribute("monthList", orderMap.get("monthList"));
+        model.addAttribute("totalList", orderMap.get("totalList"));
+        model.addAttribute("items", orderMap.get("items"));
+        model.addAttribute("year", year);
+        return "modules/statistic/orderIndex";
+    }
+
+    @RequestMapping(value = "jumpbmygd")
+    public String jumpbmygd(HttpServletRequest request, HttpServletResponse response, String year, String month, Model model) {
+        if (month.length() == 1) {
+            StringBuffer sf = new StringBuffer(month);
+            sf.insert(0, "0");
+            month = sf.toString();
+        }
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(
+                siteId, request.getServletPath());
+        model.addAttribute("headerData", stf);
+        model.addAttribute("year", year);
+        model.addAttribute("month", month);
+        return "modules/statistic/bmygd";
+    }
+
+    @RequestMapping(value = "bmygdlist")
+    @ResponseBody
+    public String bmygdlist(HttpServletRequest request,
+                            HttpServletResponse response, Model model, String year, String month) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Page<Record> page = new Page<>(request, response);
+        page = orderStatService.getbmygdlist(page, year, month, siteId);
+        model.addAttribute("page", page);
+        JqGridPage<Record> jqp = new JqGridPage<>(page);
+        return renderJson(jqp);
+    }
+
+    @RequestMapping(value = "orderCompleteIndex")
+    public String orderCompleteIndex(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Calendar c = Calendar.getInstance();   // this takes current date
+        c.set(Calendar.DAY_OF_MONTH, 1);
+//		model.addAttribute("startStr", DateUtils.formatDate(c.getTime(), "yyyy-MM-dd"));
+        String beginningDate = DateUtils.formatDate(c.getTime(), "yyyy-MM-dd");
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String startStr = request.getParameter("bxdatemin");
+        String endStr = request.getParameter("bxdatemax");
+        if (startStr == null) {
+            startStr = beginningDate;
+        }
+
+        Map<String, Object> orderMap = orderStatService.getOrderCompleteStat(siteId, startStr, endStr);
+        model.addAttribute("orderMap", orderMap);
+        if (StringUtils.isNotBlank(startStr)) {
+            model.addAttribute("startStr", startStr);
+        } else {
+            model.addAttribute("startStr", "");
+        }
+        if (StringUtils.isNotBlank(endStr)) {
+            model.addAttribute("endStr", endStr);
+        } else {
+            model.addAttribute("endStr", "");
+        }
+        return "modules/statistic/orderCompleteIndex";
+    }
+
+    @RequestMapping(value = "employeIndex")
+    public String employeIndex(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String startStr = request.getParameter("bxdatemin");
+        String endStr = request.getParameter("bxdatemax");
+        String empIds = String.valueOf(getParams(request).get("empIds"));
+        String searchType = request.getParameter("searchType");
+
+        Date now = new Date();
+        Calendar cale = Calendar.getInstance();
+        cale.set(Calendar.DAY_OF_MONTH, 1);
+        Date stD = cale.getTime();
+
+        Date minDate = DateUtils.addMonths(now, -1);
+        Date endD = now;
+        if (StringUtils.isNotBlank(endStr)) {
+            endD = DateUtils.parseDate(endStr);
+        }
+        if (StringUtils.isNotBlank(startStr)) {
+            stD = DateUtils.parseDate(startStr);
+        }
+        searchType = StringUtils.isBlank(searchType) ? "1" : searchType;
+        model.addAttribute("searchType", searchType);
+        startStr = DateUtils.formatDate(stD, "yyyy-MM-dd");
+        model.addAttribute("siteId", siteId);
+        Map<String, String> params = new HashMap<String, String>();
+        params.put("searchType", searchType);
+        Map<String, Object> empMap = orderStatService.getAllEmployeOrderStat(siteId, startStr, endStr, empIds, params);
+        model.addAttribute("empMap", empMap);
+        if (StringUtils.isNotBlank(startStr)) {
+            model.addAttribute("startStr", startStr);
+        } else {
+            model.addAttribute("startStr", "");
+        }
+        if (StringUtils.isNotBlank(endStr)) {
+            model.addAttribute("endStr", endStr);
+        } else {
+            model.addAttribute("endStr", "");
+        }
+        model.addAttribute("minDate", DateUtils.formatDate(minDate, "yyyy-MM-dd"));
+        model.addAttribute("empIds", empIds);
+        return "modules/statistic/employeIndex";
+    }
+
+    @RequestMapping(value = "goodsStat")
+    public String goodsStat(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String saleTime = request.getParameter("saleTime");
+        String fd = request.getParameter("goodCategory");
+        List<Record> listR = GoodsCategoryUtil.getSiteGoodsCategoryList(CrmUtils.getCurrentSiteId(UserUtils.getUser()));
+        String goodCatetgory = "";
+        if (StringUtils.isNotBlank(fd)) {
+            try {
+                goodCatetgory = java.net.URLDecoder.decode(fd, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        Map<String, Object> goodsMap = orderStatService.getAllGoodsStat(siteId, saleTime, goodCatetgory);
+        model.addAttribute("goodsMap", goodsMap);
+        if (StringUtils.isNotBlank(saleTime)) {
+            model.addAttribute("saleTime", saleTime);
+        } else {
+            model.addAttribute("saleTime", "");
+        }
+        if (StringUtils.isNotBlank(goodCatetgory)) {
+            model.addAttribute("goodCatetgory", goodCatetgory);
+        } else {
+            model.addAttribute("goodCatetgory", "");
+        }
+        model.addAttribute("categoryList", listR);//商品类别
+        return "modules/statistic/goodsIndex";
+    }
+
+    @RequestMapping(value = "stockStat")
+    public String stockStat(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Map<String, Object> params = getParams(request);
+        String fittingCode = "";
+        String fittingName = "";
+        if (StringUtils.isNotBlank(request.getParameter("fittingCode"))) {
+            try {
+                fittingCode = java.net.URLDecoder.decode(request.getParameter("fittingCode"), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        if (StringUtils.isNotBlank(request.getParameter("fittingName"))) {
+            try {
+                fittingName = java.net.URLDecoder.decode(request.getParameter("fittingName"), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        Map<String, Object> stockMap = orderStatService.getStockStat(siteId, fittingCode, fittingName, "1");//库存盘点分类（1：公司库存盘点；2：工程师库存盘点；3：旧件库存盘点）
+        model.addAttribute("stockMap", stockMap);
+        model.addAttribute("whoStatistics", "1");
+        return "modules/statistic/stockIndex";
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "stockComStat")
+    public Map<String, Object> stockComStat(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Map<String, Object> params = getParams(request);
+        String fittingCode = "";
+        String fittingName = "";
+        if (StringUtils.isNotBlank(request.getParameter("fittingCode"))) {
+            try {
+                fittingCode = java.net.URLDecoder.decode(request.getParameter("fittingCode"), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        if (StringUtils.isNotBlank(request.getParameter("fittingName"))) {
+            try {
+                fittingName = java.net.URLDecoder.decode(request.getParameter("fittingName"), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        Map<String, Object> stockMap = orderStatService.getStockStat(siteId, fittingCode, fittingName, "1");//库存盘点分类（1：公司库存盘点；2：工程师库存盘点；3：旧件库存盘点）
+        model.addAttribute("whoStatistics", "1");
+        return stockMap;
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "stockEmpStat")
+    public Map<String, Object> stockEmpStat(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Map<String, Object> params = getParams(request);
+        String fittingCode = "";
+        String fittingName = "";
+        if (StringUtils.isNotBlank(request.getParameter("fittingCode"))) {
+            try {
+                fittingCode = java.net.URLDecoder.decode(request.getParameter("fittingCode"), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        if (StringUtils.isNotBlank(request.getParameter("fittingName"))) {
+            try {
+                fittingName = java.net.URLDecoder.decode(request.getParameter("fittingName"), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        Map<String, Object> stockMap = orderStatService.getStockStat(siteId, fittingCode, fittingName, "2");
+        model.addAttribute("stockMap", stockMap);
+        model.addAttribute("whoStatistics", "2");
+        return stockMap;
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "stockOldStat")
+    public Map<String, Object> stockOldStat(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        Map<String, Object> params = getParams(request);
+        String fittingCode = "";
+        String fittingName = "";
+        if (StringUtils.isNotBlank(request.getParameter("fittingCode"))) {
+            try {
+                fittingCode = java.net.URLDecoder.decode(request.getParameter("fittingCode"), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        if (StringUtils.isNotBlank(request.getParameter("fittingName"))) {
+            try {
+                fittingName = java.net.URLDecoder.decode(request.getParameter("fittingName"), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        Map<String, Object> stockMap = orderStatService.getStockStat(siteId, fittingCode, fittingName, "3");
+        model.addAttribute("whoStatistics", "3");
+        return stockMap;
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "getStocksCounts")
+    public Map<String, Object> getStocksCounts() {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        return orderStatService.getTotalCount(siteId);
+    }
+
+    @RequestMapping(value = "ajaxData")
+    @ResponseBody
+    public JSONObject orderList(HttpServletRequest request, HttpServletResponse response, Model model) {
+        return null;
+    }
+
+
+    @RequestMapping(value = "export")
+    public String exportFile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+        try {
+
+            String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+
+            String title = "工程师统计";
+            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+
+            Map<String, Object> params = getParams(request);
+            params.put("siteId", siteId);
+
+            String startStr = "";
+            String endStr = "";
+            if (StringUtils.isNotBlank(request.getParameter("bxdatemin"))) {
+                try {
+                    startStr = java.net.URLDecoder.decode(request.getParameter("bxdatemin"), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+            if (StringUtils.isNotBlank(request.getParameter("bxdatemax"))) {
+                try {
+                    endStr = java.net.URLDecoder.decode(request.getParameter("bxdatemax"), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+            String empName = request.getParameter("empName");
+            Map<String, String> sparams = Maps.newHashMap();
+            sparams.put("searchType", request.getParameter("searchType"));
+            Map<String, Object> empMap = orderStatService.getAllEmployeOrderStat(siteId, startStr, endStr, empName, sparams);
+            List<Record> emplist = (List<Record>) empMap.get("list");
+            List<EmployIndexExport> list = new ArrayList<EmployIndexExport>();
+            for (Record rd : emplist) {
+                EmployIndexExport efe = new EmployIndexExport();
+                efe.setEmpName(rd.getStr("empName"));
+                efe.setYwc(String.valueOf(rd.get("ywc", "0")));
+                efe.setWwc(String.valueOf(rd.get("wwc", "0")));
+                efe.setWjs(String.valueOf(rd.get("wjs", "0")));
+                efe.setYjs(String.valueOf(rd.get("yjs", "0")));
+                efe.setWxgd(String.valueOf(rd.get("wxgd", "0")));
+                efe.setBmyd(String.valueOf(rd.get("bmyd", "0")));
+                efe.setSfze(String.valueOf(rd.get("sfze", "0.00")));
+                efe.setTotalCost(String.valueOf(rd.get("totalCost", "0.00")));
+                efe.setSm(String.valueOf(rd.get("sm", "0")));
+
+                list.add(efe);
+            }
+
+
+            ExportExcel ee = new ExportExcel(title, EmployIndexExport.class).setDataList(list);
+            new ExcelUtilsEx().write(request, response, fileName, ee).dispose();
+
+
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            addMessage(redirectAttributes, "导出用户失败！失败信息：" + e.getMessage());
+        }
+        return "redirect:" + Global.getAdminPath() + "/statistic/employeIndex?repage";
+    }
+
+    @RequestMapping(value = "exportsStock")
+    public String exportsStock(@RequestParam(value = "whoStatistics", defaultValue = "1") String whoStatistics, HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+        try {
+
+            String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+            String title = "";
+            if ("1".equals(whoStatistics)) {
+                title = "公司备件库存";
+            } else if ("2".equals(whoStatistics)) {
+                title = "工程师备件库存";
+            } else {
+                title = "旧件库存";
+            }
+            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+
+            Map<String, Object> params = getParams(request);
+            params.put("siteId", siteId);
+            String fittingCode = "";
+            String fittingName = "";
+            if (StringUtils.isNotBlank(request.getParameter("fittingCode"))) {
+                try {
+                    fittingCode = java.net.URLDecoder.decode(request.getParameter("fittingCode"), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+            if (StringUtils.isNotBlank(request.getParameter("fittingName"))) {
+                try {
+                    fittingName = java.net.URLDecoder.decode(request.getParameter("fittingName"), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+            String startStr = "";
+            String endStr = "";
+            Map<String, Object> stockMap = orderStatService.getStockStat(siteId, fittingCode, fittingName, whoStatistics);
+            List<Record> stocklist = (List<Record>) stockMap.get("list");
+            List<StockIndexExport> list = new ArrayList<StockIndexExport>();
+            List<OldStockIndexExport> list2 = new ArrayList<OldStockIndexExport>();
+            for (Record rd : stocklist) {
+                if (!"3".equals(whoStatistics)) {
+                    StockIndexExport sie = new StockIndexExport();
+                    sie.setCode(rd.getStr("code"));
+                    sie.setName(rd.getStr("name"));
+                    if (rd.getBigDecimal("warning") != null) {
+                        sie.setWarning(rd.getBigDecimal("warning").toString());
+                    } else {
+                        sie.setWarning("0");
+                    }
+                    if (rd.getBigDecimal("total") != null) {
+                        sie.setTotal(rd.getBigDecimal("total").toString());
+                    } else {
+                        sie.setTotal("0");
+                    }
+                    if (rd.getBigDecimal("outTotal") != null) {
+                        sie.setOutTotal(rd.getBigDecimal("outTotal").toString());
+                    } else {
+                        sie.setOutTotal("0");
+                    }
+                    if (rd.getBigDecimal("fhNum") != null) {
+                        sie.setFhNum(rd.getBigDecimal("fhNum").toString());
+                    } else {
+                        sie.setFhNum("0");
+                    }
+                    if (rd.getBigDecimal("useNum") != null) {
+                        sie.setUseNum(rd.getBigDecimal("useNum").toString());
+                    } else {
+                        sie.setUseNum("0");
+                    }
+                    list.add(sie);
+                } else {
+                    OldStockIndexExport sie = new OldStockIndexExport();
+                    sie.setCode(rd.getStr("code"));
+                    sie.setName(rd.getStr("name"));
+                    if (rd.getStr("version") != null) {
+                        sie.setVersion(rd.getStr("version"));
+                    } else {
+                        sie.setVersion("");
+                    }
+                    if (rd.getStr("brand") != null) {
+                        sie.setBrand(rd.getStr("brand"));
+                    } else {
+                        sie.setBrand("");
+                    }
+                    if (rd.getBigDecimal("num") != null) {
+                        sie.setNum(rd.getBigDecimal("num").toString());
+                    } else {
+                        sie.setNum("0");
+                    }
+                    if (rd.getBigDecimal("unit_price") != null) {
+                        sie.setFittingPrice(rd.getBigDecimal("unit_price").toString());
+                    } else {
+                        sie.setFittingPrice("0.00");
+                    }
+                    if (rd.getStr("employe_name") != null) {
+                        sie.setEmployeName(rd.getStr("employe_name"));
+                    } else {
+                        sie.setEmployeName("0.00");
+                    }
+                    if (rd.getStr("yrpz_flag") != null) {
+                        if ("1".equals(rd.getStr("yrpz_flag"))) {
+                            sie.setYrpzFlag("是");
+                        } else {
+                            sie.setYrpzFlag("否");
+                        }
+                    } else {
+                        sie.setYrpzFlag("");
+                    }
+                    if (rd.getBigDecimal("totalPrice") != null) {
+                        sie.setTotalPrice(rd.getBigDecimal("totalPrice").toString());
+                    } else {
+                        sie.setTotalPrice("0.00");
+                    }
+                    list2.add(sie);
+                }
+            }
+            ExportExcel ee = null;
+            if (!"3".equals(whoStatistics)) {
+                ee = new ExportExcel(title, StockIndexExport.class).setDataList(list);
+            } else {
+                ee = new ExportExcel(title, OldStockIndexExport.class).setDataList(list2);
+            }
+            new ExcelUtilsEx().write(request, response, fileName, ee).dispose();
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            addMessage(redirectAttributes, "导出用户失败！失败信息：" + e.getMessage());
+        }
+        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+    }
+
+
+    @RequestMapping(value = "exportsGoods")
+    public String exportsGoods(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+        try {
+
+            String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+
+            String title = "商品库存";
+            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+
+            Map<String, Object> params = getParams(request);
+            params.put("siteId", siteId);
+            String saleTime = "";
+            if (params.get("saleTime") != null) {
+                saleTime = params.get("saleTime").toString();
+            }
+
+            String goodCatetgory = "";
+
+            if (StringUtils.isNotBlank(request.getParameter("goodCategory"))) {
+                try {
+                    goodCatetgory = java.net.URLDecoder.decode(request.getParameter("goodCategory"), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+            Map<String, Object> goodsMap = orderStatService.getAllGoodsStat(siteId, saleTime, goodCatetgory);
+            List<Record> goodslist = (List<Record>) goodsMap.get("list");
+            List<GoodsIndexExport> list = new ArrayList<GoodsIndexExport>();
+            for (Record rd : goodslist) {
+                GoodsIndexExport gie = new GoodsIndexExport();
+                gie.setGood_name(rd.getStr("good_name"));
+                gie.setGood_category(rd.getStr("good_category"));
+                gie.setGood_number(rd.getStr("good_number"));
+
+                if (rd.getInt("purchaseNum") != null) {
+                    gie.setPurchaseNum(rd.getInt("purchaseNum").toString());
+                } else {
+                    gie.setPurchaseNum("0");
+                }
+                if (rd.getInt("saleMoney") != null) {
+                    gie.setSaleMoney(rd.getInt("saleMoney").toString());
+                } else {
+                    gie.setSaleMoney("0");
+                }
+
+
+                list.add(gie);
+            }
+
+
+            ExportExcel ee = new ExportExcel(title, GoodsIndexExport.class).setDataList(list);
+            new ExcelUtilsEx().write(request, response, fileName, ee).dispose();
+
+
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            addMessage(redirectAttributes, "导出用户失败！失败信息：" + e.getMessage());
+        }
+        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+    }
+
+
+    //导出数据
+    @RequestMapping(value = "exportbmygd")
+    public String exportbmygd(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+        try {
+            String formPath = request.getParameter("formPath");
+            User user = UserUtils.getUser();
+            String siteId = CrmUtils.getCurrentSiteId(user);
+            Page<Record> pages = new Page<Record>(request, response);
+            pages.setPageNo(1);
+            pages.setPageSize(10000);
+            Map<String, Object> map = getParams(request);
+            SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+            String title = stf.getExcelTitle();
+            System.out.println(title);
+            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+            List<Record> list = null;
+            list = orderStatService.getbmygdlist(pages, map.get("year").toString(), map.get("month").toString(), siteId).getList();
+            for (Record re : list) {
+                if ("1".equals(re.getStr("service_attitude"))) {
+                    re.set("service_attitude", "十分不满意");
+                } else {
+                    re.set("service_attitude", "不满意");
+                }
+            }
+
+
+            new ExportJqExcel(title + "数据", stf.getTableHeader(), stf.getSortHeader())
+                    .setDataList(list).write(request, response, fileName).dispose();
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+        }
+        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+    }
+
+    @RequestMapping(value = "employeGoodsAnalyse")
+    public String toEmployeGoodsAnalyse(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+        Map<String, Object> map = request.getParameterMap();
+        String createFirstday = DateUtils.formatDate(new Date(), "yyyy-MM") + "-01";
+        String createToday = DateUtils.formatDate(new Date(), "yyyy-MM-dd");
+        model.addAttribute("outstocksTimeMin", createFirstday);
+        model.addAttribute("outstocksTimeMax", createToday);
+        model.addAttribute("headerData", stf);
+        model.addAttribute("map", map);
+        //model.addAttribute("empList", orderStatService.getEmplist(siteId));//工程师列表，备用
+        return "modules/statistic/employeGoodsAnalyse";
+    }
+
+    @RequestMapping(value = "employeGoodsAnalyseGrid")
+    @ResponseBody
+    public String employeGoodsAnalyseList(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Page<Record> page;
+        Map<String, Object> map = getParams(request);
+        String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        page = orderStatService.employeGoodsAnalyseList(new Page<Record>(request, response), map, siteId);
+        model.addAttribute("page", page);
+        JqGridPage<Record> jqp = new JqGridPage<>(page);
+        return renderJson(jqp);
+    }
+
+    //导出数据
+    @RequestMapping(value = "exportEmpGoods")
+    public String exportEmpGoods(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+        try {
+            String formPath = request.getParameter("formPath");
+            User user = UserUtils.getUser();
+            String siteId = CrmUtils.getCurrentSiteId(user);
+            Page<Record> pages = new Page<Record>(request, response);
+            pages.setPageNo(1);
+            pages.setPageSize(10000);
+            Map<String, Object> map = getParams(request);
+            SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+            JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+            String title = stf.getExcelTitle();
+            String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+            Page<Record> page = orderStatService.employeGoodsAnalyseList(new Page<Record>(request, response), map, siteId);
+            List<Record> list = page.getList();
+            if (list != null && list.size() > 0) {
+                    /*for(Record rd : list){
+						rd.set("brandCate", rd.getStr("brand")+rd.getStr("category"));
+					}*/
+                new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader())
+                        .setDataList(list).write(request, response, fileName).dispose();
+            }
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+        }
+        return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+    }
+
+    //打印列表
+    @RequestMapping(value = "printGoods")
+    public String printGrid(HttpServletRequest request, HttpServletResponse response, Model model) {
+        Map<String, Object> map = getParams(request);
+        User user = UserUtils.getUser();
+        String siteId = CrmUtils.getCurrentSiteId(user);
+        //List<Record> list = orderStatService.getPrintGoodsList(map, siteId);
+        model.addAttribute("list", orderStatService.getPrintGoodsList(map, siteId));
+        return "modules/statistic/printGoods";
+    }
+
+
+    /**
+     * 网点收入盘点统计
+     */
+    @RequestMapping(value="siteFeeCollection")
+    public String siteFeeCollection(HttpServletRequest request, Model model){
+        String siteId=CrmUtils.getCurrentSiteId(UserUtils.getUser());
+        String statisticDateMin=request.getParameter("statisticDateMin");
+        String statisticDateMax=request.getParameter("statisticDateMax");
+        String empIds=request.getParameter("empIds");
+        Map<String,Object> map=Maps.newHashMap();
+        if(StringUtils.isBlank(statisticDateMin)){
+            statisticDateMin=DateUtils.formatDate(new Date(),"yyyy-MM-dd");
+        }
+        if(StringUtils.isBlank(statisticDateMax)){
+            statisticDateMax=DateUtils.formatDate(new Date(),"yyyy-MM-dd");
+        }
+        map.put("statisticDateMin",statisticDateMin);
+        map.put("statisticDateMax",statisticDateMax);
+        if(StringUtils.isNotBlank(empIds) && !"null".equals(empIds)){
+            map.put("empIds",empIds);
+        }
+        List<Record> reList = orderStatService.getSiteCollectionFee(siteId,map);
+        /*工单收费总额合计*/
+        BigDecimal orderFeeTotal= BigDecimal.valueOf(0);
+        Record reTotal=orderStatService.getTotalCount(siteId,map);
+        for(Record re:reList){
+            if(re!=null){
+                BigDecimal serverCost = re.getBigDecimal("serverCost");
+                if(serverCost==null){
+                    serverCost=BigDecimal.valueOf(0d);
+                }
+                BigDecimal warrantyCost= re.getBigDecimal("warrantyCost");
+                if(warrantyCost==null){
+                    warrantyCost=BigDecimal.valueOf(0d);
+                }
+                BigDecimal fitUsedCollection= re.getBigDecimal("fitUsedCollection");
+                if(fitUsedCollection==null){
+                    fitUsedCollection=BigDecimal.valueOf(0d);
+                }
+                BigDecimal allCollection= re.getBigDecimal("allCollection");
+                if(allCollection==null){
+                    allCollection=BigDecimal.valueOf(0d);
+                }
+                BigDecimal total=serverCost.add(warrantyCost).add(fitUsedCollection).add(allCollection);
+                /*收费总额*/
+                re.set("totalFeeEnd",total);
+                orderFeeTotal=orderFeeTotal.add(total);
+            }
+        }
+        reTotal.set("orderFeeTotal",orderFeeTotal);
+        model.addAttribute("statisticDateMin",statisticDateMin);
+        model.addAttribute("statisticDateMax",statisticDateMax);
+        model.addAttribute("empIds",empIds);
+        model.addAttribute("reTotal",reTotal);
+        model.addAttribute("siteId",siteId);
+        model.addAttribute("list",reList);
+        return "modules/statistic/siteIncomeStatistics";
+    }
+}

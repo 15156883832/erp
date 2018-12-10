@@ -1,0 +1,185 @@
+/**
+ */
+package com.jojowonet.modules.order.web;
+
+import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import net.sf.json.JSONObject;
+
+import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.hibernate.type.UUIDBinaryType;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.web.BaseController;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.operate.service.SiteService;
+import com.jojowonet.modules.order.entity.OrderOrigin;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.OrderOriginService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+
+/**
+ * 来源Controller
+ * @author Ivan
+ * @version 2017-05-04
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/order/orderOrigin")
+public class OrderOriginController extends BaseController {
+
+	@Autowired
+	private OrderOriginService orderOriginService;
+	
+	@Autowired
+	private SiteService siteSeivice;
+	
+	@ModelAttribute
+	public OrderOrigin get(@RequestParam(required=false) String id) {
+		if (StringUtils.isNotBlank(id)){
+			return orderOriginService.get(id);
+		}else{
+			return new OrderOrigin();
+		}
+	}
+	
+	@RequestMapping(value = {"list", ""})
+	public String list(OrderOrigin orderOrigin, HttpServletRequest request, HttpServletResponse response, Model model) {
+		//需要涉及到表头设置时才调用，如果不需要使用表头设置，则不需
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+    	model.addAttribute("headerData", stf);
+		
+		return "modules/" + "order/orderOriginList";
+	}
+	
+	
+	
+	@RequestMapping(value = "originList")
+	@ResponseBody
+	public String originList(OrderOrigin orderOrigin, HttpServletRequest request, HttpServletResponse response, Model model) {
+		Page<OrderOrigin> page = new Page<>(request, response);
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		page = orderOriginService.find(new Page<OrderOrigin>(request, response), orderOrigin,siteId);
+		model.addAttribute("page",page);
+		JqGridPage<OrderOrigin> jqp = new JqGridPage<>(page);
+		return renderJson(jqp);
+	}
+
+	@RequestMapping(value = "form")
+	public String form(OrderOrigin orderOrigin, Model model) {
+		model.addAttribute("orderOrigin", orderOrigin);
+		return "modules/" + "order/orderOriginForm";
+	}
+	@RequestMapping(value="edite")
+	public String edite(String id,Model model){
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		//OrderOrigin orderOrigin =new OrderOrigin();
+		Record rd=orderOriginService.getOrderOriginById(id,siteId);
+
+		
+		model.addAttribute("orderOrigin",rd);
+		return "modules/" + "order/orderOriginEdite";
+	}
+
+	//@RequiresPermissions("order:orderOrigin:edit")
+	@RequestMapping(value = "save")
+	public @ResponseBody String save(String[] nameArr, String[] sortsArr, HttpServletResponse response, Model model,RedirectAttributes redirectAttributes ) {
+
+		for (int i=0;i<nameArr.length;i++) {
+			OrderOrigin orderOrigin=new OrderOrigin();
+			orderOrigin.setName(nameArr[i]);
+			if(sortsArr.length>0&&sortsArr[i].length()!=0){
+				if(sortsArr[i].equals("0")){
+					sortsArr[i]="0";
+				}
+				orderOrigin.setSort(sortsArr[i]);
+			}
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			
+			orderOrigin.setSiteId(siteId);
+			orderOriginService.save(orderOrigin);	
+		}
+		return null;
+	}
+	@RequestMapping("update")
+	public void update(String names,String sorts,String id){
+      if(sorts.length()==0||sorts.equals("0")){
+	      sorts="0";
+       }
+		orderOriginService.updates(names,sorts,id);
+		
+	}
+	
+
+	@RequestMapping(value = "deleteOrigin")
+	public String delete(String[] idArr, RedirectAttributes redirectAttributes) {
+		System.out.println(idArr.length);
+		for(int i=0;i<idArr.length;i++){
+		orderOriginService.delete(idArr[i]);
+		}
+	
+		return "redirect:"+Global.getAdminPath()+"/order/orderOrigin";
+		//return "modules/" + "order/orderOrigin";
+	}
+	
+	@RequestMapping(value="queryNum")
+	public void queryNumByName(String[] nameArr,HttpServletRequest request,HttpServletResponse response){
+		String site_id = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		boolean flag=false;
+		for(int i=0;i<nameArr.length;i++){
+			 flag = orderOriginService.queryNumByName(site_id, nameArr[i]);
+			 if(flag){
+			break;
+			 }
+		}
+		
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	@RequestMapping(value="queryNums")
+	public void queryNumByNames(String names,String id,HttpServletRequest request,HttpServletResponse response){
+		String site_id = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		boolean flag=false;
+			 flag = orderOriginService.queryNumByNames(site_id, names,id);
+		Map<String,Boolean> map = Maps.newHashMap();
+		map.put("flag", flag);
+		try {
+			response.getWriter().print(JSONObject.fromObject(map));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+}

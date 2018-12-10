@@ -1,0 +1,223 @@
+package com.jojowonet.modules.order.web;
+
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.finance.service.BalanceManagerService;
+import com.jojowonet.modules.operate.service.EmployeService;
+import com.jojowonet.modules.order.entity.OrderCollections;
+import com.jojowonet.modules.order.form.SiteTableHeaderForm;
+import com.jojowonet.modules.order.service.OrderCollectionsService;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.JqGridTableUtils;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.config.Global;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.JqGridPage;
+import ivan.common.persistence.Page;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.UserUtils;
+import ivan.common.utils.excel.ExportJqExcel;
+import ivan.common.web.BaseController;
+import net.sf.json.JSONArray;
+
+/**
+ * 工单Controller
+ * 
+ * @author Ivan
+ * @version 2017-05-04
+ */
+@Controller
+@RequestMapping(value = "${adminPath}/order/orderCollections")
+public class OrderCollectionsController extends BaseController {
+	@Autowired
+	private OrderCollectionsService orderCollectionsService;
+
+	@Autowired
+	private BalanceManagerService balanceManagerService;
+	@Autowired
+	private EmployeService employeService;
+
+	@RequestMapping(value = "headList")
+	public String getHeadList(HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, request.getServletPath());
+		List<Record> emList = orderCollectionsService.employeList(siteId);
+		Date date = new Date();
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM");
+		String startTime = formatter.format(date) + "-01";
+		model.addAttribute("headerData", stf);
+		model.addAttribute("emList", emList);
+		model.addAttribute("date", date);
+		model.addAttribute("startTime", startTime);
+
+		return "modules/finance/orderCollections";
+	}
+
+	@RequestMapping(value = "orderCollectionsList")
+	@ResponseBody
+	public String orderCollectionsList(OrderCollections orderCollections, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map = request.getParameterMap();
+		Page<Record> pages = new Page<Record>(request, response);
+		Page<Record> page = orderCollectionsService.orderCollectionsList(pages, siteId, map);
+		return renderJson(new JqGridPage<>(page));
+	}
+
+	@RequestMapping(value = "sumAmount")
+	@ResponseBody
+	public Map<String, Object> sumAmount(OrderCollections orderCollections, HttpServletRequest request, HttpServletResponse response, Model model) {
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		Map<String, Object> map = request.getParameterMap();
+		BigDecimal sumamount = orderCollectionsService.orderCollectionsSumamount(siteId, map);
+		BigDecimal sumcommission = orderCollectionsService.commissionSumanount(siteId, map);
+		Map<String, Object> amountMap = new HashMap<>();
+		amountMap.put("sumamount", sumamount);
+		amountMap.put("sumcommission", sumcommission);
+		return amountMap;
+	}
+
+	@RequestMapping(value = "getDetailbyid")
+	@ResponseBody
+	public Record getDetailbyid(HttpServletRequest request, HttpServletResponse response, String id) {
+		return orderCollectionsService.getDetailbyid(id);
+	}
+
+	@RequestMapping(value = "confirmdz")
+	@ResponseBody
+	public String confirmdz(HttpServletRequest request, HttpServletResponse response, String id) {
+		return orderCollectionsService.confirmdz(id);
+	}
+
+	@RequestMapping(value = "saveCommission")
+	@ResponseBody
+	public String saveCommission(HttpServletRequest request, HttpServletResponse response, String id, String commissionMoney, String createType, String detailContent,
+			String costProducerName, String costProducer, String marks) {
+		String result = "";
+		String scresult = orderCollectionsService.saveCommission(id, commissionMoney, marks);
+		result = scresult;
+		if ("ok".equals(scresult)) {
+			Date occurtimes = new Date();
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			String occurTimes = sdf.format(occurtimes);
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			String userId = UserUtils.getUser().getId();
+			String userName = CrmUtils.getUserXM();
+			String empUserId = employeService.getUserId(costProducer);
+			if ("1".equals(createType)) {
+				if (StringUtil.isEmpty(commissionMoney)) {
+					commissionMoney = "0.00";
+				}
+				result = balanceManagerService.save(siteId, "7105b8014e0423c1e7180831fcaa1422", "1", commissionMoney, null, null, detailContent, empUserId, costProducerName,
+						occurTimes, userId, userName, id, "1", "", "", "");
+				if (!("ok".equals(result))) {
+					result = "ok2";
+				}
+			}
+		} else {
+			result = "false";
+		}
+		return result;
+	}
+
+	// 导出数据
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value = "export")
+	public String exportfile(HttpServletRequest request, HttpServletResponse response, RedirectAttributes redirectAttributes) {
+		try {
+			String formPath = request.getParameter("formPath");
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			Page<Record> pages = new Page<Record>(request, response);
+			pages.setPageNo(1);
+			pages.setPageSize(10000);
+			Map<String, Object> map = request.getParameterMap();
+			SiteTableHeaderForm stf = JqGridTableUtils.getCustomizedTableHead(siteId, formPath);
+			JSONArray jarray = JSONArray.fromObject(stf.getTableHeader());
+			jarray.remove(0);
+
+			String title = stf.getExcelTitle();
+			String fileName = title + "数据" + DateUtils.getDate("yyyyMMddHHmmss") + ".xlsx";
+
+			List<Record> list = orderCollectionsService.orderCollectionsList(pages, siteId, map).getList();
+			if (list.size() > 0) {
+				for (Record rd : list) {
+					if (rd.getStr("payment_type") != null) {
+						String st = rd.getStr("payment_type");
+						if (st.equals("0")) {
+							rd.set("payment_type", "支付宝");
+						} else if (st.equals("1")) {
+							rd.set("payment_type", "微信");
+						} else {
+							rd.set("payment_type", "异常！");
+						}
+					}
+					if ("0".equals(rd.getStr("source"))) {
+						rd.set("source", "工单收款");
+					} else if ("1".equals(rd.getStr("source"))) {
+						rd.set("source", "商品订单收款");
+					} else if ("2".equals(rd.getStr("source"))) {
+						rd.set("source", "其他项收款");
+					} else if ("3".equals(rd.getStr("source"))) {
+						rd.set("source", "备件零售");
+					} else {
+						rd.set("source", "");
+					}
+
+					if ("1".equals(rd.getStr("commission_status"))) {
+						rd.set("commission_status", "已提成");
+					} else {
+						rd.set("commission_status", "未提成");
+					}
+
+					if ("1".equals(rd.getStr("confirm"))) {
+						rd.set("confirm", "已到账");
+					} else {
+						rd.set("confirm", "未到账");
+					}
+
+				}
+			}
+			new ExportJqExcel(title + "数据", jarray.toString(), stf.getSortHeader()).setDataList(list).write(request, response, fileName).dispose();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			addMessage(redirectAttributes, "导出数据失败！失败信息：" + e.getMessage());
+		}
+		return "redirect:" + Global.getAdminPath() + "/sys/user/?repage";
+	}
+
+	/*
+	 * 二维码收款详情-保存备注
+	 */
+	@ResponseBody
+	@RequestMapping(value = "saveMarks")
+	public String saveMarks(String id, String marks, HttpServletRequest request, HttpServletResponse response) {
+		return orderCollectionsService.saveMarks(id, marks);
+	}
+
+	/* 确认修改 */
+	@ResponseBody
+	@RequestMapping(value = "confirmEditMoney")
+	public String confirmEditMoney(HttpServletRequest request) {
+		String id = request.getParameter("id");
+		String money = request.getParameter("money");
+		return orderCollectionsService.confirmEditMoney(id, money);
+	}
+}

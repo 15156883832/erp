@@ -1,0 +1,208 @@
+/**
+ */
+package com.jojowonet.modules.order.dao;
+
+import java.util.List;
+
+import com.jojowonet.modules.order.utils.SFIMCache;
+import com.jojowonet.modules.order.utils.SqlKit;
+import org.hibernate.SQLQuery;
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.order.entity.Order;
+import com.jojowonet.modules.order.entity.OrderDispatch;
+import com.jojowonet.modules.order.utils.StringUtil;
+
+import ivan.common.persistence.BaseDao;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.StringUtils;
+
+/**
+ * 派工DAO接口
+ * @author Ivan
+ * @version 2017-05-04
+ */
+@Repository
+public class OrderDispatchDao extends BaseDao<OrderDispatch> {
+
+	public OrderDispatch getOrderDis(Order order,String siteId){
+		OrderDispatch ods = new OrderDispatch();
+		String sql =" SELECT * FROM crm_order_dispatch d WHERE d.order_id=? AND d.status IN('1','2','4') and d.site_id=? ";
+		Record rd = Db.findFirst(sql,order.getId(),siteId);
+		if(rd != null){
+			ods.setId(rd.getStr("id"));
+			ods.setDispatchTime(rd.getDate("dispatch_time"));
+			ods.setEmployeId(rd.getStr("employe_id"));
+			ods.setEmployeName(rd.getStr("employe_name"));
+			ods.setEndTime(rd.getDate("end_time"));
+			ods.setMessengerId(rd.getStr("messenger_id"));
+			ods.setMessengerName(rd.getStr("messenger_name"));
+			ods.setProcessTime(rd.getDate("process_time"));
+			ods.setRemarks(rd.getStr("remarks"));
+			ods.setSiteId(rd.getStr("site_id"));
+			ods.setStatus(rd.getStr("status"));
+			ods.setUpdateBy(rd.getStr("update_by"));
+			ods.setUpdateTime(rd.getDate("update_time"));
+			ods.setOrder(order);
+		}
+
+		return ods;
+	}
+
+	public void cancelOrderDispatch(String orderId) {
+		if (StringUtil.isBlank(orderId)) {
+			throw new RuntimeException("no such order");
+		}
+		SqlKit kit = new SqlKit()
+				.append("update crm_order_dispatch")
+				.append("set status='6'")
+				.append("where order_id=:id")
+				.append("and status in ('1', '2', '4', '5')");
+		SQLQuery sqlQuery = getSession().createSQLQuery(kit.toString());
+		sqlQuery.setParameter("id", orderId);
+		sqlQuery.executeUpdate();
+	}
+
+	public List<Record> getDispatchRels(String dispId, String siteId){
+		return Db.find(" select * from crm_order_dispatch_employe_rel a where a.dispatch_id = ? and a.site_id = ? ", dispId, siteId);
+	}
+
+	public List<Record> getDispatchRels2017(String dispId, String siteId){
+		return Db.find(" select * from crm_order_dispatch_employe_rel_2017 a where a.dispatch_id = ? and a.site_id = ? ", dispId, siteId);
+	}
+
+	public List<Record> getDispatchRels(String[] dispIds, String siteId){
+		String insql = StringUtil.joinInSql(dispIds);
+		return Db.find(" select * from crm_order_dispatch_employe_rel a where a.dispatch_id in ("+insql+") and a.site_id = ? ", siteId);
+	}
+
+	public Record getOrderDispatchForCallBack(String orderId, String siteId){
+		return Db.findFirst("select * from crm_order_dispatch a where a.order_id = ? and a.site_id = ? ", orderId, siteId);
+	}
+
+	public Record getOrderDispatchForCallBack2017(String orderId, String siteId){
+		return Db.findFirst("select * from crm_order_dispatch_2017 a where a.order_id = ? and a.site_id = ? ", orderId, siteId);
+	}
+
+	public Record getOrderId(String orderId,String siteId){
+		String sql = " SELECT * FROM crm_order_dispatch a WHERE a.site_id=? AND a.status IN('1','2','4','5') AND a.order_id=? ";
+		return Db.findFirst(sql,siteId,orderId);
+	}
+
+	public Record getOrderId2017(String orderId,String siteId){
+		String sql = " SELECT * FROM crm_order_dispatch_2017 a WHERE a.site_id=? AND a.status IN('1','2','4','5') AND a.order_id=? ";
+		return Db.findFirst(sql,siteId,orderId);
+	}
+
+	//服务方式
+	public List<Record> getAllServiceMode(String name){
+
+		return Db.find("select * from crm_service_mode where status = '0' order by sort asc");
+	}
+	//服务类型
+	public List<Record> getAllServiceType(String name){
+
+		return Db.find("select * from crm_service_type where status='0' order by sort asc");
+	}
+
+
+	//信息来源
+	public List<Record> getAllOrderOrigin(String siteId){
+
+		return Db.find("select * from crm_site_order_origin where status='0' and site_id = '"+siteId+"'");
+	}
+
+
+	//家电品牌
+	public List<Record> getAllBrand(String name,String siteId){
+		StringBuffer sb  =new StringBuffer("");
+		sb.append(" SELECT DISTINCT a.brand_id, b.name FROM crm_site_brand_rel a  ");
+		sb.append(" INNER JOIN crm_brand b ON b.id = a.brand_id AND b.del_flag = '0' ");
+		sb.append(" WHERE a.site_id = '"+siteId+"' ");
+
+		//return Db.find("select * from crm_brand where del_flag ='0' and sort between 1 and 5");
+		return Db.find(sb.toString());
+
+	}
+
+	//家电品类
+	//时间要求
+	@SuppressWarnings("unchecked")
+	public List<Record> getAllProLimit(String name){
+//		return Db.find("select distinct * from crm_promise_limit where status='0' order by sort asc");
+		return (List<Record>) SFIMCache.get("PL");
+	}
+
+
+	//保修类型
+	//重要程度
+
+
+	public List<Record> changeBrand(String name){
+
+		return Db.find("select c.* from crm_category c where id in (select  bc.category_id from crm_brand"
+				+ " b inner join crm_category_brand_rel bc ON b.id = bc.brand_id where name='"+name+"'  and b.del_flag='0')"
+				+ " and c.del_flag='0'");
+	}
+
+	public List<Record> getOrderSettlement(String orderId,String siteId){
+		StringBuffer sql = new StringBuffer("");
+		sql.append("select s.*,sd.employe_name as empName from crm_order_settlement s");
+		sql.append(" left join crm_order_settlement_detail sd on sd.settlement_id=s.id");
+		sql.append(" where s.order_id = '"+orderId+"' and s.site_id = '"+siteId+"'");
+
+		if(StringUtils.isBlank(orderId)){
+			return null;
+		}
+		return Db.find(sql.toString());
+
+	}
+
+	/**
+	 *来电弹屏所需信息
+	 * @param orderId
+	 * @return
+	 */
+
+	public List<Record> getFeedbacks(String orderId){
+		return Db.find(" SELECT * FROM crm_order_feedback WHERE order_id='"+orderId+"' and user_type = '4' ORDER BY feedback_time DESC ");
+	}
+	public Record getOrderId(String orderId){
+		String sql = " SELECT * FROM crm_order_dispatch WHERE order_id='"+ orderId +"' and status !='6' and status != '3'";
+		return Db.findFirst(sql);
+	}
+	public List<Record> getDispatch(String orderId){
+		return Db.find(" SELECT * FROM crm_order_dispatch WHERE order_id='"+orderId+"' ORDER BY dispatch_time ASC  ");
+	}
+	public Record getfeedback(String id){
+		String sql ="SELECT * FROM crm_order_feedback WHERE order_id='"+id+"' ORDER BY feedback_time DESC  LIMIT 1";
+		return Db.findFirst(sql);
+	}
+
+	/**
+	 * 工单详情中查看旧件信息
+	 */
+	public List<Record> getOldFitting(String siteId,String orderId){
+		String sql = " SELECT * FROM crm_site_old_fitting a WHERE a.order_id=? AND a.status != '2' AND a.site_id=? ";
+
+		List<Record> rds = Db.find(sql,orderId,siteId);
+		System.out.println(sql +"/////"+orderId+"\\\\"+siteId );
+		if(rds!= null){
+			for(Record rd :rds){
+				rd.set("cateTime", DateUtils.formatDate(rd.getDate("create_time"), "yyyy-MM-dd HH:mm"));
+			}
+		}
+		return rds;
+	}
+
+//	@Deprecated
+//	public List<Record> getCollectionlist(String orderId,String siteId){
+//		return Db.find("select a.* from crm_order_collections as a where a.order_id=? and a.site_id=? and a.status='0'",orderId,siteId);
+//	}
+
+	public List<Record> getCollectionlistByOrderNo(String orderNo,String siteId){
+		return Db.find("select a.* from crm_order_collections as a where a.order_number=? and a.site_id=? and a.status='0'",orderNo,siteId);
+	}
+}

@@ -1,0 +1,9 @@
+package com.jojowonet.modules.sys.util;
+
+import java.util.regex.Pattern;
+
+public class RegexUtil {
+
+    public static final Pattern NEW_LINE = Pattern.compile("[\r\n]");
+
+}

@@ -1,0 +1,169 @@
+]<%@page import="com.google.common.collect.Lists"%>
+<%@page import="java.util.List"%>
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp"%>
+<html>
+<head>
+	<title>角色管理</title>
+	<meta name="decorator" content="default"/>
+	<meta name="viewport" content="width=device-width,initial-scale=0.3,user-scalable=yes" />
+	<%-- <link href="${ctxPlugin}/lib/bootstrap/2.3.1/css_cerulean/bootstrap.min.css" type="text/css" rel="stylesheet" />	 --%>
+	<link href="${ctxPlugin}/static/h-ui.admin/css/style.css" type="text/css" rel="stylesheet" />
+	<link href="${ctxPlugin}/static/h-ui.admin/css/sfskin_blue.css" type="text/css" rel="stylesheet" />	
+	<link href="${ctxPlugin}/static/order-st/infosysterm/css/infosys.css" type="text/css" rel="stylesheet" />	
+	<link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/moreSelect/jquery.dropdown.min.css">
+	<script src="${ctxPlugin}/lib/moreSelect/jquery.dropdown.js"></script>
+	<style type="text/css">
+		thead tr td {background-color: #c4c4c4;}
+		.dropdown-clear-all{
+		line-height: 24px;
+		}
+	</style>
+<script type="text/javascript">
+function dele(id){
+    if(confirm('确认要删除该角色吗？')){  
+    	location.href='${ctx}'+ "/sys/role/delete?id=" + id;
+    }
+}
+</script>
+</head>
+<body>
+<div class="sfpagebg bk-gray"><div class="sfpage">
+    <%-- <div class="btnWrap">
+    	<ul>
+        	<li><a href="${ctx}/sys/role/form" class="btnBg1">添加</a></li>
+    	</ul>
+    </div> --%>
+		
+    <br>
+	<tags:message content="${message}"/>
+	<table id="contentTable" cellpadding="0" cellspacing="0" class="messkt" width="100%">
+		<thead>
+		<tr class="header"><td>人员名称</td><td>负责省份</td><td>操作</td></tr>
+		</thead>
+		<c:forEach items="${sysUserList}" var="item">
+			<tr>
+				<td>${item.columns.login_name}</td>
+				<td>${item.columns.provinceName}</td>
+				<input id="provinceValue_${item.columns.id}" value="${item.columns.permission }" type="hidden">
+				<td>
+					<a href="javascript:changePwd('${item.columns.id}')">设置密码</a>
+					<c:if test="${item.columns.login_name != 'system'}">
+						<a href="javascript:bindProvince('${item.columns.id}')">绑定省份</a>
+					</c:if>
+				</td>
+			</tr>
+		</c:forEach>
+	</table>
+</div></div>
+
+<div id="sysForm" class="popupBox sysForm">
+	<h2 class="popupHead">重置密码 <a class="sficon closePopup"></a> </h2>
+	<form class="layui-form" >
+		<div class="popupContainer pd-20">
+			<div class="popupMain">
+			  <div class="cl mb-10">
+			    <label class="w-80 text-r">新密码：</label>
+			    <input id="userId" value="" type="hidden">
+			    <input id="sysUserPwd" lay-verify="title" autocomplete="off" placeholder="" class="input-text w-140" type="text">
+			  </div>
+			   <div class="text-c pt-20">
+			   		<a href="javascript:saveSysUser();" class="sfbtn sfbtn-opt3　w-70" style="background: #0e8ee7; order: 1px solid #0e8ee7;color: #fff;">保存</a>
+			  </div>
+		  </div>
+	 	</div>
+	 </form>
+</div>
+
+<div id="provinceForm" class="popupBox provinceForm">
+	<h2 class="popupHead">绑定省份 <a class="sficon closePopup"></a> </h2>
+	<form class="layui-form" >
+		<div class="popupContainer pd-20">
+			<div class="popupMain">
+			  <div class="cl mb-10">
+			    <label class="w-80 text-r">选择省份：</label>
+			    <input id="userProvinceId" value="" type="hidden">
+			    <span class="w-200 dropdown-sin-2">
+				<select class="select-box w-120"  id="provinces" style="display:none" multiple placeholder="请选择" multiline="true" name="provinces"  >
+					<c:forEach items="${provinces}" var="item">
+						<option value="${item.columns.ProvinceID}">${item.columns.ProvinceName }</option>
+					</c:forEach>
+				</select>
+				</span>
+			  </div>
+			   <div class="text-c pt-20">
+			   		<a href="javascript:doBindProvince();" class="sfbtn sfbtn-opt3　w-70" style="background: #0e8ee7; order: 1px solid #0e8ee7;color: #fff;">保存</a>
+			  </div>
+		  </div>
+	 	</div>
+	 </form>
+</div>
+
+<script src="${ctxPlugin}/static/h-ui.admin/js/sifang.js" type="text/javascript" charset="utf-8"></script>
+<script src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript">
+	
+	var dd;
+	$(function(){
+		dd = $('.dropdown-sin-2').dropdown({
+	        // data: json2.data,
+	        input: '<input type="text" maxLength="20" placeholder="请输入搜索">',
+	    }).data('dropdown');
+		
+		
+	});
+
+	function showSysForm(){
+		$(".sysForm").popup();	
+	}
+	
+	function changePwd(id){
+		$("#userId").val(id);
+		$(".sysForm").popup();
+	}
+	
+	function saveSysUser(){
+		var postData = {"id": $("#userId").val(), "pwd": $("#sysUserPwd").val()}
+		$.ajax({
+			url:'${ctx}/sys/user/resetPwd',
+			type:'post',
+			data: postData,
+			success: function(info){
+				if("ok" == info){
+					layer.msg("保存成功", function(){
+						location.href = '${ctx}/sys/role';
+					});
+				}else{
+					layer.msg("保存失败!");
+				}
+			}
+		});
+	}
+	
+	function bindProvince(id){
+		$("#userProvinceId").val(id);
+		var ids = $("#provinceValue_" + id).val();//已选择
+		dd.choose(ids.split(","),true);
+		$(".provinceForm").popup();
+	}
+	
+	function doBindProvince(){
+		var postdata = {id: $("#userProvinceId").val(), provinces: $("#provinces").val()};
+		$.ajax({
+			url:'${ctx}/sys/user/bindSysUserProvince',
+			type:'post',
+			data: postdata,
+			success: function(info){
+				if("ok" == info){
+					layer.msg("保持成功");
+					location.href = '${ctx}/sys/role';
+				}else{
+					layer.msg("保存失败");
+				}
+			}
+		});
+	}
+</script>
+</body>
+
+</html>

@@ -1,0 +1,27 @@
+.grip {
+	width:0;
+	height:0;
+	border-width:10px;
+	border-style:solid;
+	border-color:#6F9FC9 transparent transparent transparent;
+	margin-left:-6px;
+	margin-top:-3px;
+	position: relative;
+	z-index: 88;
+	cursor: e-resize;
+}
+.grip:hover {
+	border-color:#1D86E0 transparent transparent transparent;
+}
+.dragging .grip {
+	border-color:#3D86e0 transparent transparent transparent;
+}
+
+.sampleText {
+	position: relative;
+	width: 100%;
+}
+.dotted {
+	background-image: url('../img/dotted.png');
+	background-repeat: repeat-y;
+}

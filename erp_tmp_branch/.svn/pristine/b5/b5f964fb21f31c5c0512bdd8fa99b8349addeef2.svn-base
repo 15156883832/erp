@@ -1,0 +1,356 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ include file="/WEB-INF/views/include/taglib.jsp" %>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="decorator" content="base"/>
+    <title>全部工单</title>
+    <script type="text/javascript" src="${ctxPlugin}/lib/orderFormat.js"></script>
+    <link rel="stylesheet" type="text/css" href="${ctxPlugin}/lib/select/easyui.css"/>
+    <script type="text/javascript" src="${ctxPlugin}/lib/select/jquery.easyui.min.js"></script>
+</head>
+<body>
+<div class="sfpagebg bk-gray">
+    <div class="sfpage">
+        <div class="page-orderWait">
+            <div id="tab-system" class="HuiTab">
+                <div class="tabBar cl mb-10">
+                    <sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_WAITEAPPLY_TAB"
+                                           html='<a class="btn-tabBar current"  href="${ctx }/fitting/fittingApply/getApplyList">待审核<sup  id="tab_c1">0</sup></a>'></sfTags:pagePermission>
+                    <sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_WAITEOUTPUT_TAB"
+                                           html='<a class="btn-tabBar"  href="${ctx }/fitting/fittingApply/ThelibraryHeader">待出库<sup  id="tab_c2">0</sup></a>'></sfTags:pagePermission>
+                    <sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_ALLAPPLY_TAB"
+                                           html='<a class="btn-tabBar" href="${ctx }/fitting/fittingApply/ApplyallHeader">全部申请</a>'></sfTags:pagePermission>
+                    <sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_ONROAD_TAB" html='<a class="btn-tabBar" href="${ctx }/fitting/fittingApply/fittingInRoad">备件在途<sup  id="tab_c3">0</sup></a>'></sfTags:pagePermission>
+                    <p class="f-r btnWrap">
+                        <a href="javascript:search();" class="sfbtn sfbtn-opt"><i
+                                class="sficon sficon-search"></i>查询</a>
+                        <a href="javascript:;" class="sfbtn sfbtn-opt resetSearchBtn"><i
+                                class="sficon sficon-reset"></i>重置</a>
+                    </p>
+                </div>
+                <form id="searchForm">
+                    <input type="hidden" name="page" id="pageNo" value="1">
+                    <input type="hidden" name="rows" id="pageSize" value="${page.pageSize}">
+                    <div class="bk-gray pt-10 pb-5">
+                        <table class="table table-search">
+                            <tr>
+                                <th style="width: 76px;" class="text-r">备件条码：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="fittingCode"/>
+                                </td>
+                                <th style="width: 76px;" class="text-r">备件名称：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="fittingName"/>
+                                </td>
+                                <th style="width: 76px;" class="text-r">保修类型：</th>
+                                <td>
+								<span class="select-box">
+									<select class="select" name="warrantyType">
+										<option value="">请选择</option>
+										<option value="1">保内</option>
+										<option value="2">保外</option>
+                                        <!-- <option value="3">保内转保外</option> -->
+									</select>
+								</span>
+                                </td>
+                                <th style="width: 76px;" class="text-r">申请人：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="employeName"/>
+                                </td>
+
+								<td colspan="2">
+                                	<label class="text-r" style="margin-left: 24px;" >工单编号：</label>
+                                    <input type="text" class="input-text" name="orderNumber"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="width: 76px;" class="text-r">联系方式：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="customerMobile"/>
+                                </td>
+                                <th style="width: 76px;" class="text-r">备件品牌：</th>
+                                <td>
+                                    <input type="text" class="input-text" name="suitBrand"/>
+                                </td>
+
+                                <th style="width: 76px;" class="text-r">适用品类：</th>
+                                <td>
+								<span class="select-box">
+									<select class="select" name="suitCategory">
+										<option value="">请选择</option>
+										<c:forEach var="category" items="${listR}">
+                                            <option value="${category.columns.name}">${category.columns.name}</option>
+                                        </c:forEach>
+									</select>
+								</span>
+                                </td>
+
+                                <%--<th style="width: 76px;" class="text-r">家电品牌：</th>
+                                <td>
+								<span class="w-140">
+									<select class="select easyui-combobox w-140" id="applianceBrand">
+										<c:forEach var="category" items="${applianceCategory}">
+                                            <option value="${category.columns.name}">${category.columns.name}</option>
+                                        </c:forEach>
+									</select>
+                                    <input type="hidden" name="applianceBrand"/>
+								</span>
+                                </td>--%>
+
+                                <th style="width: 76px;" class="text-r">家电品类：</th>
+                                <td>
+                                    <%--<label class="text-r" style="margin-left: 24px;">家电品类：</label>--%>
+								<span class="w-140">
+									<select class="select easyui-combobox" id="applianceCategory" style="width:100%;height:25px">
+										<%--<option value="">请选择</option>--%>
+										<c:forEach var="category" items="${applianceCategory}">
+                                            <option value="${category.columns.name}">${category.columns.name}</option>
+                                        </c:forEach>
+									</select>
+                                    <input type="hidden" name="applianceCategory"/>
+								</span>
+                                </td>
+                                <td colspan="2">
+                                    <label class="text-r" style="" >备件计划状态：</label>
+                                    <span class="select-box" >
+                                   		<select class="select" name="fapStatus">
+												<option value="">请选择</option>
+												<option value="1">备件在途</option>
+												<option value="2">已入库</option>
+										</select>
+									</span>
+                                </td>
+                            </tr>
+                            <tr>
+                               <%-- <td colspan="2">
+                                    <label class="text-r" style="" >备件计划状态：</label>
+                                    <span class="select-box" >
+                                   		<select class="select" name="fapStatus">
+												<option value="">请选择</option>
+												<option value="1">备件在途</option>
+												<option value="2">已入库</option>
+										</select>
+									</span>
+                                </td>--%>
+                            </tr>
+                        </table>
+                    </div>
+                </form>
+
+
+                <div class="pt-10 pb-5 cl">
+                    <div class="f-r">
+                    	<sfTags:pagePermission authFlag="FITTINGMGM_FITAPPLY_WAITEAPPLY_SETHEADER_BTN" html='<a href="javascript:;" class="sfbtn sfbtn-opt2" id="setHeadersBtn"><i class="sficon sficon-setting"></i>表头设置</a>'></sfTags:pagePermission>
+                    </div>
+                </div>
+                <div>
+                    <table id="table-waitdispatch" class="table"></table>
+                    <div class="cl pt-10">
+                        <div class="f-l">
+                            <span class="c-f55025">注：</span>
+                             <span class="oState state-quejian1 mr-10">缺件中</span>
+                            <span class="oState state-quejian2 mr-10">缺件在途</span>
+                            <span class="oState state-quejian mr-10">缺件已到</span>
+                        </div>
+                        <div class="f-r">
+                            <div class="pagination"></div>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+        </div>
+        <!-- 表头设置 -->
+		<div class="">
+			<div>
+				<h2></h2>
+			</div>
+		</div>
+
+        <div class="popupBox w-320 vipPromptBox">
+            <h2 class="popupHead">
+                提示
+            </h2>
+            <div class="popupContainer">
+                <div class="popupMain text-c pt-30 pb-20">
+                    <div class="">
+                        <i class="iconType iconType2"></i>
+                        <strong class="f-16">VIP会员功能</strong>
+                    </div>
+                    <p class="c-666 lh-26">
+                        抱歉，此功能需要<span class="c-bb3906">开通VIP会员</span>后才能使用！
+                    </p>
+                    <div class="text-c mt-30">
+                        <%-- <a  href="#" onclick="jumpToVIP();return false;" class="sfbtn sfbtn-opt3 w-100">开通VIP会员</a>--%>
+                        <span class="sfbtn sfbtn-opt3 w-100" onclick="jumpToVIP();">开通VIP会员</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+<script type="text/javascript" src="${ctxPlugin}/static/h-ui.admin/js/popUpNew.js"></script>
+        <script type="text/javascript">
+            var id = '${headerData.id}';						//服务商表格的ID
+            var defaultHeader = eval('${headerData.tableHeader}');//默认表格头部，系统已经维护好的
+            var sortHeader = '${headerData.sortHeader}';		//服务商自定义过的表格头部
+            var defaultId = '${headerData.defaultId}';			//系统表格的ID
+
+            $(function () {
+                $.post("${ctx}/goods/sitePlatformGoods/distinct", function (result) {
+                    if (result == "showPopup") {
+
+                        $(".vipPromptBox").popup();
+                        $('#Hui-article-box', window.top.document).css({'z-index': '9'});
+                    }
+                });
+                initNumber();
+                $.Huitab("#tab-system .tabBar span", "#tab-system .tabCon", "current", "click", "0");
+                $.tabfold("#moresearch", ".moreCondition", 1, "click");
+                $('#setHeadersBtn').click(function () {
+                    $('.addHeaders').tableHeaderSetting({
+                        id: id,
+                        defaultId: defaultId,
+                        sfHeader: defaultHeader,
+                        sfSortColumns: sortHeader,
+                        tableHeaderSaveUrl: '${ctx}/operate/site/saveTableHeader'
+                    }).popup();
+                });
+                initSfGrid();
+                $("#applianceCategory").combobox('clear');
+            });
+
+            function initNumber() {
+                $.post("${ctx}/fitting/twoStatusCount", function (result) {
+                    $("#tab_c1").text(result[0].sh);
+                    $("#tab_c2").text(result[1].ck);
+                    $("#tab_c3").text(result[2].zt);
+                });
+            }
+
+            $(".resetSearchBtn").on("click",function(){
+                $('#applianceCategory').combobox('setValues',"");
+            });
+
+            function isBlank(val) {
+                if (val == null || val == '' || val == undefined) {
+                    return true;
+                }
+                return false;
+            }
+
+            function initSfGrid() {
+                $("#table-waitdispatch").sfGrid({
+                    multiselect: false,
+                    url: '${ctx}/fitting/fittingApply/getlist',
+                    sfHeader: defaultHeader,
+                    sfSortColumns: sortHeader,
+                    rownumbers : true,
+        			gridComplete : function() {
+        				_order_comm.gridNum();
+        			}
+                });
+            }
+
+            function fmtStatus(row) {
+                if (row == 1) {
+                    return "<span>保外</span>";
+                } else if (row == 2) {
+                    return "<span>保内</span>";
+                } else if (row == 3) {
+                    return "<span>保外转保内</span>";
+                }
+                return "<span></span>";
+            }
+
+            function fmtOrderNo(rowData) {
+                return '<a href="javascript:showDetail(\'' + rowData.id + '\');">' + rowData.number + '</a>';
+            }
+
+            function showDetail(id) {
+                layer.open({
+                    type: 2,
+                    content: '${ctx}/order/orderDispatch/form?id=' + id,
+                    title: false,
+                    area: ['100%', '100%'],
+                    closeBtn: 0,
+                    shade: 0,
+                    fadeIn: 0,
+                    anim: -1
+                });
+            }
+
+            function fmtOper(rowData) {
+                var html = '';
+                if ('${fns:checkBtnPermission("FITTINGMGM_FITAPPLY_WAITEAPPLY_APPLY_BTN")}' === 'true') {
+                    if (rowData.status == 1 && parseFloat(rowData.fitting_apply_num) < parseFloat(rowData.warning)) {
+                        html = '<span class="oState state-quejian " title="缺件已到"></span><a href="javascript:Toexamine(\'' + rowData.id + '\');" class="oState state-verify c-0383dc" >审核</a>';
+                    }else if(rowData.status == 1 && parseFloat(rowData.fitting_apply_num) > parseFloat(rowData.warning) && rowData.fapStatus == 1){
+                        html = '<span class="oState state-quejian2 " title="缺件在途"></span><a href="javascript:Toexamine(\'' + rowData.id + '\');" class="oState state-verify c-0383dc" >审核</a>';
+                    }else if(rowData.status == 1 && parseFloat(rowData.fitting_apply_num) > parseFloat(rowData.warning) && rowData.fapStatus == 2){
+                        html = '<span class="oState state-quejian1 " title="缺件中"></span><a href="javascript:Toexamine(\'' + rowData.id + '\');" class="oState state-verify c-0383dc" >审核</a>';
+                    }else if(rowData.status == 1 && parseFloat(rowData.fitting_apply_num) > parseFloat(rowData.warning) && isBlank(rowData.fapStatus)){
+                        html = '<span class="oState state-quejian1 " title="缺件中"></span><a href="javascript:Toexamine(\'' + rowData.id + '\');" class="oState state-verify c-0383dc" >审核</a>';
+                    } else {
+                        html = '<a href="javascript:Toexamine(\'' + rowData.id + '\');" class="oState state-verify c-0383dc" >审核</a>';
+                    }
+                }
+                return html;
+            }
+            //审核
+            function Toexamine(id) {
+                layer.open({
+                    type: 2,
+                    content: '${ctx}/fitting/fittingApply/form?id=' + id,
+                    title: false,
+                    area: ['100%', '100%'],
+                    closeBtn: 0,
+                    shade: 0,
+                    anim: -1
+                });
+
+//	$('.shsqbox').popup(); //显示我要派工弹出框和判断高度
+            }
+
+            function search() {
+                var valCategory = $('#applianceCategory').combobox('getValues');
+                $("input[name='applianceCategory']").val(valCategory);
+                var pageSize = $("#pageSize").val();
+            	if($.trim(pageSize)=='' || pageSize==null){
+            		$("#pageSize").val(20);
+            	}
+                initNumber();
+                $("#table-waitdispatch").sfGridSearch({
+                    postData: $("#searchForm").serializeJson()
+                });
+            }
+
+            function jumpToVIP() {
+                layer.open({
+                    type: 2,
+                    content: '${ctx}/goods/sitePlatformGoods/jumpVIP',
+                    title: false,
+                    area: ['100%', '100%'],
+                    closeBtn: 0,
+                    shade: 0,
+                    anim: -1
+                });
+            }
+            
+            function planStatus(rowData){
+            	if(rowData.fapStatus=='1'){
+            		return '<a href="javascript:fittingInRoad(\''+rowData.id+'\');" class="c-0383dc">备件在途</a>';
+            	}else if(rowData.fapStatus=='2'){
+                    return "已入库";
+                }
+            	return "待审核";
+            }
+
+            function fittingInRoad(fittingApplyId){
+                location.href = "${ctx }/fitting/fittingApply/fittingInRoad?applyId="+fittingApplyId;
+            }
+
+        </script>
+
+</body>
+</html>

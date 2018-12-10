@@ -1,0 +1,703 @@
+package com.jojowonet.modules.finance.dao;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import com.jojowonet.modules.order.utils.*;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+
+import ivan.common.persistence.Page;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+@Repository
+public class RevenueDao {
+
+	@Autowired
+	TableMigrationMapper tableMapper;
+
+	public List<Record> getOrderRevenueList(Page<Record> page, Map<String, Object> map) {
+		return getOrderRevenueList(page, map, "");
+	}
+
+	public List<Record> getOrderRevenueList(Page<Record> page, Map<String, Object> map, String migration) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select a.migration,a.id,a.callback_cost, a.number, a.warranty_type, a.appliance_category,a.appliance_num, a.appliance_model,a.appliance_brand, a.service_type, ");
+		sb.append(" a.serve_cost, a.auxiliary_cost, a.warranty_cost, a.confirm_cost, a.whether_collection,a.review_time, ");
+		sb.append(" a.employe_id, a.employe_name,a.review, b.sum_money, b.payment_amount, b.cost_detail,b.factory_money,b.fitting_costs,b.profits,b.settlement_time, b.remarks,b.settlement_detail, ");
+		sb.append(" a.origin, a.order_type, a.customer_name, a.customer_mobile, a.customer_address, a.appliance_barcode, ");
+		sb.append(" a.appliance_machine_code, a.repair_time, a.end_time,a.pay_time, ");
+		sb.append("(select f.dispatch_time from `").append(tableMapper.mapOrderDispatch(migration)).append("` as f where f.`order_id`=a.`id` order by  f.update_time desc limit 1) AS dispatch_time ");
+		sb.append(" from ").append(tableMapper.mapOrder(migration)).append( " a ");
+		sb.append(" left join ").append(tableMapper.mapOrderSettlement(migration)).append(" b on b.order_id = a.id ");
+		sb.append(" where a.status in('5', '3','4') ");
+		sb.append(" and a.site_id =? ");
+		sb.append(getOrderRevenueFilter(map));
+		sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return Db.find(sb.toString(),siteId);
+	}
+	
+	public List<Record> getEmployeDetail(Page<Record> page,Map<String,Object> map,String siteId) {
+		return getEmployeDetail(page, map, siteId, "");
+	}
+
+	public List<Record> getEmployeDetail(Page<Record> page,Map<String,Object> map,String siteId, String migration) {
+		SqlKit sb = new SqlKit();
+		sb.append("select a.number,b.remarks,a.service_type,a.warranty_type,a.appliance_brand,a.review,a.appliance_category,a.customer_name,a.customer_mobile,a.customer_address,a.repair_time,a.end_time,b.settlement_time,b.cost_detail,b.service_measures as deMeasures,b.sum_money as deSumMoney,b.employe_name as deEmployeName,b.create_time as deCreateTime");
+		sb.append("from ").append(tableMapper.mapOrderSettlementDetail(migration)).append(" b");
+		sb.append("left join ").append(tableMapper.mapOrder(migration)).append(" a on b.order_id=a.id left join crm_employe e on e.id=b.employe_id and e.status='0' where b.site_id='"+siteId+"' and a.status != '8'  ");
+		sb.append(getEmployeDetailconditions(map));
+		if(page!=null){
+			sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		}
+		return Db.find(sb.toString());
+	}
+
+	//查询统计财务各项的总和
+	public Record getSumMoney(Map<String, Object> map){
+		return getSumMoney(map, "");
+	}
+
+	public Record getSumMoney(Map<String, Object> map, String migration){
+		Record rd = new Record();
+		rd.set("dataMark","420");
+		Result rt = checkYears(map);
+		if("200".equals(rt.getCode())){
+			migration = rt.getData().toString();
+			StringBuilder sf = new StringBuilder();
+			sf.append("SELECT  ");
+			sf.append("SUM(b.factory_money) AS factory_money, ");
+			sf.append("SUM(b.profits) AS profits,");
+			sf.append("SUM(b.sum_money) AS sum_money,");
+			sf.append("SUM(b.payment_amount) AS payment_amount");
+			sf.append(" FROM ").append(tableMapper.mapTable("crm_order", migration)).append(" a ");
+			sf.append("JOIN ").append(tableMapper.mapTable("crm_order_settlement", migration)).append(" b ON a.id= b.order_id and b.site_id=a.site_id ");
+			sf.append("WHERE a.status IN('5', '3','4')  ");
+			sf.append("AND a.site_id =? ");
+			sf.append(getOrderRevenueFilter(map));
+			String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+			rd = Db.findFirst(sf.toString(),siteId);
+			rd.set("dataMark","200");
+		}
+		return rd;
+	}
+	
+	public List<Record> getEmployeGoodsDetail(Page<Record> page,Map<String,Object> map,String siteId) {
+		StringBuffer sb = new StringBuffer();
+		sb.append("SELECT a.*,b.number as orderNumber,b.purchase_num,b.sales_commissions as salesCommissionsAll,b.confirmor,b.confirm_time,b.outstock_time,b.confirm_amount,b.customer_name,b.customer_contact,b.customer_address FROM crm_goods_siteself_order_deduct_detail a LEFT JOIN  crm_goods_siteself_order b ON a.site_order_id=b.id WHERE a.site_id='"+siteId+"' AND a.status='0' and b.status != '0'  ");
+		sb.append(getEmployeGoodsDetailconditions(map));
+		if(page!=null){
+			sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		}
+		return Db.find(sb.toString());
+	}
+	
+	public List<Record> getOrderRevenueListByEmp(Page<Map<String,Object>> page,Map<String,Object> map,String siteId,String employeId){
+		StringBuffer sb = new StringBuffer();
+		sb.append("select a.number,a.service_type,a.warranty_type,a.appliance_brand,a.appliance_category,a.customer_name,a.customer_mobile,a.customer_address,a.repair_time,a.end_time,b.settlement_time,b.cost_detail,b.service_measures as deMeasures,b.sum_money as deSumMoney,b.employe_name as deEmployeName,b.create_time as deCreateTime from crm_order_settlement_detail b  left join crm_order a on b.order_id=a.id  where b.site_id='"+siteId+"'");
+		sb.append(" and b.employe_id='"+employeId+"' ");
+		sb.append(getEmployeDetailconditions(map));
+		/*if(page!=null){
+			sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		}*/
+		return Db.find(sb.toString());
+	}
+	
+	public List<Record> getSumMoneyAndEmpName(Page<Record> page,Map<String,Object> map,String siteId){
+		return getSumMoneyAndEmpName(page, map, siteId, "");
+	}
+
+	public List<Record> getSumMoneyAndEmpName(Page<Record> page,Map<String,Object> map,String siteId, String migration){
+		StringBuffer sb = new StringBuffer();
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT DISTINCT (t.employe_name) AS empId FROM ").append(tableMapper.mapOrderSettlementDetail(migration)).append(" t LEFT JOIN ").append(tableMapper.mapOrder(migration)).append(" d ON t.order_id = d.id LEFT JOIN crm_employe e ON e.id = t.employe_id WHERE t.site_id = ? and e.status='0' ");
+		sf.append(getEmployeDetailconditions2(map));
+		String employeName="";
+		if(page!=null){
+			sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		}
+		List<Record> list1 = Db.find(sf.toString(),siteId);
+		String employeId = "";
+		for(Record rd : list1){
+			if(StringUtils.isNotBlank(rd.getStr("empId"))){
+				if("".equals(employeId)){
+					employeId="'"+rd.getStr("empId")+"'";
+				}else{
+					employeId=employeId+",'"+rd.getStr("empId")+"'";
+				}
+			}
+		}
+		if(StringUtils.isBlank(employeId)){
+			employeId="''";
+		}
+		/*sb.append("SELECT SUM(CASE WHEN b.service_measures='当日支付' THEN b.sum_money  ELSE 0 END) AS todayMoney,SUM(CASE WHEN b.service_measures='扣款' THEN b.sum_money  ELSE 0 END) AS kkMoney,  (SUM(CASE WHEN b.service_measures!= '扣款' THEN b.sum_money  ELSE 0 END)+SUM(CASE WHEN b.service_measures='扣款' THEN b.sum_money  ELSE 0 END)) AS allMoney,(SUM(CASE WHEN b.service_measures!='扣款' THEN b.sum_money  ELSE 0 END)+SUM(CASE WHEN b.service_measures='扣款' THEN b.sum_money  ELSE 0 END)-SUM(CASE WHEN b.service_measures='当日支付' THEN b.sum_money  ELSE 0 END)) AS relMoney,b.employe_name FROM crm_order_settlement_detail b LEFT JOIN crm_order a ON b.order_id = a.id  ");*/
+		sb.append("SELECT SUM( CASE WHEN b.service_measures = '当日支付' THEN b.sum_money ELSE 0 END ) AS todayMoney, SUM( CASE WHEN b.service_measures = '扣款'  THEN b.sum_money ELSE 0 END ) AS kkMoney,(SUM(CASE WHEN b.service_measures != '当日支付' THEN b.sum_money ELSE 0 END ) ) AS allMoney,(SUM(CASE WHEN b.service_measures != '当日支付' THEN b.sum_money ELSE 0 END )  - SUM( CASE WHEN b.service_measures = '当日支付' THEN b.sum_money ELSE 0 END ) ) AS relMoney, b.employe_name FROM ").append(tableMapper.mapOrderSettlementDetail(migration)).append(" b LEFT JOIN ").append(tableMapper.mapOrder(migration)).append(" a ON b.order_id = a.id   ");
+		sb.append(" WHERE b.site_id = ?   "); //AND b.`employe_id` IN ("+employeId+")
+		sb.append(getEmployeDetailconditions(map));
+		sb.append(" GROUP BY b.`employe_name` ");
+		if(page!=null){
+			sb.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		}
+		return Db.find(sb.toString(),siteId);
+	}
+	
+	public String getEmployeGoodsDetailconditions(Map<String,Object> map){
+		StringBuffer sf = new StringBuffer();
+		if(map != null){
+			String employeName = getTrimmedParamValue(map, "employeName");//服务工程师
+			if(StringUtils.isNotEmpty(employeName)){
+				sf.append(" and a.salesman = '"+employeName+"' ");
+			}
+			String confirmTimeTimeMin = getTrimmedParamValue(map, "confirmTimeTimeMin");//确认收款时间
+			if(StringUtils.isNotEmpty(confirmTimeTimeMin)){
+				sf.append(" and b.confirm_time >= '"+confirmTimeTimeMin+" 00:00:00' ");
+			}
+			String confirmTimeTimeMax = getTrimmedParamValue(map, "confirmTimeTimeMax");
+			if(StringUtils.isNotEmpty(confirmTimeTimeMax)){
+				sf.append(" and b.confirm_time <= '"+confirmTimeTimeMax+" 23:59:59' ");
+			}
+			
+			String goodName = getTrimmedParamValue(map, "goodName");//商品名称
+			if(StringUtils.isNotEmpty(goodName)){
+				sf.append(" and a.good_name like '%"+goodName+"%' ");
+			}
+			
+			String createTimeMin = getTrimmedParamValue(map, "createTimeMin");//零售时间
+			if(StringUtils.isNotEmpty(createTimeMin)){
+				sf.append(" and a.create_time >= '"+createTimeMin+" 00:00:00' ");
+			}
+			String createTimeMax = getTrimmedParamValue(map, "createTimeMax");
+			if(StringUtils.isNotEmpty(createTimeMax)){
+				sf.append(" and a.create_time <= '"+createTimeMax+" 23:59:59' ");
+			}
+			
+			String outstockTimeMin = getTrimmedParamValue(map, "outstockTimeMin");//出库时间
+			if(StringUtils.isNotEmpty(outstockTimeMin)){
+				sf.append(" and b.outstock_time >= '"+outstockTimeMin+" 00:00:00' ");
+			}
+			String outstockTimeMax = getTrimmedParamValue(map, "outstockTimeMax");
+			if(StringUtils.isNotEmpty(outstockTimeMax)){
+				sf.append(" and b.outstock_time <= '"+outstockTimeMax+" 23:59:59' ");
+			}
+		}
+		return sf.toString();
+	}
+	
+	public String getEmployeDetailconditions2(Map<String,Object> map){
+		StringBuffer sf = new StringBuffer();
+		if(map != null){
+			String employeName = getTrimmedParamValue(map, "employeName");//服务工程师
+			if(StringUtils.isNotEmpty(employeName)){
+				sf.append(" and e.name = '"+employeName+"' ");
+			}
+			String endTimeMin = getTrimmedParamValue(map, "endTimeMin");//完工时间
+			if(StringUtils.isNotEmpty(endTimeMin)){
+				sf.append(" and d.end_time >= '"+endTimeMin+" 00:00:00' ");
+			}
+			String endTimeMax = getTrimmedParamValue(map, "endTimeMax");
+			if(StringUtils.isNotEmpty(endTimeMax)){
+				sf.append(" and d.end_time <= '"+endTimeMax+" 23:59:59' ");
+			}
+			String settlementTimeMin = getTrimmedParamValue(map, "settlementTimeMin");//结算归属时间
+			if(StringUtils.isNotEmpty(settlementTimeMin)){
+				sf.append(" and t.settlement_time >= '"+settlementTimeMin+" 00:00:00' ");
+			}
+			String settlementTimeMax = getTrimmedParamValue(map, "settlementTimeMax");
+			if(StringUtils.isNotEmpty(settlementTimeMax)){
+				sf.append(" and t.settlement_time <= '"+settlementTimeMax+" 23:59:59' ");
+			}
+			//报修时间
+			String repairTimeMin = getTrimmedParamValue(map, "repairTimeMin");
+			if(StringUtils.isNotEmpty(repairTimeMin)){
+				sf.append(" and d.repair_time >= '"+repairTimeMin+" 00:00:00' ");
+			}
+			String repairTimeMax = getTrimmedParamValue(map, "repairTimeMax");
+			if(StringUtils.isNotEmpty(repairTimeMax)){
+				sf.append(" and d.repair_time <= '"+repairTimeMax+" 23:59:59' ");
+			}
+		}
+		return sf.toString();
+	}
+	
+	public Long getEmployeDetailcount(Map<String,Object> map,String siteId){
+		return getEmployeDetailcount(map, siteId, "");
+	}
+
+	public Long getEmployeDetailcount(Map<String,Object> map,String siteId, String migration){
+		StringBuffer sb = new StringBuffer();
+		sb.append("select count(*) from ").append(tableMapper.mapOrderSettlementDetail(migration)).append(" b left join  ").append(tableMapper.mapOrder(migration)).append(" a on b.order_id=a.id left join crm_employe e on e.id=b.employe_id and e.status='0'  where b.site_id='"+siteId+"' and a.status != '8'  ");
+		sb.append(getEmployeDetailconditions(map));
+		return Db.queryLong(sb.toString());
+	}
+
+	public Long getEmployeGoodsDetailcount(Map<String,Object> map,String siteId){
+		StringBuffer sb = new StringBuffer();
+		sb.append("SELECT count(*) FROM crm_goods_siteself_order_deduct_detail a LEFT JOIN  crm_goods_siteself_order b ON a.site_order_id=b.id WHERE a.site_id='"+siteId+"' AND a.status='0' and b.status != '0'  ");
+		sb.append(getEmployeGoodsDetailconditions(map));
+		return Db.queryLong(sb.toString());
+	}
+
+	public Long countOrderRevenue(Map<String, Object> map) {
+		return countOrderRevenue(map, "");
+	}
+
+	public Long countOrderRevenue(Map<String, Object> map, String migration) {
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select count(*) as count ");
+		sb.append(" from ").append(tableMapper.mapOrder(migration)).append(" a ");
+		sb.append(" left join ").append(tableMapper.mapOrderSettlement(migration)).append(" b on b.order_id = a.id ");
+		sb.append(" where (a.status = '5' or  a.status = '3' or  a.status = '4') ");
+		sb.append(" and a.site_id =? ");
+		sb.append(getOrderRevenueFilter(map));
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return Db.queryLong(sb.toString(), siteId);
+	}
+	
+	public String getOrderRevenueFilter(Map<String, Object> map){
+		StringBuffer sf = new StringBuffer();
+		if(map != null){			
+			String number = getTrimmedParamValue(map, "number");
+		if(StringUtils.isNotEmpty(number)){
+			sf.append(" and a.number like '%"+number+"%' ");
+		}
+		String customerName = getTrimmedParamValue(map, "customerName");
+		if (StringUtils.isNotEmpty(customerName)){
+			sf.append(" and a.customer_name like '%"+customerName+"%' ");
+		}
+		String customerMobile = getTrimmedParamValue(map, "customerMobile");
+		if(StringUtils.isNotEmpty(customerMobile)){
+			sf.append(" and (a.customer_mobile like '%"+customerMobile+"%' or a.customer_telephone like '%"+customerMobile+"%' or a.customer_telephone2 like '%"+customerMobile+"%') ");
+		}
+		String customerAddress = getTrimmedParamValue(map, "customerAddress");
+		if(StringUtils.isNotEmpty(customerAddress)){
+			sf.append(" and a.customer_address like '%"+customerAddress+"%' ");
+		}
+		String applianceBrand = getTrimmedParamValue(map, "applianceBrand");
+		if(StringUtils.isNotEmpty(applianceBrand)){
+			sf.append(" and a.appliance_brand like '%"+applianceBrand+"%'");
+		}
+		String applianceCategory = getTrimmedParamValue(map, "applianceCategory");
+		if(StringUtils.isNotEmpty(applianceCategory)){
+			sf.append(" and a.appliance_category like '%"+applianceCategory+"%' ");
+		}
+		String serviceType = getTrimmedParamValue(map, "serviceType");
+		if(StringUtils.isNotEmpty(serviceType)){
+			sf.append(" and a.service_type = '"+serviceType+"' ");
+		}
+		String origin = getTrimmedParamValue(map, "origin");
+		if(StringUtils.isNotEmpty(origin)){
+			sf.append(" and a.origin = '"+origin+"' ");
+		}
+		String orderType = getTrimmedParamValue(map, "orderType");
+		if(StringUtils.isNotEmpty(orderType)){
+			sf.append(" and a.order_type = '"+orderType+"' ");
+		}
+		String warrantyType = getTrimmedParamValue(map, "warrantyType");
+		if(StringUtils.isNotEmpty(warrantyType)){
+			sf.append(" and a.warranty_type = '"+warrantyType+"' ");
+		}
+		String promiseTime = getTrimmedParamValue(map, "promiseTime");
+		if(StringUtils.isNotEmpty(promiseTime)){
+			sf.append(" and a.promise_time = '"+((String[])map.get("promiseTime"))[0]+"' ");
+		}
+		String level = getTrimmedParamValue(map, "level");
+		if(StringUtils.isNotEmpty(level)){
+			sf.append(" and a.level = '"+level+"' ");
+		}
+		String messengerName = getTrimmedParamValue(map, "messengerName");
+		if(StringUtils.isNotEmpty(messengerName)){//登记人
+			sf.append(" and a.messenger_name = '"+messengerName+"' ");
+		}
+		String status = getTrimmedParamValue(map, "status");
+		
+		if(StringUtils.isNotEmpty(status)){//工单状态
+			sf.append(" and a.status = '"+status+"' ");
+		}
+		String employeName = getTrimmedParamValue(map, "employeName");
+		if(StringUtils.isNotEmpty(employeName)){//服务工程师
+			sf.append(" and  a.employe_name like '%"+employeName+"%' ");
+		}
+		String whetherCollection = getTrimmedParamValue(map, "whetherCollection");
+		if(StringUtils.isNotEmpty(whetherCollection)){//服务工程师
+			sf.append(" and a.whether_collection = '"+whetherCollection+"' ");
+		}
+		String returnCard = getTrimmedParamValue(map, "returnCard");
+		if(StringUtils.isNotEmpty(returnCard)){
+			sf.append(" and a.return_card = '"+returnCard+"' ");
+		}
+		String settleJiesuan = getTrimmedParamValue(map, "settleJiesuan");
+		if(StringUtils.isNotEmpty(settleJiesuan)){
+			if("1".equals(settleJiesuan)){
+				sf.append(" and b.settlement_time is not null ");
+			}else{
+				sf.append(" and  b.settlement_time is null ");
+			}
+		}
+		String repairTimeMin = getTrimmedParamValue(map, "repairTimeMin");
+		 if(StringUtils.isNotEmpty(repairTimeMin) ){
+			sf.append(" and a.repair_time >= '"+repairTimeMin+" 00:00:00'  ");
+		}
+		 String repairTimeMax = getTrimmedParamValue(map, "repairTimeMax");
+		 if(StringUtils.isNotEmpty(repairTimeMax)){
+			sf.append(" and a.repair_time <= '"+repairTimeMax+"  23:59:59' ");
+		}
+		 String createTimeMax = getTrimmedParamValue(map, "createTimeMax");
+		 if(StringUtils.isNotEmpty(createTimeMax)){//接入时间
+			sf.append(" and b.settlement_time <= '"+createTimeMax+" 23:59:59' ");
+		}
+		 String createTimeMin = getTrimmedParamValue(map, "createTimeMin");
+		 if(StringUtils.isNotEmpty(createTimeMin)){
+			sf.append(" and b.settlement_time >= '"+createTimeMin+" 00:00:00' ");
+		}
+		 String endTimeMax = getTrimmedParamValue(map, "endTimeMax");
+		 if(StringUtils.isNotEmpty(endTimeMax)){
+			sf.append(" and a.end_time <= '"+endTimeMax+" 23:59:59' ");
+		}
+		 String endTimeMin = getTrimmedParamValue(map, "endTimeMin");
+		 if(StringUtils.isNotEmpty(endTimeMin)){
+			sf.append(" and a.end_time >= '"+endTimeMin+" 00:00:00'  ");
+		}
+		 String review = getTrimmedParamValue(map, "review");
+		 if(StringUtils.isNotEmpty(review)){
+		 		if("0".equals(review)) {
+					sf.append(" and (a.review = '0' or a.review is null) ");
+				} else {
+					sf.append(" and a.review = '"+review+"' ");
+				}
+			}
+		}
+		String reviewTimeMin = getTrimmedParamValue(map, "reviewTimeMin");
+		if(StringUtils.isNotEmpty(reviewTimeMin) ){
+			sf.append(" and a.review_time >= '"+reviewTimeMin+" 00:00:00'  ");
+		}
+		String reviewTimeMax = getTrimmedParamValue(map, "reviewTimeMax");
+		if(StringUtils.isNotEmpty(reviewTimeMax)){
+			sf.append(" and a.review_time <= '"+reviewTimeMax+"  23:59:59' ");
+		}
+		
+		String payTimeMin = getTrimmedParamValue(map, "payTimeMin");
+		if(StringUtils.isNotEmpty(payTimeMin) ){
+			sf.append(" and a.pay_time >= '"+payTimeMin+" 00:00:00'  ");
+		}
+		String payTimeMax = getTrimmedParamValue(map, "payTimeMax");
+		if(StringUtils.isNotEmpty(payTimeMax)){
+			sf.append(" and a.pay_time <= '"+payTimeMax+"  23:59:59' ");
+		}
+		return sf.toString();
+	}
+
+	public List<Record> getGoodsRevenueList(Page<Record> page, Map<String, Object> map,String siteId) {
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT a.*,gs.site_price ,gs.customer_price ,a.status AS jkstatus FROM crm_goods_siteself_order a  "
+				+ " LEFT JOIN crm_goods_siteself gs ON gs.id=a.good_id  AND gs.site_id=? "
+				+ " WHERE a.site_id=? AND a.status !='0' ");
+		sf.append(getGoodsRevenueFilter(map));
+		sf.append("order by a.placing_order_time desc");
+		sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		return Db.find(sf.toString(),siteId,siteId);
+	}
+
+	public Long countGoodsRevenue(Map<String, Object> map,String siteId) {
+		StringBuffer sf = new StringBuffer();
+		sf.append(" SELECT count(*) FROM crm_goods_siteself_order a  "
+				+ " LEFT JOIN crm_goods_siteself gs ON gs.id=a.good_id  AND gs.site_id=? "
+				+ " WHERE a.site_id=? AND a.status !='0' ");
+		sf.append(getGoodsRevenueFilter(map));
+		return Db.queryLong(sf.toString(),siteId,siteId);
+	}
+
+    private String getParamValue(Map<String, Object> map, String param) {
+        Object value = map.get(param);
+        return value == null ? null : (map.get(param).toString());
+    }
+    
+	private String getTrimmedParamValue(Map<String, Object> map, String param) {
+        return StringUtils.trim(getParamValue(map, param));
+    }
+	//商品收支明细查询条件
+	public String getGoodsRevenueFilter(Map<String, Object> map){
+			StringBuffer sf = new StringBuffer();
+			if(map != null){
+				String goodName = getTrimmedParamValue(map, "goodName");
+			if(StringUtils.isNotEmpty(goodName)){
+				sf.append(" and a.good_name = '"+goodName+"' ");
+			}
+			String goodSource = getTrimmedParamValue(map, "goodSource");
+			if (StringUtils.isNotEmpty(goodSource) ){
+				sf.append(" and a.good_source like '%"+goodSource+"%' ");
+			}
+			String customerMobile = getTrimmedParamValue(map, "customerMobile");
+			if(StringUtils.isNotEmpty(customerMobile) ){
+				sf.append(" and (a.customer_contact like '%"+customerMobile+"%') ");
+			}
+			String status = getTrimmedParamValue(map, "status");
+			if(StringUtils.isNotEmpty(status)){
+				if("1".equals(status)){
+					sf.append(" and a.status in('2','3') ");
+				}
+				if("2".equals(status)){
+					sf.append(" and a.status in('1','4')");
+				}
+			}
+			String placingName = getTrimmedParamValue(map, "placingName");
+			if(StringUtils.isNotEmpty(placingName)){
+				sf.append(" and a.placing_name like '%"+placingName+"%' ");
+			}
+			String goodCategory = getTrimmedParamValue(map, "goodCategory");
+			if(StringUtils.isNotEmpty(goodCategory)){
+				sf.append(" and a.good_category like '%"+goodCategory+"%' ");
+			}
+			String goodBrand = getTrimmedParamValue(map, "goodBrand");
+			if(StringUtils.isNotEmpty(goodBrand)){
+				sf.append(" and a.good_brand = '"+goodBrand+"' ");
+			}
+			String customerName = getTrimmedParamValue(map, "customerName");
+			if(StringUtils.isNotEmpty(customerName)){
+				sf.append(" and a.customer_name like '%"+customerName+"%' ");
+			}
+			
+			String createTimeMin = getTrimmedParamValue(map, "createTimeMin");
+			 if(StringUtils.isNotEmpty(createTimeMin)){//接入时间
+				sf.append(" and a.placing_order_time >= '"+createTimeMin+" 00:00:00' ");
+			 	}
+			 String createTimeMax = getTrimmedParamValue(map, "createTimeMax");
+			 
+			 if(StringUtils.isNotEmpty(createTimeMax)){
+				sf.append(" and a.placing_order_time <= '"+createTimeMax+" 23:59:59' ");
+			 	}
+			 	
+			}
+			return sf.toString();
+	}
+	
+	public String getEmployeDetailconditions(Map<String,Object> map){
+		StringBuffer sf = new StringBuffer();
+		if(map != null){
+			String employeName = getTrimmedParamValue(map, "employeName");//服务工程师
+			if(StringUtils.isNotEmpty(employeName)){
+				sf.append(" and b.employe_name = '"+employeName+"' ");
+			}
+			String endTimeMin = getTrimmedParamValue(map, "endTimeMin");//完工时间
+			if(StringUtils.isNotEmpty(endTimeMin)){
+				sf.append(" and a.end_time >= '"+endTimeMin+" 00:00:00' ");
+			}
+			String endTimeMax = getTrimmedParamValue(map, "endTimeMax");
+			if(StringUtils.isNotEmpty(endTimeMax)){
+				sf.append(" and a.end_time <= '"+endTimeMax+" 23:59:59' ");
+			}
+			String settlementTimeMin = getTrimmedParamValue(map, "settlementTimeMin");//结算归属时间
+			if(StringUtils.isNotEmpty(settlementTimeMin)){
+				sf.append(" and b.settlement_time >= '"+settlementTimeMin+" 00:00:00' ");
+			}
+			String settlementTimeMax = getTrimmedParamValue(map, "settlementTimeMax");
+			if(StringUtils.isNotEmpty(settlementTimeMax)){
+				sf.append(" and b.settlement_time <= '"+settlementTimeMax+" 23:59:59' ");
+			}
+			//报修时间
+			String repairTimeMin = getTrimmedParamValue(map, "repairTimeMin");
+			if(StringUtils.isNotEmpty(repairTimeMin)){
+				sf.append(" and a.repair_time >= '"+repairTimeMin+" 00:00:00' ");
+			}
+			String repairTimeMax = getTrimmedParamValue(map, "repairTimeMax");
+			if(StringUtils.isNotEmpty(repairTimeMax)){
+				sf.append(" and a.repair_time <= '"+repairTimeMax+" 23:59:59' ");
+			}
+			String review = getTrimmedParamValue(map, "review");//服务工程师
+			if(StringUtils.isNotEmpty(review)){
+				sf.append(" and a.review = '"+review+"' ");
+			}
+			String category = getTrimmedParamValue(map, "applianceCategory");
+			if(StringUtils.isNotEmpty(category)){
+				sf.append(" and a.appliance_category = '"+category+"' ");
+			}
+			String warrantyType = getTrimmedParamValue(map, "warrantyType");
+			if(StringUtils.isNotEmpty(warrantyType)){
+				sf.append(" and a.warranty_type = '"+warrantyType+"' ");
+			}
+			String brand = getTrimmedParamValue(map, "applianceBrand");
+			if(StringUtils.isNotEmpty(brand)){
+				sf.append(" and a.appliance_brand = '"+brand+"' ");
+			}
+	/*		if(StringUtil.checkParamsValid(map.get("applianceBrand"))){
+				String[] applianceBrand=((map.get("applianceBrand").toString())).split(",");
+				if(applianceBrand.length>0) {
+					sf.append("and (a.appliance_brand like "+StringUtil.joinInSqlforselforder(xiaoNames)+")");
+				}
+			}*/
+		}
+		return sf.toString();
+	}
+	
+	public Long getEmplistCount(Map<String, Object> map,String siteId){
+		return getEmplistCount(map, siteId, "");
+	}
+
+	public Long getEmplistCount(Map<String, Object> map,String siteId, String migration){
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT count(DISTINCT(a.employe_name)) FROM ").append(tableMapper.mapOrderSettlementDetail(migration)).append(" a left join ").append(tableMapper.mapOrder(migration)).append(" b on b.id=a.order_id WHERE a.site_id='"+siteId+"' ");
+		sf.append(getEmployeDetailconditions1(map));
+		return Db.queryLong(sf.toString());
+	}
+	
+	public List<Record> getEmplist1(Page<Map<String,Object>> page,Map<String, Object> map,String siteId){
+		StringBuffer sf = new StringBuffer();
+		sf.append("select count(DISTINCT(e.id)) from crm_order_settlement_detail a left join crm_order b on a.order_id=b.id left join crm_employe e on e.id=a.employe_id where a.site_id='"+siteId+"' ");
+		sf.append(getEmployeDetailconditions1(map));
+		if(page!=null){
+			sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		}
+		return Db.find(sf.toString());
+	}
+	
+	public String getEmployeDetailconditions1(Map<String,Object> map){
+		StringBuffer sf = new StringBuffer();
+		if(map != null){
+			String employeName = getTrimmedParamValue(map, "employeName");//服务工程师
+			if(StringUtils.isNotEmpty(employeName)){
+				sf.append(" and a.employe_name = '"+employeName+"' ");
+			}
+			String endTimeMin = getTrimmedParamValue(map, "endTimeMin");//完工时间
+			if(StringUtils.isNotEmpty(endTimeMin)){
+				sf.append(" and b.end_time >= '"+endTimeMin+" 00:00:00' ");
+			}
+			String endTimeMax = getTrimmedParamValue(map, "endTimeMax");
+			if(StringUtils.isNotEmpty(endTimeMax)){
+				sf.append(" and b.end_time <= '"+endTimeMax+" 23:59:59' ");
+			}
+			String settlementTimeMin = getTrimmedParamValue(map, "settlementTimeMin");//结算归属时间
+			if(StringUtils.isNotEmpty(settlementTimeMin)){
+				sf.append(" and a.settlement_time >= '"+settlementTimeMin+" 00:00:00' ");
+			}
+			String settlementTimeMax = getTrimmedParamValue(map, "settlementTimeMax");
+			if(StringUtils.isNotEmpty(settlementTimeMax)){
+				sf.append(" and a.settlement_time <= '"+settlementTimeMax+" 23:59:59' ");
+			}
+			//报修时间
+			String repairTimeMin = getTrimmedParamValue(map, "repairTimeMin");
+			if(StringUtils.isNotEmpty(repairTimeMin)){
+				sf.append(" and b.repair_time >= '"+repairTimeMin+" 00:00:00' ");
+			}
+			String repairTimeMax = getTrimmedParamValue(map, "repairTimeMax");
+			if(StringUtils.isNotEmpty(repairTimeMax)){
+				sf.append(" and b.repair_time <= '"+repairTimeMax+" 23:59:59' ");
+			}
+		}
+		return sf.toString();
+	}
+	public List<Record> getsettledetaillist(String orderid) {
+		return getsettledetaillist(orderid, "");
+	}
+
+	public List<Record> getsettledetaillist(String orderId, String migration) {
+		String sql = "select * from " + tableMapper.mapOrderSettlementDetail(migration) + " where order_id=? and site_id=? ";
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return Db.find(sql, orderId, siteId);
+	}
+
+
+	public List<Record> getsettlementlist(String orderid) {
+		return getsettlementlist(orderid, "");
+	}
+
+	public List<Record> getsettlementlist(String orderid, String migration) {
+		String sql = "select * from " + tableMapper.mapOrderSettlement(migration) + " where order_id=? and site_id=? ";
+		String siteId = CrmUtils.getCurrentSiteId(UserUtils.getUser());
+		return Db.find(sql, orderid, siteId);
+	}
+
+	//审核不通过
+	public int reviewFailed(String id,String reviewRemark) {
+		return reviewFailed(id, reviewRemark, "");
+	}
+
+	public int reviewFailed(String id,String reviewRemark, String migration) {
+		String sql="";
+		Date reviewtime=new Date();
+		if(StringUtil.isNotBlank(reviewRemark)){
+			sql="update "+tableMapper.mapOrder(migration)+" set review='2',review_time=?,review_remark=? where id=?";
+			return Db.update(sql,reviewtime,reviewRemark,id);
+		}else{
+			sql="update "+tableMapper.mapOrder(migration)+" set review='2',review_time=? where id=?";
+			return Db.update(sql,reviewtime,id);
+		}
+	}
+
+	//审核通过
+	public int reviewPass(String id,String reviewRemark) {
+		return reviewPass(id, reviewRemark, "");
+	}
+
+	public int reviewPass(String id,String reviewRemark, String migration) {
+		String sql="";
+		Date reviewtime=new Date();
+		if(StringUtil.isNotBlank(reviewRemark)){
+			sql="update "+tableMapper.mapOrder(migration)+" set review='1',review_time=?,review_remark=? where id=?";
+			int i=Db.update(sql,reviewtime,reviewRemark,id);
+			return i;
+		}else{
+			sql="update "+tableMapper.mapOrder(migration)+" set review='1',review_time=? where id=?";
+			int i=Db.update(sql,reviewtime,id);
+			return i;
+		}
+	}
+	
+	public Long getEmplistGoodsCount(Map<String, Object> map1,String siteId){
+		StringBuffer sf = new StringBuffer();
+		sf.append("SELECT count(DISTINCT(a.salesman)) FROM crm_goods_siteself_order_deduct_detail a left join crm_goods_siteself_order b on b.id=a.site_order_id left join crm_employe e on e.user_id=a.salesman_id WHERE a.status='0'and b.status!='0'and a.site_id='"+siteId+"'  ");
+		sf.append(getEmployeGoodsDetailconditions(map1));
+		return Db.queryLong(sf.toString());
+	}
+	
+	public List<Record> employeGoodsCount(Page<Record> page,Map<String, Object> map1,String siteId){
+		/*StringBuffer sf = new StringBuffer();
+		sf.append("SELECT DISTINCT(a.salesman) FROM crm_goods_siteself_order_deduct_detail a left join crm_goods_siteself_order b on b.id=a.site_order_id left join crm_employe e on e.user_id=a.salesman_id WHERE a.site_id='"+siteId+"' and e.status='0'");
+		sf.append(getEmployeGoodsDetailconditions(map1));
+		if(page!=null){
+			sf.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		}
+		List<Record> empList = Db.query(sf.toString());
+		String empNames = "";
+		for(Record rd : empList){
+			if(StringUtils.isNotEmpty(empNames)){
+				empNames="'"+rd.getStr("salesman")+"'";
+			}else{
+				empNames=empNames+",'"+rd.getStr("salesman")+"'";
+			}
+		}*/
+		StringBuffer sd = new StringBuffer();
+		sd.append("SELECT a.salesman,SUM(a.sales_commissions) as ticheng FROM crm_goods_siteself_order_deduct_detail a LEFT JOIN crm_goods_siteself_order b ON a.site_order_id=b.id WHERE a.status='0'and b.status!='0'and a.site_id='"+siteId+"' ");
+		sd.append(getEmployeGoodsDetailconditions(map1));
+		sd.append(" GROUP BY a.salesman ");
+		if(page!=null){
+			sd.append(" limit " + page.getPageSize() + " offset " + (page.getPageNo()-1) * page.getPageSize());
+		}
+		return Db.find(sd.toString());
+	}
+
+	public Result checkYears(Map<String, Object> map){
+		Result rt = new Result();
+		Object tMin = map.get("repairTimeMin");
+		Object tMax = map.get("repairTimeMax");
+		if(tMin==null || tMax==null || StringUtils.isBlank(tMin.toString()) || StringUtils.isBlank(tMax.toString())){
+			rt.setCode("420");
+			rt.setData("error");
+			return rt;
+		}
+		if(!tMin.toString().substring(0,4).equals(tMax.toString().substring(0,4))){
+			rt.setCode("421");
+			rt.setData("error");
+			return rt;
+		}
+		;
+		rt.setData(Long.valueOf(tMax.toString().substring(0,4)) < 2018 ?  "2017" : "2018");
+		rt.setCode("200");
+		return rt;
+	}
+}

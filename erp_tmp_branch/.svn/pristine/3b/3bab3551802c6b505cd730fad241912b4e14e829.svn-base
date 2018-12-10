@@ -1,0 +1,758 @@
+/**
+ */
+package com.jojowonet.modules.operate.service;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.jfinal.plugin.activerecord.Db;
+import com.jfinal.plugin.activerecord.Record;
+import com.jojowonet.modules.fmss.utils.DataUtils;
+import com.jojowonet.modules.operate.dao.NonServicemanDao;
+import com.jojowonet.modules.operate.dao.NonServicemanRoleRelDao;
+import com.jojowonet.modules.operate.dao.SiteDao;
+import com.jojowonet.modules.operate.dao.SiteRolePermissionDao;
+import com.jojowonet.modules.operate.entity.Employe;
+import com.jojowonet.modules.operate.entity.NonServiceman;
+import com.jojowonet.modules.operate.entity.NonServicemanRoleRel;
+import com.jojowonet.modules.operate.entity.Site;
+import com.jojowonet.modules.order.utils.CrmUtils;
+import com.jojowonet.modules.order.utils.SFIMCache;
+import com.jojowonet.modules.order.utils.StringUtil;
+import com.jojowonet.modules.sys.dao.UserDao;
+
+import ivan.common.dao.RoleDao;
+import ivan.common.entity.mysql.common.Role;
+import ivan.common.entity.mysql.common.User;
+import ivan.common.persistence.Page;
+import ivan.common.service.BaseService;
+import ivan.common.utils.DateUtils;
+import ivan.common.utils.MD5;
+import ivan.common.utils.StringUtils;
+import ivan.common.utils.UserUtils;
+
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.Map.Entry;
+
+/**
+ * 人员Service
+ * 
+ * @author Ivan
+ * @version 2017-05-04
+ */
+@Component
+@Transactional(readOnly = true)
+public class NonServicemanService extends BaseService {
+
+	@Autowired
+	private NonServicemanDao nonServicemanDao;
+
+	@Autowired
+	private EmployeService employeService;
+	@Autowired
+	private SiteDao siteDao;
+	@Autowired
+	private NonServicemanRoleRelDao nonServicemanRoleRelDao;
+	/*@Autowired
+	private RoleDao roleDao;*/
+	@Autowired
+	private SiteRolePermissionDao siteRolePermissionDao;
+	
+	@Autowired
+	private UserDao userDao;
+	
+	
+	
+	public NonServiceman get(String id) {
+		return nonServicemanDao.get(id);
+	}
+
+	public Page<NonServiceman> find(Page<NonServiceman> page,
+			NonServiceman nonServiceman) {
+		DetachedCriteria dc = nonServicemanDao.createDetachedCriteria();
+		if (StringUtils.isNotEmpty(nonServiceman.getId())) {
+			dc.add(Restrictions.like("name", "%" + nonServiceman.getId() + "%"));
+		}
+		dc.add(Restrictions.eq("status", "0"));
+		dc.addOrder(Order.desc("id"));
+		return nonServicemanDao.find(page, dc);
+	}
+
+	@Transactional(readOnly = false)
+	public void save(NonServiceman nonServiceman) {
+		nonServicemanDao.save(nonServiceman);
+	}
+
+	@Transactional(readOnly = false)
+	public void delete(String id) {
+		nonServicemanDao.deleteById(id);
+	}
+
+	// 根据userId查询siteId
+	public String getSiteId(String userId) {
+		return nonServicemanDao.getSiteId(userId);
+	}
+
+	public NonServiceman getNonServiceman(User user) {
+		return nonServicemanDao.getNonServiceman(user);
+	}
+
+	// 员工信息管理
+	public Page<Record> getAllServicemanInfo(Page<Record> page, String siteId,
+			Map<String, Object> map) {
+		Map<String, String> roleInfos = getSiteNonServiceManRoleInfos(siteId);
+		List<Record> list = nonServicemanDao.getServiceInfoList(page, siteId, map);
+		for(Record rd : list){
+			rd.set("roleName", roleInfos.get(rd.getStr("id")));
+		}
+		long count = nonServicemanDao.getCountServiceInfo(page, siteId, map);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+	
+
+	// 员工信息管理(服务工程师)
+	public Page<Record> getAllEmployeInfo(Page<Record> page, String siteId,
+			Map<String, Object> map) {
+		List<Record> list = nonServicemanDao.getEmplyeInfoList(page, siteId, map);
+		long count = nonServicemanDao.getCountEmplyeInfo(page, siteId, map);
+		page.setList(list);
+		page.setCount(count);
+		return page;
+	}
+
+	// 启用
+	public String doQiYong(Map<String, Object> map) {
+		String who = map.get("who").toString();
+		if ("4".equals(who)) {// 修改工程师状态
+			Record re = Db.findFirst("select u.mobile as empMobile from crm_employe e left join sys_user u on e.user_id=u.id where e.id=? ", map.get("id"));
+			String empMobile = re.getStr("empMobile");
+			if(StringUtils.isNotBlank(empMobile)){
+				Record reEm = Db.findFirst("select * from crm_employe e left join sys_user u on e.user_id=u.id where (u.mobile=? or u.login_name=?)  and u.status='0' and user_type='4' ", empMobile,empMobile);
+				if(reEm!=null){
+					return "mobileRepeat";
+				}
+			}
+			String sql = "update crm_employe e left join sys_user u on e.user_id=u.id set u.status='0',e.status='0' where e.id=?";
+			Db.update(sql, map.get("id"));
+			return "ok";
+		} else {// 修改网点员工状态
+			Record re = Db.findFirst("select u.mobile as nsMobile from crm_non_serviceman ns left join sys_user u on ns.user_id=u.id where ns.id=? ", map.get("id"));
+			String nsMobile = re.getStr("nsMobile");
+			if(StringUtils.isNotBlank(nsMobile)){
+				Record reEm = Db.findFirst("select * from crm_non_serviceman ns left join sys_user u on ns.user_id=u.id where (u.mobile=? or u.login_name=?) and u.status='0' ", nsMobile,nsMobile);
+				if(reEm!=null){
+					return "mobileRepeat";
+				}
+			}
+			String sql = "update crm_non_serviceman ns left join sys_user u on ns.user_id=u.id set u.status='0',ns.status='0' where ns.id=?";
+			Db.update(sql, map.get("id"));
+			return "ok";
+		}
+	}
+
+	// 禁用
+	public void doJinYong(Map<String, Object> map) {
+		String who = map.get("who").toString();
+		if ("4".equals(who)) {// 修改工程师状态
+			String sql = "update crm_employe e left join sys_user u on e.user_id=u.id set u.status='3',e.status='3' where e.id=?";
+			Db.update(sql, map.get("id"));
+		} else {// 修改网点员工状态
+			String sql = "update crm_non_serviceman ns left join sys_user u on ns.user_id=u.id set u.status='3',ns.status='3' where ns.id=?";
+			Db.update(sql, map.get("id"));
+		}
+	}
+
+	/**
+	 * 删除
+	 * @param map
+	 */
+	public void deleteMan(Map<String, Object> map) {
+		String who = map.get("who").toString();
+		if ("4".equals(who)) {// 修改工程师状态
+			String sql = "update crm_employe e left join sys_user u on e.user_id=u.id set u.status='1',e.status='1' where e.id=?";
+			Db.update(sql, map.get("id"));
+		} else {// 修改网点员工状态
+			String sql = "update crm_non_serviceman ns left join sys_user u on ns.user_id=u.id set u.status='1',ns.status='1' where ns.id=?";
+			Db.update(sql, map.get("id"));
+		}
+	}
+
+	public String getRoleList(Map<String,Object> map){
+		StringBuffer sb=new StringBuffer();
+		sb.append("select p.site_role_name from crm_non_serviceman_role_rel r");
+		sb.append(" left join crm_site_role_permission p on r.site_role_id=p.id where r.serviceman_id='"+map.get("id")+"'");
+		List<Record> list= Db.find(sb.toString());
+		String roleName="";
+		for(Record re:list){
+			if(StringUtils.isNotEmpty(roleName)){
+				roleName+="、"+re.getStr("site_role_name");
+			}else{
+				roleName+=re.getStr("site_role_name");
+			}
+		}
+		return roleName;
+	}
+	
+	//显示编辑页面
+	public Record showBJ(Map<String,Object> map){
+		String str=map.get("str").toString();
+		String[] st=str.split(",");
+		Record re=null;
+		if("4".equals(st[1].trim())){//服务工程师
+			re=Db.findFirst("select e.id,e.name,e.ratio, e.img, e.brand, e.mobile,e.hiredate,e.province,e.city,e.area,e.address,e.category,e.id_card,e.work_no,u.login_name,u.user_type,u.id as uId from crm_employe e left join sys_user u on e.user_id=u.id where e.id='"+st[0].trim()+"' ");
+		}else{
+			re=Db.findFirst("select ns.id,ns.name, ns.img, ns.mobile,ns.hiredate,ns.category,ns.brand,u.login_name,u.password,u.permission,u.user_type,u.id as uId from crm_non_serviceman ns left join sys_user u on ns.user_id=u.id where ns.id='"+st[0].trim()+"' ");
+		}
+		
+		return re;
+	}
+	
+	//网点自定义角色权限
+	public List<Record> getRolePremission(Map<String, Object> map){
+		String str = String.valueOf(map.get("str"));
+		String[] st = str.split(",");
+		String servicemanId = "x";
+		if(StringUtils.isNotBlank(st[0])){
+			servicemanId = st[0];
+		}
+		StringBuffer sb=new StringBuffer();
+		List<Record> rds = null;
+		if("null".equalsIgnoreCase(servicemanId) || StringUtils.isBlank(servicemanId)){
+			//首次新增的时候，需要查询出所有的角色
+			rds = Db.find(" select * from crm_site_role_permission a where a.sys_role_id is null and a.site_id = '"+String.valueOf(map.get("siteId"))+"' ");
+		}else{
+			sb.append(" select a.id, a.site_role_id, b.site_role_name, b.sys_role_id ");
+			sb.append(" from crm_non_serviceman_role_rel a ");
+			sb.append(" left join crm_site_role_permission b on b.id = a.site_role_id ");
+			sb.append(" where a.serviceman_id = '"+servicemanId+"' ");
+			rds = Db.find(sb.toString()); 
+		}
+
+		return rds;
+	}
+	
+	/**
+	 *除了系统默认之外的网点权限 
+	 */
+	public List<Record> getAllSiteRoles(String siteId){
+		StringBuilder sb = new StringBuilder("");
+		sb.append(" select * from crm_site_role_permission a where a.site_id = '"+siteId+"' ");
+		return Db.find(sb.toString());
+	}
+	
+	//商品品类
+	public List<Record> getCategory(){
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		String sql="select * from crm_category  where site_id='"+siteId+"' ";
+		String sqlt="select * from crm_category  where site_id ='' or site_id is null ";
+		List<Record> r=Db.find(sql);//品类
+		List<Record> rt=Db.find(sqlt);//平台品类
+		for(Record rec:rt){
+			r.add(rec);
+		}
+		return r;
+	}
+	
+	//商品品类
+		public List<Record> getCategory1(){
+			User user = UserUtils.getUser();
+			String siteId = CrmUtils.getCurrentSiteId(user);
+			String sql="select * from crm_category  where site_id='"+siteId+"' ";
+			String sqlt="select * from crm_category  where site_id ='' or site_id is null ";
+			List<Record> r=Db.find(sql);//品类
+			return r;
+		}
+
+	//做保存操作
+	public void doSave(Map<String, Object> map){
+		User u = new User();
+		User user = UserUtils.getUser();
+		String siteId = CrmUtils.getCurrentSiteId(user);
+		Date date=new Date();
+		Site s= siteDao.get(siteId);
+		if("4".equals(map.get("userType")) || "2".equals(map.get("jobType"))){//服务工程师
+			Employe emp = new Employe();
+			if(StringUtils.isNotBlank(String.valueOf(map.get("id"))) && !"null".equalsIgnoreCase(String.valueOf(map.get("id")))){//更新
+				emp = employeService.get(String.valueOf(map.get("id")));
+				u = emp.getUser();
+				emp.setCategory(String.valueOf(map.get("catesgcs")));
+				emp.setRatio(new BigDecimal(String.valueOf(map.get("ratio"))));
+			}else{//新增
+				emp.setCategory(String.valueOf(map.get("catesgcs")));
+				emp.setRatio(new BigDecimal(String.valueOf(map.get("ratio"))));
+			}
+			/**
+			 * 新增服务工程师
+			 */
+			//新增user表信息
+			if(StringUtils.isEmpty(u.getId())){
+				List<Role> empRole = nonServicemanRoleRelDao.getEmpRole();
+				u.setCreateDate(date);
+				u.setCreateBy(UserUtils.getUser().getId());//创建人user_id
+				u.setCreateType(2);
+				u.setRoleList(empRole);
+				u.setStatus("0");
+				u.setUserType("4");
+				emp.setCreateTime(date);
+				emp.setCreateBy(UserUtils.getUser().getId());
+				emp.setStatus("0");
+			}
+			u.setLoginName(String.valueOf(map.get("loginName1")));
+			String oldMobile = emp.getMobile();
+			String newMobile = String.valueOf(map.get("mobile"));
+			u.setMobile(newMobile);
+			if (!newMobile.equals(oldMobile)) { // 当手机号变化的时候，才修改密码
+				u.setPassword(MD5.MD5(String.valueOf(map.get("mobile"))));
+			}
+							//网页权限id
+			//新增employe表信息
+			
+							//头像
+			//emp.setCategory(map.get("servebrand").toString());
+			emp.setName(String.valueOf(map.get("name")));
+			emp.setMobile(String.valueOf(map.get("mobile")));
+			emp.setHiredate(DateUtils.parseDate(map.get("bookdatemax")));
+			emp.setSite(s);
+			emp.setAddress(map.get("address").toString());
+			emp.setProvince(String.valueOf(map.get("province")));
+			emp.setCity(String.valueOf(map.get("city")));
+			emp.setArea(String.valueOf(map.get("area")));
+			emp.setImg(String.valueOf(map.get("img")));
+			emp.setIdCard(String.valueOf(map.get("idCard")));
+			emp.setWorkNo(String.valueOf(map.get("workNo")));
+			emp.setUser(u);
+			employeService.save(emp);
+		}else{
+			NonServiceman ns = new NonServiceman();
+			if(StringUtils.isNotBlank(String.valueOf(map.get("id"))) && !"null".equalsIgnoreCase(String.valueOf(map.get("id")))){
+				ns = nonServicemanDao.get(String.valueOf(map.get("id")));
+				u = ns.getUser();
+				if (map.get("cates") != null && StringUtil.isNotBlank(String.valueOf(map.get("cates")))) {
+					ns.setCategory(String.valueOf(map.get("cates")));
+				}else{
+					ns.setCategory(null);
+				}
+				if (map.get("brands") != null && StringUtil.isNotBlank(String.valueOf(map.get("brands")))) {
+					ns.setBrand(String.valueOf(map.get("brands")));
+				}else{
+					ns.setBrand(null);
+				}
+			}else{
+				if (map.get("cates") != null && StringUtil.isNotBlank(String.valueOf(map.get("cates")))) {
+					ns.setCategory(String.valueOf(map.get("cates")));
+				}
+				if (map.get("brands") != null && StringUtil.isNotBlank(String.valueOf(map.get("brands")))) {
+					ns.setBrand(String.valueOf(map.get("brands")));
+				}
+			}
+			ns.setName(String.valueOf(map.get("loginName")));
+			ns.setImg(String.valueOf(map.get("img")));
+			List<NonServicemanRoleRel> listNon = Lists.newArrayList();
+			
+			/**
+			 * PC人员
+			 */
+			//当未修改的时候调用
+			if(StringUtils.isNotEmpty(ns.getId())){
+				String sqlre="delete from crm_non_serviceman_role_rel where serviceman_id='"+ns.getId()+"' ";
+				Db.update(sqlre);
+			}
+			
+			String selRoleIds = String.valueOf(map.get("roleIdList"));
+
+			//user表
+			if(!"default".equalsIgnoreCase(String.valueOf(map.get("password")))){//更改过密码
+				u.setPassword(MD5.MD5(String.valueOf(map.get("password"))));
+			}
+			if(StringUtils.isEmpty(u.getId())){
+				List<Role> pcRole = nonServicemanRoleRelDao.getPcRole();
+				u.setPassword(MD5.MD5(String.valueOf(map.get("password"))));
+				u.setCreateDate(date);
+				u.setCreateBy(UserUtils.getUser().getId());//创建人user_id
+				u.setCreateType(2);
+				u.setRoleList(pcRole);
+				u.setStatus("0");
+				u.setUserType("3");
+				ns.setStatus("0");
+				ns.setCreateBy(UserUtils.getUser().getId());//创建人userId
+				ns.setCreateTime(date);//创建时间
+			}
+			u.setLoginName(String.valueOf(map.get("loginName")));
+			u.setMobile(String.valueOf(map.get("mobile")));
+			u.setUpdateTime(date);
+			
+			//serviceman表
+			ns.setName(String.valueOf(map.get("name")));
+			ns.setSite(s);
+			ns.setMobile(String.valueOf(map.get("mobile")));
+			if(StringUtils.isNotEmpty(map.get("bookdatemax").toString())){
+				ns.setHiredate(map.get("bookdatemax").toString());//入职时间
+			}
+			ns.setImg(String.valueOf(map.get("img")));
+			Map<String, String> perMap = getPCManPermissionInRoles(selRoleIds, siteId);
+			u.setPermission(getPermissionStr(perMap));
+			ns.setUser(u);
+			nonServicemanDao.save(ns);
+			
+//			每次都会向关系表添加上数据
+			for(String roId : selRoleIds.split(",")){
+				if(StringUtils.isNotBlank(roId)){
+					NonServicemanRoleRel nsrr = new NonServicemanRoleRel();
+					nsrr.setServicemanId(ns.getId());
+					nsrr.setSiteRoleId(roId);
+					if("1".equals(roId) || "2".equals(roId) || "3".equals(roId)){
+						Record rd = nonServicemanRoleRelDao.getDefaultNonmanRoleRelIdInSitePermission(siteId, roId);
+						if(rd != null){
+							nsrr.setSiteRoleId(rd.getStr("id"));
+						}
+					}
+					listNon.add(nsrr);
+				}
+			}
+			nonServicemanRoleRelDao.save(listNon);//关系表数据
+		}
+	}
+	
+	public List<Record> getMo(String siteId){
+		return siteRolePermissionDao.getSystemSiteRoleMenus();
+		/*StringBuilder sb = new StringBuilder("");
+		//Record record = defaultRole(siteId,sysRoleId); 
+		sb.append(" select * from (  ");
+		sb.append(" select a.id, a.parent_id, a.name, a.sort from sys_menu a, sys_role_menu b where b.menu_id = a.id and b.role_id = '3' and a.is_show = '1' ");
+		sb.append(" and exists (select 1 from sys_menu c where c.id = a.parent_id and c.status = '0') ");
+		sb.append(" and a.status = '0' ");
+		sb.append(" union all ");
+		sb.append(" select a.id, a.parent_id, a.name, a.sort ");
+		sb.append(" from sys_menu a where a.target in ('1', '2') ");
+		sb.append(" and a.status = '0' and a.is_show = '1' ");
+		sb.append(" ) ot order by ot.sort asc ");*/
+		//return Db.find(sb.toString());//所有的菜单
+	} 
+	
+	public Map<String, String> getPCManPermissionInRoles(String roleIds, String siteId){
+		Map<String, String> roleMap = Maps.newHashMap();
+		Map<String, String> customRoleMap = Maps.newHashMap();
+		
+//		Record rd = Db.findFirst(" select * from crm_site_role_permission a where a.sys_role_id = ? ", roleIds);
+		
+		String[] roleArr = null;
+		if(StringUtils.isNotBlank(roleIds)){
+			roleArr = roleIds.split(",");
+		}
+		int defaultRoleSize = 0;
+		StringBuilder insb = new StringBuilder("");
+		boolean isAll = false;
+		if(roleArr != null){
+			for(String s : roleArr){
+				if("1".equals(s) || "2".equals(s) || "3".equals(s)){
+					defaultRoleSize ++;
+					roleMap.put(s, "1");
+				}else{
+					customRoleMap.put(s, "1");
+				}
+				insb.append(",").append("'").append(s).append("'");
+			}
+		}
+		
+		List<Record> rds = Db.find("select a.id, a.permissions, a.sys_role_id from crm_site_role_permission a where a.site_id = '"+siteId+"' ");
+		int existsDefaultSize = 0;
+		Map<String, String> permissionMap = Maps.newHashMap();
+		for(Record rd : rds){
+			String sysRoleId = rd.getStr("sys_role_id");
+			if(StringUtils.isNotBlank(sysRoleId) && roleMap.containsKey(sysRoleId)){
+				existsDefaultSize++;
+			}
+			if(StringUtils.isNotBlank(rd.getStr("permissions")) && (customRoleMap.containsKey(rd.getStr("id")) || StringUtil.strInCollection(sysRoleId, Arrays.asList(roleArr)))){
+				for(String per : rd.getStr("permissions").split(",")){
+					if(StringUtils.isNotBlank(per)){
+						permissionMap.put(per, "1");
+					}
+				}
+			}
+		}
+		
+		if(defaultRoleSize > existsDefaultSize){
+			isAll = true;
+		}
+		
+		//勾选的可以直接取系统分配端默认的最大值
+		if(isAll){
+			permissionMap = Maps.newHashMap();
+			List<Record> defaultPermissions = getMo(siteId);
+			for(Record rd : defaultPermissions){
+				permissionMap.put(rd.getStr("id"), "1");
+			}
+		}
+		/*else{
+			permissionMap = Maps.newHashMap();
+			//直接取crm_site_role_permission表中的并集
+			for(Record rd : rds){
+				for(String per : rd.getStr("permissions").split(",")){
+					if(StringUtils.isNotBlank(per)){
+						permissionMap.put(per, "1");
+					}
+				}
+			}
+			return permissionMap;
+		}*/
+		
+		/**过滤掉不在系统默认的角色中的菜单权限*/
+		if(roleArr != null){
+			StringBuilder dfSB = new StringBuilder("");
+			for(String r : roleArr){
+				if("1".equals(r) || "2".equals(r) || "3".equals(r)){
+					//Map<String, String> dfPermissionMap = siteRolePermissionDao.getSiteDefaultNonservicemanPermissions(r);
+					dfSB.append("_").append(r);
+				}
+			}
+			if(StringUtils.isNotBlank(dfSB.toString())){
+				Map<String, String> dfPermissionMap = siteRolePermissionDao.unionSiteDefaultNonserviceManPermission(dfSB.toString().substring(1).split("_"));
+				DataUtils.mapNotInMap(permissionMap, dfPermissionMap);
+			}
+		}
+			
+		
+		return permissionMap;
+	}
+	
+	public String getPermissionStr(Map<String, String> perMap){
+		StringBuilder sb = new StringBuilder("");
+		for(Entry<String, String> ent : perMap.entrySet()){
+			sb.append(",").append(ent.getKey());
+		}
+		return sb.toString();
+	}
+	
+	public Map<String, String> getSiteNonServiceManRoleInfos(String siteId){
+		StringBuffer sb=new StringBuffer();
+		sb.append(" select ot.roleId, ot.serviceman_id, group_concat(ifnull(ot.roleName, ot.defaultRoleName)) as roleName from ( ");
+		sb.append(" select distinct a.site_role_id as roleId, a.serviceman_id, c.site_role_name as roleName,  ");
+		sb.append(" (case when a.site_role_id = '1' then '信息员' when a.site_role_id = '2' then '配件员' when a.site_role_id = '3' then '财务人员' end) as defaultRoleName ");
+		sb.append(" from crm_non_serviceman_role_rel a  ");
+		sb.append(" inner join crm_non_serviceman b on b.id = a.serviceman_id ");
+		sb.append(" left join crm_site_role_permission c on c.id = a.site_role_id ");
+		sb.append(" where b.site_id = '"+siteId+"' ");
+		sb.append(" ) ot group by ot.serviceman_id ");
+		List<Record> rds = Db.find(sb.toString());
+		Map<String, String> retMap = Maps.newHashMap();
+		for(Record rd : rds){
+			retMap.put(rd.getStr("serviceman_id"), rd.getStr("roleName"));
+		}
+		return retMap;
+	}
+
+	public Record getSite(String userId) {
+		String siteId = getSiteId(userId);
+		if(org.apache.commons.lang.StringUtils.isNotBlank(siteId)) {
+			return Db.findFirst("select * from crm_site where id=? and status='0'", siteId);
+		} else {
+			return null;
+		}
+	}
+	
+	public List<Record> getInfoMans(String siteId){
+		 StringBuilder sbf = new StringBuilder();
+         sbf.append(" SELECT a.id,a.name FROM crm_non_serviceman a ");
+         sbf.append(" LEFT JOIN sys_user u ON a.user_id=u.id ");
+         sbf.append(" WHERE a.site_id='"+siteId+"' AND (u.status='0') AND a.status='0' ");
+		return Db.find(sbf.toString());
+	}
+	
+	/**
+	 * 在用户登录的时候获取该PC人员的角色
+	 * @param userId
+	 * @return
+	 */
+	public Map<String, String> getUserPermissions(String userId){
+		Map<String, String> map = Maps.newHashMap();
+		List<Record> rds = nonServicemanDao.getUserPermissions(userId);
+		List<Record> defaults = nonServicemanDao.getAllDefaultPermissions();
+		for(Record rd : rds){
+			String siteRoleId = rd.getStr("site_role_id");
+			if("1".equals(siteRoleId) || "2".equals(siteRoleId) || "3".equals(siteRoleId)){
+				for(Record item : defaults){
+					String itemId = item.getStr("role_id");
+					if(itemId.equals(siteRoleId)){
+						Map<String, String> itemMap = DataUtils.str2Map(item.getStr("permissions"), ",");
+						map.putAll(itemMap);
+						break;
+					}
+				}
+			}else{
+				String rdPermissions = rd.getStr("permissions");
+				if(StringUtils.isNotBlank(rdPermissions)){
+					Map<String, String> itemMap = DataUtils.str2Map(rdPermissions, ",");
+					map.putAll(itemMap);
+				}
+			}
+		}
+		filterUserAvailPerms(map, UserUtils.getUser());
+		return map;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void filterUserAvailPerms(Map<String, String> map, User user) {
+		Map<String, Record> map1 = (Map<String, Record>) SFIMCache.get("L1SITE");
+		if (map1 == null) {
+			throw new RuntimeException("read cache error");
+		}
+		Map<String, Record> map2 = (Map<String, Record>) SFIMCache.get("L2SITE");
+		if (map2 == null) {
+			throw new RuntimeException("read cache error");
+		}
+
+		if (!CrmUtils.isUserBelongsL1Site(user)) {
+			Set<String> keys = map1.keySet();
+			for (String key : keys) {
+				map.remove(key);
+			}
+		}
+		if (!CrmUtils.isUserBelongsL2Site(user)) {
+			Set<String> keys = map2.keySet();
+			for (String key : keys) {
+				map.remove(key);
+			}
+		}
+	}
+	
+	public List<Map<String, String>> getservicemanRoleList(String siteId){
+		return nonServicemanDao.getNonserviceManRolesTwo(siteId);
+	}
+	public Long checkValid5(String mobile){//
+		String sql="select count(*) from sys_user a where a.status='0' and (a.mobile=? or a.login_name=?)  and a.user_type!='4' ";
+		return Db.queryLong(sql,mobile,mobile);
+	}
+	public Long checkValid3(String loginName){//
+		String sql3 = "select count(*) from sys_user a where a.status='0' and a.user_type != '4' and (a.mobile=? or a.login_name=?)";
+		return Db.queryLong(sql3,loginName,loginName);
+	}
+	public Long checkValid4(String mobile){//
+		String sql = "select count(1) from sys_user a where (a.mobile=? or a.login_name=?) and a.`status`='0' and a.`user_type`='4' ";
+		return Db.queryLong(sql,mobile,mobile);
+	}
+	public Long add1(String empName,String siteId){
+		return Db.queryLong("SELECT COUNT(1) AS cnt FROM crm_employe AS e WHERE e.`name`=? AND e.`status`='0' AND e.`site_id`=?", empName, siteId);
+	}
+	public Long add2(String empId,String empName,String siteId){
+		return Db.queryLong("SELECT COUNT(1) AS cnt FROM crm_employe AS e WHERE e.id!=? AND e.`name`=? AND e.`status`='0' AND e.`site_id`=?", empId, empName, siteId);
+	}
+	
+	public Long empLoginName(String loginName1){//
+		return Db.queryLong("select count(*) from sys_user a where a.user_type='4' and a.status='0' and (a.mobile=? or a.login_name=?)",loginName1,loginName1);
+	}
+
+	public String servicemanCate(String userId,String siteId){
+		return Db.queryStr("select category from crm_non_serviceman where user_id=? and site_id=? and status='0'",userId,siteId);
+	}
+	public String servicemanBrand(String userId,String siteId){
+		return Db.queryStr("select brand from crm_non_serviceman where user_id=? and site_id=? and status='0'",userId,siteId);
+	}
+	
+	public boolean getCkeckWorkNo(String workNo){
+		return nonServicemanDao.getCkeckWorkNo(workNo);
+	}
+
+	public boolean getCkeckidCard(String idCard) {
+		
+		return nonServicemanDao.getCkeckidCard(idCard);
+	}
+
+//	public String queryCate(String[] nameArr,String id){
+//		for(String name:nameArr){
+//			Integer i = nonServicemanDao.queryCate(name,id);
+//			if(i!=null&&i>0){
+//				return name;
+//			}
+//		}
+//		return "true";
+//	}
+//	public String queryBrand(String[] nameArr,String id){
+//		for(String name:nameArr){
+//			Integer i = nonServicemanDao.queryBrand(name,id);
+//			if(i!=null&&i>0){
+//				return name;
+//			}
+//		}
+//		return "true";
+//	}
+
+	public List<Record> getServiceManWorkCount(Map<String,Object> map,String siteId){
+		StringBuffer sb = new StringBuffer();
+		/*信息员*/
+		sb.append(" SELECT  b.name as serviceName, ");
+		/*新建工单*/
+		sb.append("(SELECT COUNT(*) FROM crm_order o ");
+		sb.append(" WHERE  o.status NOT IN(6,8) AND o.create_by=b.`id` AND o.site_id='"+siteId+"'  ");
+		if(StringUtils.isNotBlank((CharSequence) map.get("startTime"))){
+			sb.append(" and o.create_time >='"+map.get("startTime")+" 00:00:00' ");
+		}
+		if(StringUtils.isNotBlank((CharSequence) map.get("endTime"))){
+			sb.append(" and o.create_time <='"+map.get("endTime")+" 23:59:59' ");
+		}
+		sb.append(" ) AS buildOrderCount, ");
+
+		/*派工单*/
+		sb.append(" (SELECT COUNT(*) FROM crm_order_dispatch d");
+		sb.append("  WHERE  d.status <> 7 AND d.messenger_id=b.`id` AND d.site_id='"+siteId+"'  ");
+		if(StringUtils.isNotBlank((CharSequence) map.get("startTime"))){
+			sb.append(" and d.dispatch_time >='"+map.get("startTime")+" 00:00:00' ");
+		}
+		if(StringUtils.isNotBlank((CharSequence) map.get("endTime"))){
+			sb.append(" and d.dispatch_time <='"+map.get("endTime")+" 23:59:59' ");
+		}
+		sb.append(" ) AS dispatchOrderCount,");
+
+		/*录单*/
+		sb.append(" (SELECT COUNT(*) FROM crm_order o  ");
+		sb.append(" WHERE  o.status NOT IN(6,8) AND o.record_account_by=b.`id` AND o.site_id='"+siteId+"'  ");
+		if(StringUtils.isNotBlank((CharSequence) map.get("startTime"))){
+			sb.append(" and o.record_account_time >='"+map.get("startTime")+" 00:00:00' ");
+		}
+		if(StringUtils.isNotBlank((CharSequence) map.get("endTime"))){
+			sb.append(" and o.record_account_time <='"+map.get("endTime")+" 23:59:59' ");
+		}
+		sb.append(" ) AS recordAccountCount,");
+
+		/*回访*/
+		sb.append(" (SELECT COUNT(*) FROM crm_order_callback c  ");
+		sb.append(" WHERE c.create_by=b.`id` AND c.site_id='"+siteId+"'  ");
+		if(StringUtils.isNotBlank((CharSequence) map.get("startTime"))){
+			sb.append(" and c.create_time >='"+map.get("startTime")+" 00:00:00' ");
+		}
+		if(StringUtils.isNotBlank((CharSequence) map.get("endTime"))){
+			sb.append(" and c.create_time <='"+map.get("endTime")+" 23:59:59' ");
+		}
+		sb.append(" ) AS callBackCount,");
+
+		/*结算*/
+		sb.append(" (SELECT COUNT(*) FROM crm_order_settlement s ");
+		sb.append("  WHERE s.create_by=b.`id` AND s.site_id='"+siteId+"'  ");
+		if(StringUtils.isNotBlank((CharSequence) map.get("startTime"))){
+			sb.append(" and s.create_time >='"+map.get("startTime")+" 00:00:00' ");
+		}
+		if(StringUtils.isNotBlank((CharSequence) map.get("endTime"))){
+			sb.append(" and s.create_time <='"+map.get("endTime")+" 23:59:59' ");
+		}
+		sb.append(" ) AS settlementCount");
+
+		sb.append(" FROM sys_user a ");
+		sb.append(" INNER JOIN crm_non_serviceman b ON a.id=b.user_id AND b.status=0 and b.site_id='"+siteId+"' ");
+		if (StringUtils.isNotBlank((CharSequence) map.get("userIds"))) {
+			sb.append(" where a.id in (" + StringUtil.joinInSql(map.get("userIds").toString().split(",")) + ") ");
+		}
+		return Db.find(sb.toString());
+	}
+
+
+
+}
